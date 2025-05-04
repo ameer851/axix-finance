@@ -274,7 +274,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                       
                       return Promise.resolve();
                     } catch (error) {
-                      console.error("Error resending verification email:", error);
+                      // Silent error handling, the toast will be shown from the VerificationBanner component
                       return Promise.reject(error);
                     }
                   }}

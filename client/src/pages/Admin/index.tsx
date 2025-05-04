@@ -113,7 +113,7 @@ const AdminDashboard: React.FC = () => {
         }
         return await response.json();
       } catch (error) {
-        console.error('Failed to fetch analytics data:', error);
+        // Silent error handling, return empty array
         return [];
       }
     }

@@ -29,7 +29,7 @@ export async function logout(): Promise<void> {
     localStorage.removeItem('user');
     queryClient.invalidateQueries();
   } catch (error: any) {
-    console.error('Logout error:', error);
+    // Silent error handling for logout
     // Even if the server request fails, we'll still clear local storage
     localStorage.removeItem('user');
   }
