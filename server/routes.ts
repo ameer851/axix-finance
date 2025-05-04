@@ -3,14 +3,24 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertTransactionSchema, insertMessageSchema, insertLogSchema } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth } from "./auth";
+
+// Authenticated middleware
+const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized: Login required" });
+  }
+  next();
+};
 
 // Admin middleware to check if user is admin
 const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  // Get user from session or token (in a real app)
-  // For simplicity, we'll check if user_id is admin's ID or role is passed in headers
-  const isAdminUser = req.headers['x-user-role'] === 'admin';
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized: Login required" });
+  }
   
-  if (!isAdminUser) {
+  const user = req.user as Express.User;
+  if (user.role !== 'admin') {
     return res.status(403).json({ message: "Forbidden: Admin access required" });
   }
   
@@ -18,6 +28,8 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
   // Authentication routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
