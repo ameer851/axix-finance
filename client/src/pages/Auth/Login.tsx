@@ -147,10 +147,8 @@ const Login: React.FC = () => {
         <CardFooter className="flex justify-center">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{' '}
-            <Link href="/register">
-              <a className="text-primary-600 hover:text-primary-500 dark:text-primary-400">
-                Sign up
-              </a>
+            <Link href="/register" className="text-primary-600 hover:text-primary-500 dark:text-primary-400">
+              Sign up
             </Link>
           </div>
         </CardFooter>
