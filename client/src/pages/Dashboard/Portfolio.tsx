@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { Transaction } from '@shared/schema';
@@ -16,6 +16,15 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   PieChart,
   Pie,
   Cell,
@@ -28,13 +37,16 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
+import CryptoDepositAddresses from '@/components/CryptoDepositAddresses';
 
 const Portfolio: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id;
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isInvestDialogOpen, setIsInvestDialogOpen] = useState(false);
 
   // Fetch user transactions
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
@@ -154,12 +166,16 @@ const Portfolio: React.FC = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Investment Portfolio</h1>
-        <Link href="/investments/new">
-          <Button className="bg-primary-600 hover:bg-primary-700">
-            <Plus className="mr-2 h-4 w-4" />
-            New Investment
-          </Button>
-        </Link>
+        <Button 
+          className="bg-primary-600 hover:bg-primary-700"
+          onClick={() => {
+            setSelectedPlan('STARTER PLAN');
+            setIsInvestDialogOpen(true);
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New Investment
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -232,12 +248,17 @@ const Portfolio: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center justify-center h-[200px] text-center">
                 <p className="text-gray-500 dark:text-gray-400 mb-4">You don't have any active investments yet.</p>
-                <Link href="/investments/new">
-                  <Button variant="outline" size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Start Investing
-                  </Button>
-                </Link>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedPlan('STARTER PLAN');
+                    setIsInvestDialogOpen(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Start Investing
+                </Button>
               </div>
             )}
           </CardContent>
@@ -289,9 +310,15 @@ const Portfolio: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between border-b pb-2">
                     <span className="font-bold text-lg">{plan.name}</span>
-                    <Link href={`/investments/new?plan=${plan.name}`}>
-                      <Button size="sm">Invest Now</Button>
-                    </Link>
+                    <Button 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPlan(plan.name);
+                        setIsInvestDialogOpen(true);
+                      }}
+                    >
+                      Invest Now
+                    </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-y-2">
                     <div className="text-gray-500 dark:text-gray-400">Investment Range</div>
@@ -322,6 +349,34 @@ const Portfolio: React.FC = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Investment Dialog with Crypto Addresses */}
+      <Dialog open={isInvestDialogOpen} onOpenChange={setIsInvestDialogOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Invest in {selectedPlan}</DialogTitle>
+            <DialogDescription>
+              {selectedPlan && 
+                `Send funds to any of these cryptocurrency addresses to start your ${selectedPlan.toLowerCase()} investment.`
+              }
+            </DialogDescription>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute right-4 top-4"
+              onClick={() => setIsInvestDialogOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogHeader>
+          
+          <CryptoDepositAddresses />
+          
+          <DialogFooter>
+            <Button onClick={() => setIsInvestDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
