@@ -1,6 +1,6 @@
 import React from 'react';
-import fcaLicense from '@/assets/images/fca-license.png';
-import iirocLicense from '@/assets/images/iiroc-license.png';
+import fcaLicense from '@assets/caracertificate 1.jpg';
+import iirocLicense from '@assets/caraxcertificate2.jpg';
 
 const Certificates: React.FC = () => {
   return (
@@ -27,7 +27,7 @@ const Certificates: React.FC = () => {
               Financial Conduct Authority (FCA)
             </h3>
             <p className="text-gray-600 dark:text-gray-300 text-center mt-2">
-              License Type: Exclusive | CB Payments Ltd
+              License Type: Exclusive | CB Payments Ltd | License No: 900988
             </p>
           </div>
 
@@ -43,7 +43,7 @@ const Certificates: React.FC = () => {
               Investment Industry Regulatory Organization of Canada (IIROC)
             </h3>
             <p className="text-gray-600 dark:text-gray-300 text-center mt-2">
-              License Type: Market Making (MM) | OANDA Corporation
+              License Type: Market Making (MM) | OANDA Corporation | License No: 75286
             </p>
           </div>
         </div>
