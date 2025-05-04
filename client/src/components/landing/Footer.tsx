@@ -76,7 +76,7 @@ const Footer: React.FC = () => {
               </div>
               <div className="flex items-start">
                 <MapPin className="h-5 w-5 text-primary mr-2 mt-1" />
-                <span className="text-gray-600 dark:text-gray-300">123 Investment Avenue<br />Financial District, NY 10001</span>
+                <span className="text-gray-600 dark:text-gray-300">11 Rue d'Aguesseau<br />75008 Paris, France</span>
               </div>
             </div>
             <div className="flex space-x-6">
