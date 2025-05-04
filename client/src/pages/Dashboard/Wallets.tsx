@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@shared/schema';
@@ -17,6 +17,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
+import TransactionFilter, { FilterOptions } from '@/components/TransactionFilter';
 import {
   Dialog,
   DialogContent,
@@ -498,11 +499,88 @@ const Wallets: React.FC = () => {
 };
 
 // Helper component for transaction tables
+
 interface TransactionTableProps {
   transactions: Transaction[];
 }
 
 const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => {
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>(transactions);
+  const [isFiltering, setIsFiltering] = useState<boolean>(false);
+
+  // Apply transaction filters
+  const handleFilter = (filters: FilterOptions) => {
+    setIsFiltering(true);
+    
+    const filtered = transactions.filter((transaction) => {
+      // Filter by date range
+      if (filters.dateRange.from && transaction.createdAt) {
+        const txDate = new Date(transaction.createdAt);
+        if (txDate < filters.dateRange.from) {
+          return false;
+        }
+      }
+      
+      if (filters.dateRange.to && transaction.createdAt) {
+        const txDate = new Date(transaction.createdAt);
+        // Add one day to include the end date
+        const endDate = new Date(filters.dateRange.to);
+        endDate.setDate(endDate.getDate() + 1);
+        
+        if (txDate > endDate) {
+          return false;
+        }
+      }
+      
+      // Filter by transaction type
+      if (filters.type !== 'all' && transaction.type !== filters.type) {
+        return false;
+      }
+      
+      // Filter by status
+      if (filters.status !== 'all' && transaction.status !== filters.status) {
+        return false;
+      }
+      
+      // Filter by amount range
+      if (filters.amount.min && parseFloat(transaction.amount) < parseFloat(filters.amount.min)) {
+        return false;
+      }
+      
+      if (filters.amount.max && parseFloat(transaction.amount) > parseFloat(filters.amount.max)) {
+        return false;
+      }
+      
+      // Filter by search text
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const idMatch = transaction.id.toString().includes(searchLower);
+        const descMatch = transaction.description?.toLowerCase().includes(searchLower) || false;
+        
+        if (!idMatch && !descMatch) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    setFilteredTransactions(filtered);
+  };
+  
+  // Reset filters
+  const resetFilters = () => {
+    setIsFiltering(false);
+    setFilteredTransactions(transactions);
+  };
+  
+  // Update filtered transactions when original transactions change
+  useEffect(() => {
+    if (!isFiltering) {
+      setFilteredTransactions(transactions);
+    }
+  }, [transactions, isFiltering]);
+
   if (transactions.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -512,42 +590,57 @@ const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => 
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Type</TableHead>
-          <TableHead>Date</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Status</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {transactions.map((transaction) => (
-          <TableRow key={transaction.id}>
-            <TableCell className="font-medium">
-              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-            </TableCell>
-            <TableCell>{transaction.createdAt ? formatDate(new Date(transaction.createdAt)) : 'N/A'}</TableCell>
-            <TableCell>
-              <span className={transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'}>
-                {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount}
-              </span>
-            </TableCell>
-            <TableCell>
-              <span 
-                className={`px-2 py-1 rounded-full text-xs font-medium 
-                  ${transaction.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
-                    transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`
-                }
-              >
-                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-              </span>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <>
+      <TransactionFilter onFilter={handleFilter} />
+      
+      {filteredTransactions.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          No transactions match your filters.
+          <div className="mt-2">
+            <Button variant="link" onClick={resetFilters}>
+              Reset Filters
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Type</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredTransactions.map((transaction) => (
+              <TableRow key={transaction.id}>
+                <TableCell className="font-medium">
+                  {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                </TableCell>
+                <TableCell>{transaction.createdAt ? formatDate(new Date(transaction.createdAt)) : 'N/A'}</TableCell>
+                <TableCell>
+                  <span className={transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'}>
+                    {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span 
+                    className={`px-2 py-1 rounded-full text-xs font-medium 
+                      ${transaction.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
+                        transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`
+                    }
+                  >
+                    {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </>
   );
 };
 
