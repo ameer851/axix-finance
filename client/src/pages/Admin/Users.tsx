@@ -1,20 +1,31 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { User } from '@shared/schema';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { getAllUsers } from '@/services/adminService';
+import { getAllUsers, searchUsers } from '@/services/adminService';
 import { getUserTransactions } from '@/services/userService';
+import { apiRequest } from '@/lib/queryClient';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Search,
   UserCog,
   Mail,
   Eye,
   UserX,
-  Filter
+  Filter,
+  Download,
+  FileSpreadsheet,
+  UserCheck,
+  CheckCircle2,
+  Ban,
+  AlertTriangle
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -25,13 +36,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 
 const Users: React.FC = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showTransactions, setShowTransactions] = useState(false);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [isUserSearchLoading, setIsUserSearchLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("all"); // "all", "verified", "unverified", "active", "inactive"
 
   // Fetch all users
   const { data: users, isLoading } = useQuery<User[]>({
@@ -41,17 +58,128 @@ const Users: React.FC = () => {
 
   // Fetch selected user's transactions
   const { data: userTransactions, isLoading: transactionsLoading } = useQuery({
-    queryKey: [`/api/users/${selectedUser?.id}/transactions`],
+    queryKey: ['/api/users', selectedUser?.id, 'transactions'],
     queryFn: () => getUserTransactions(selectedUser!.id),
     enabled: !!selectedUser && showTransactions,
   });
 
-  // Filter users based on search
-  const filteredUsers = users?.filter(user => 
+  // Add useQuery for user search
+  const { data: searchResults, refetch: searchUsers } = useQuery<User[]>({
+    queryKey: ['/api/search/users', searchQuery],
+    queryFn: () => searchQuery.length >= 3 ? searchUsers(searchQuery) : [],
+    enabled: false
+  });
+
+  // Filter users based on active tab
+  const filterUsersByTab = (users: User[]) => {
+    if (!users) return [];
+    
+    switch(activeTab) {
+      case "verified":
+        return users.filter(user => user.isVerified);
+      case "unverified":
+        return users.filter(user => !user.isVerified);
+      case "active":
+        return users.filter(user => user.isActive);
+      case "inactive":
+        return users.filter(user => !user.isActive);
+      default:
+        return users;
+    }
+  };
+
+  // Further filter based on search query
+  const filteredUsers = filterUsersByTab(users || []).filter(user => 
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
+
+  // Handle search submit
+  const handleSearch = async () => {
+    if (searchQuery.length >= 3) {
+      setIsUserSearchLoading(true);
+      try {
+        await searchUsers();
+      } catch (error) {
+        toast({
+          title: "Search failed",
+          description: "There was an error searching for users.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsUserSearchLoading(false);
+      }
+    }
+  };
+
+  // Verify user mutation
+  const verifyUserMutation = useMutation({
+    mutationFn: async (params: { userId: number, isVerified: boolean }) => {
+      return apiRequest(`/api/users/${params.userId}/verify`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isVerified: params.isVerified }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'admin', // For demo purposes
+          'x-user-id': '1' // For demo purposes
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      setShowVerifyModal(false);
+      toast({
+        title: "User verification updated",
+        description: `User verification status has been updated.`,
+        variant: "default"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update failed",
+        description: "There was an error updating the user's verification status.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Activate/deactivate user mutation
+  const updateUserStatusMutation = useMutation({
+    mutationFn: async (params: { userId: number, isActive: boolean }) => {
+      return apiRequest(`/api/users/${params.userId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: params.isActive }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'admin', // For demo purposes
+          'x-user-id': '1' // For demo purposes
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      setShowDeactivateModal(false);
+      toast({
+        title: "User status updated",
+        description: `User activation status has been updated.`,
+        variant: "default"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update failed",
+        description: "There was an error updating the user's status.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Export users as CSV
+  const handleExportUsers = () => {
+    // Redirect to the export endpoint
+    window.open('/api/users/export', '_blank');
+  };
 
   // Actions to perform on users
   const handleViewUser = (user: User) => {
@@ -64,13 +192,26 @@ const Users: React.FC = () => {
     setShowTransactions(true);
   };
 
-  const handleBanUser = (user: User) => {
-    // This would normally make an API call to ban the user
-    toast({
-      title: "Feature not implemented",
-      description: "User banning is not implemented in this demo.",
-      variant: "destructive"
-    });
+  const handleVerifyUser = (user: User) => {
+    setSelectedUser(user);
+    setShowVerifyModal(true);
+  };
+
+  const handleToggleActiveStatus = (user: User) => {
+    setSelectedUser(user);
+    setShowDeactivateModal(true);
+  };
+
+  const submitVerification = (verified: boolean) => {
+    if (selectedUser) {
+      verifyUserMutation.mutate({ userId: selectedUser.id, isVerified: verified });
+    }
+  };
+
+  const submitStatusUpdate = (active: boolean) => {
+    if (selectedUser) {
+      updateUserStatusMutation.mutate({ userId: selectedUser.id, isActive: active });
+    }
   };
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -205,11 +346,58 @@ const Users: React.FC = () => {
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">User Management</h1>
       
       <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>Manage user accounts and view their information</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>Manage user accounts and view their information</CardDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExportUsers}
+            className="gap-1"
+          >
+            <FileSpreadsheet className="h-4 w-4" /> Export CSV
+          </Button>
         </CardHeader>
+        
         <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsList>
+              <TabsTrigger value="all">
+                All Users
+                <Badge variant="outline" className="ml-2">{users?.length || 0}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="verified">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                Verified
+                <Badge variant="outline" className="ml-2">
+                  {users?.filter(u => u.isVerified).length || 0}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="unverified">
+                <AlertTriangle className="mr-1 h-3 w-3" />
+                Unverified
+                <Badge variant="outline" className="ml-2">
+                  {users?.filter(u => !u.isVerified).length || 0}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="active">
+                Active
+                <Badge variant="outline" className="ml-2">
+                  {users?.filter(u => u.isActive).length || 0}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="inactive">
+                <Ban className="mr-1 h-3 w-3" />
+                Inactive
+                <Badge variant="outline" className="ml-2">
+                  {users?.filter(u => !u.isActive).length || 0}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
           <div className="flex items-center space-x-2 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -218,10 +406,16 @@ const Users: React.FC = () => {
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
-            <Button variant="outline" size="icon">
-              <Filter className="h-4 w-4" />
+            <Button 
+              variant="outline" 
+              onClick={handleSearch} 
+              disabled={searchQuery.length < 3 || isUserSearchLoading}
+              className="gap-1"
+            >
+              <Search className="h-4 w-4" /> Search
             </Button>
           </div>
           
@@ -230,28 +424,47 @@ const Users: React.FC = () => {
             data={filteredUsers}
             loading={isLoading}
             actions={(user) => (
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => handleViewUser(user)}
+                  className="gap-1"
                 >
-                  <Eye className="mr-1 h-4 w-4" /> Details
+                  <Eye className="h-4 w-4" /> Details
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => handleViewTransactions(user)}
+                  className="gap-1"
                 >
-                  <UserCog className="mr-1 h-4 w-4" /> Transactions
+                  <UserCog className="h-4 w-4" /> Transactions
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm" 
-                  className="text-red-600 dark:text-red-400 border-red-600 dark:border-red-400 hover:bg-red-50 dark:hover:bg-red-900"
-                  onClick={() => handleBanUser(user)}
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => handleVerifyUser(user)}
                 >
-                  <UserX className="mr-1 h-4 w-4" /> Ban
+                  <UserCheck className="h-4 w-4" /> 
+                  {user.isVerified ? 'Unverify' : 'Verify'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className={`gap-1 ${!user.isActive ? 'text-green-600 dark:text-green-400 border-green-600 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900' : 'text-red-600 dark:text-red-400 border-red-600 dark:border-red-400 hover:bg-red-50 dark:hover:bg-red-900'}`}
+                  onClick={() => handleToggleActiveStatus(user)}
+                >
+                  {user.isActive ? (
+                    <>
+                      <UserX className="h-4 w-4" /> Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4" /> Activate
+                    </>
+                  )}
                 </Button>
               </div>
             )}
@@ -305,17 +518,185 @@ const Users: React.FC = () => {
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Joined</p>
                   <p className="mt-1 text-gray-900 dark:text-white">{formatDate(selectedUser.createdAt)}</p>
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Verification Status</p>
+                  <div className="mt-1 flex items-center">
+                    {selectedUser.isVerified ? (
+                      <Badge variant="success" className="gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive" className="gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Not Verified
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Account Status</p>
+                  <div className="mt-1 flex items-center">
+                    {selectedUser.isActive ? (
+                      <Badge className="gap-1 bg-green-500">
+                        <CheckCircle2 className="h-3 w-3" /> Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive" className="gap-1">
+                        <Ban className="h-3 w-3" /> Inactive
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex space-x-2 justify-end mt-4">
+              <div className="flex flex-wrap gap-2 justify-end mt-4">
                 <Button variant="outline" onClick={() => handleViewTransactions(selectedUser)}>
-                  View Transactions
+                  <UserCog className="mr-1 h-4 w-4" /> View Transactions
                 </Button>
-                <Button variant="destructive" onClick={() => handleBanUser(selectedUser)}>
-                  Ban User
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleVerifyUser(selectedUser)}
+                  className="gap-1"
+                >
+                  <UserCheck className="h-4 w-4" /> 
+                  {selectedUser.isVerified ? 'Unverify' : 'Verify'}
+                </Button>
+                <Button 
+                  variant={selectedUser.isActive ? "destructive" : "outline"}
+                  onClick={() => handleToggleActiveStatus(selectedUser)}
+                  className="gap-1"
+                >
+                  {selectedUser.isActive ? (
+                    <>
+                      <UserX className="h-4 w-4" /> Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4" /> Activate
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        )}
+      </Dialog>
+      
+      {/* User Verification Dialog */}
+      <Dialog open={showVerifyModal} onOpenChange={setShowVerifyModal}>
+        {selectedUser && (
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedUser.isVerified 
+                  ? "Revoke User Verification" 
+                  : "Verify User"}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedUser.isVerified 
+                  ? "Are you sure you want to revoke verification for this user?" 
+                  : "Are you sure you want to verify this user?"}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex items-center space-x-4 py-4">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback className="text-sm bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                  {getInitials(selectedUser.firstName, selectedUser.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="text-base font-medium text-gray-900 dark:text-white">
+                  {`${selectedUser.firstName} ${selectedUser.lastName}`}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedUser.username}</p>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowVerifyModal(false)}>
+                Cancel
+              </Button>
+              {selectedUser.isVerified ? (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => submitVerification(false)}
+                  disabled={verifyUserMutation.isPending}
+                  className="gap-1"
+                >
+                  <AlertTriangle className="h-4 w-4" /> 
+                  {verifyUserMutation.isPending ? "Revoking..." : "Revoke Verification"}
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => submitVerification(true)}
+                  disabled={verifyUserMutation.isPending}
+                  className="gap-1"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> 
+                  {verifyUserMutation.isPending ? "Verifying..." : "Verify User"}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+      
+      {/* User Status Dialog */}
+      <Dialog open={showDeactivateModal} onOpenChange={setShowDeactivateModal}>
+        {selectedUser && (
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedUser.isActive 
+                  ? "Deactivate User Account" 
+                  : "Activate User Account"}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedUser.isActive 
+                  ? "Are you sure you want to deactivate this user account? The user will not be able to log in." 
+                  : "Are you sure you want to activate this user account?"}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex items-center space-x-4 py-4">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback className="text-sm bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                  {getInitials(selectedUser.firstName, selectedUser.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="text-base font-medium text-gray-900 dark:text-white">
+                  {`${selectedUser.firstName} ${selectedUser.lastName}`}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedUser.username}</p>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeactivateModal(false)}>
+                Cancel
+              </Button>
+              {selectedUser.isActive ? (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => submitStatusUpdate(false)}
+                  disabled={updateUserStatusMutation.isPending}
+                  className="gap-1"
+                >
+                  <UserX className="h-4 w-4" /> 
+                  {updateUserStatusMutation.isPending ? "Deactivating..." : "Deactivate Account"}
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => submitStatusUpdate(true)}
+                  disabled={updateUserStatusMutation.isPending}
+                  className="gap-1"
+                >
+                  <UserCheck className="h-4 w-4" /> 
+                  {updateUserStatusMutation.isPending ? "Activating..." : "Activate Account"}
+                </Button>
+              )}
+            </DialogFooter>
           </DialogContent>
         )}
       </Dialog>
