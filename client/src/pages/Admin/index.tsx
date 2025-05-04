@@ -251,10 +251,11 @@ const AdminDashboard: React.FC = () => {
           iconBgColor="bg-primary-500"
           footer={
             <div className="text-sm">
-              <Link href="/admin/users">
-                <a className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-                  View all users
-                </a>
+              <Link 
+                href="/admin/users" 
+                className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+              >
+                View all users
               </Link>
             </div>
           }

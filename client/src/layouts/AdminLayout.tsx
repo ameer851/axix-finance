@@ -63,16 +63,17 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 {navItems.map((item) => {
                   const isActive = location === item.path;
                   return (
-                    <Link key={item.path} href={item.path}>
-                      <a className={`${
+                    <Link 
+                      key={item.path} 
+                      href={item.path}
+                      className={`${
                         isActive 
                           ? 'bg-gray-900 dark:bg-neutral-800 text-white'
                           : 'text-gray-300 dark:text-gray-200 hover:bg-gray-700 dark:hover:bg-neutral-800 hover:text-white'
                         } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
-                      >
-                        <span className="mr-3 text-gray-400 dark:text-gray-400">{item.icon}</span>
-                        {item.label}
-                      </a>
+                    >
+                      <span className="mr-3 text-gray-400 dark:text-gray-400">{item.icon}</span>
+                      {item.label}
                     </Link>
                   );
                 })}
@@ -174,18 +175,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   {navItems.map((item) => {
                     const isActive = location === item.path;
                     return (
-                      <Link key={item.path} href={item.path}>
-                        <a
-                          className={`${
-                            isActive
-                              ? 'bg-gray-900 dark:bg-neutral-800 text-white'
-                              : 'text-gray-300 dark:text-gray-200 hover:bg-gray-700 dark:hover:bg-neutral-800 hover:text-white'
-                          } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          <span className="mr-4 text-gray-400 dark:text-gray-400">{item.icon}</span>
-                          {item.label}
-                        </a>
+                      <Link 
+                        key={item.path} 
+                        href={item.path}
+                        className={`${
+                          isActive
+                            ? 'bg-gray-900 dark:bg-neutral-800 text-white'
+                            : 'text-gray-300 dark:text-gray-200 hover:bg-gray-700 dark:hover:bg-neutral-800 hover:text-white'
+                        } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <span className="mr-4 text-gray-400 dark:text-gray-400">{item.icon}</span>
+                        {item.label}
                       </Link>
                     );
                   })}
