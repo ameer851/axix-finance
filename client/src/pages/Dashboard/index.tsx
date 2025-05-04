@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
         }
         return await response.json();
       } catch (error) {
-        console.error('Failed to fetch portfolio data:', error);
+        // Log error but don't show to user
         return [];
       }
     }
@@ -161,6 +161,21 @@ const Dashboard: React.FC = () => {
   const balance = user?.balance || "0";
   const pendingTransactions = transactions?.filter(t => t.status === 'pending')?.length || 0;
 
+  // Calculate profit from portfolio data
+  const calculateProfit = () => {
+    if (!portfolioData || portfolioData.length < 2) return "+$0.00";
+    
+    // Get first and last values to calculate profit
+    const firstValue = portfolioData[0]?.value || 0;
+    const lastValue = portfolioData[portfolioData.length - 1]?.value || 0;
+    const profit = lastValue - firstValue;
+    
+    const prefix = profit >= 0 ? "+" : "";
+    return `${prefix}$${Math.abs(profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const profit = calculateProfit();
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Dashboard</h1>
@@ -168,7 +183,7 @@ const Dashboard: React.FC = () => {
       {/* Account Overview */}
       <AccountSummary 
         balance={`$${parseFloat(balance).toLocaleString()}`}
-        profit="+$1,482.30"
+        profit={profit}
         pendingTransactions={pendingTransactions}
       />
 

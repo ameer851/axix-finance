@@ -37,9 +37,8 @@ export async function resendVerificationEmail(user: User): Promise<void> {
  * @returns A promise that resolves when the email is sent
  */
 export async function sendPasswordResetEmail(user: User): Promise<void> {
-  console.log(`[Email Service] Sending password reset email to ${user.email}`);
-  
-  // Simulate delay
+  // In a real implementation, this would send an email via a service like SendGrid, Mailgun, etc.
+  // For now, we just simulate the delay
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Return success
@@ -58,9 +57,8 @@ export async function sendNotificationEmail(
   subject: string, 
   message: string
 ): Promise<void> {
-  console.log(`[Email Service] Sending notification email to ${user.email}: ${subject}`);
-  
-  // Simulate delay
+  // In a real implementation, this would send an email via a service like SendGrid, Mailgun, etc.
+  // For now, we just simulate the delay
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Return success
