@@ -216,9 +216,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Can only update pending transactions" });
       }
 
-      // Get admin ID (in real app would be from session/token)
-      const adminId = parseInt(req.headers['x-user-id'] as string) || 1;
+      // Get admin ID from authenticated user session
+      const adminId = (req.user as Express.User).id;
 
+      // Update transaction status
       const updatedTransaction = await storage.updateTransactionStatus(
         transactionId, 
         status, 
@@ -263,8 +264,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Get admin ID (in real app would be from session/token)
-      const adminId = parseInt(req.headers['x-user-id'] as string) || 1;
+      // Get admin ID from authenticated user session
+      const adminId = (req.user as Express.User).id;
       
       const updatedUser = await storage.updateUserActiveStatus(userId, isActive);
       
@@ -301,8 +302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Get admin ID (in real app would be from session/token)
-      const adminId = parseInt(req.headers['x-user-id'] as string) || 1;
+      // Get admin ID from authenticated user session
+      const adminId = (req.user as Express.User).id;
       
       const updatedUser = await storage.updateUserVerificationStatus(userId, isVerified);
       
@@ -451,8 +452,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Value is required" });
       }
       
-      // Get admin ID (in real app would be from session/token)
-      const adminId = parseInt(req.headers['x-user-id'] as string) || 1;
+      // Get admin ID from authenticated user session
+      const adminId = (req.user as Express.User).id;
       
       const setting = await storage.createOrUpdateSetting(name, value, description, adminId);
       
@@ -541,8 +542,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Response is required" });
       }
       
-      // Get admin ID (in real app would be from session/token)
-      const adminId = parseInt(req.headers['x-user-id'] as string) || 1;
+      // Get admin ID from authenticated user session
+      const adminId = (req.user as Express.User).id;
       
       const message = await storage.getMessage(messageId);
       if (!message) {
