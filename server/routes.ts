@@ -565,6 +565,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // User portfolio performance data route
+  app.get("/api/user/portfolio-performance", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Get the user's transactions
+      const userId = (req.user as Express.User).id;
+      const userTransactions = await storage.getUserTransactions(userId);
+      
+      // Calculate portfolio performance over time (last 30 days)
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      
+      // Sample points for the chart (30 days)
+      const portfolioData = [];
+      let currentBalance = parseFloat((req.user as Express.User).balance);
+      
+      // Start from oldest transactions to reconstruct historical balance
+      const sortedTransactions = [...userTransactions].sort((a, b) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      
+      // Create data points for every day
+      for (let i = 0; i < 30; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (29 - i)); // Start 30 days ago
+        
+        // Adjust balance based on transactions before this day
+        const dailyTransactions = sortedTransactions.filter(t => 
+          new Date(t.createdAt) <= date && new Date(t.createdAt) > new Date(date.getTime() - 86400000)
+        );
+        
+        // If there are transactions on this day, adjust the balance
+        dailyTransactions.forEach(t => {
+          if (t.type === 'deposit' || t.type === 'investment') {
+            currentBalance += parseFloat(t.amount as string);
+          } else if (t.type === 'withdrawal') {
+            currentBalance -= parseFloat(t.amount as string);
+          }
+        });
+        
+        // Add the data point
+        portfolioData.push({
+          date: `${i + 1}`,
+          value: currentBalance
+        });
+      }
+      
+      return res.json(portfolioData);
+    } catch (error) {
+      console.error('Failed to get portfolio performance:', error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Admin analytics endpoint
+  app.get("/api/admin/analytics", isAdmin, async (req: Request, res: Response) => {
+    try {
+      // Get the date range - default to the last 6 months
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 6);
+      
+      // Get transactions by month
+      const transactions = await storage.getTransactionsByDateRange(startDate, endDate);
+      
+      // Get users and group by month joined
+      const users = await storage.getAllUsers();
+      
+      // Group by month
+      const analyticsData: { date: string; users: number; transactions: number }[] = [];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      
+      // Create a map for each month in the range
+      const monthMap = new Map<string, { users: number; transactions: number }>();
+      
+      // Initialize the map with zeros
+      for (let i = 0; i < 6; i++) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthKey = months[date.getMonth()];
+        monthMap.set(monthKey, { users: 0, transactions: 0 });
+      }
+      
+      // Count users by creation month
+      users.forEach(user => {
+        const createdAt = new Date(user.createdAt);
+        if (createdAt >= startDate && createdAt <= endDate) {
+          const monthKey = months[createdAt.getMonth()];
+          if (monthMap.has(monthKey)) {
+            const monthData = monthMap.get(monthKey)!;
+            monthData.users += 1;
+            monthMap.set(monthKey, monthData);
+          }
+        }
+      });
+      
+      // Count transactions by month
+      transactions.forEach(transaction => {
+        const createdAt = new Date(transaction.createdAt);
+        const monthKey = months[createdAt.getMonth()];
+        if (monthMap.has(monthKey)) {
+          const monthData = monthMap.get(monthKey)!;
+          monthData.transactions += 1;
+          monthMap.set(monthKey, monthData);
+        }
+      });
+      
+      // Convert map to array for the response
+      monthMap.forEach((value, key) => {
+        analyticsData.push({
+          date: key,
+          users: value.users,
+          transactions: value.transactions
+        });
+      });
+      
+      // Sort by month (reverse chronological)
+      analyticsData.sort((a, b) => {
+        const aIndex = months.indexOf(a.date);
+        const bIndex = months.indexOf(b.date);
+        return aIndex - bIndex;
+      });
+      
+      return res.json(analyticsData);
+    } catch (error) {
+      console.error('Failed to retrieve analytics data:', error);
+      return res.status(500).json({ error: "Failed to retrieve analytics data" });
+    }
+  });
+  
+  // Email verification routes
+  app.post("/api/user/resend-verification", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.isVerified) {
+        return res.status(400).json({ message: "User is already verified" });
+      }
+      
+      // Import without requiring it at the top level (since it's only used in this route)
+      // This keeps the dependency graph cleaner
+      const { resendVerificationEmail } = await import('./emailService');
+      await resendVerificationEmail(user);
+      
+      return res.status(200).json({ 
+        message: "Verification email resent successfully",
+        email: user.email
+      });
+    } catch (error) {
+      console.error('Failed to resend verification email:', error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
   // Transaction filtering routes
   app.get("/api/transactions/filter", async (req: Request, res: Response) => {
     try {

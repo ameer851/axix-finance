@@ -1,5 +1,5 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import StatCard from '@/components/ui/stat-card';
 import ChartCard from '@/components/ui/chart-card';
 import { Button } from '@/components/ui/button';
@@ -212,7 +212,7 @@ const AdminDashboard: React.FC = () => {
       header: 'Date',
       accessorKey: 'createdAt',
       cell: (transaction: Transaction) => {
-        const date = new Date(transaction.createdAt);
+        const date = transaction.createdAt ? new Date(transaction.createdAt) : new Date();
         return (
           <div>
             <div className="text-sm text-gray-900 dark:text-white">{formatDate(date)}</div>
