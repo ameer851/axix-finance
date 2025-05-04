@@ -1,0 +1,74 @@
+The website is already built and has a solid codebase structure. Do not change the color theme or redesign existing components.
+
+Your job is to:
+1. **Preserve the existing architecture**.
+2. **Add missing admin and user features** listed below.
+3. **Ensure full security, responsiveness, and usability**.
+4. **Do not add mock or demo data. Work with real API interactions.**
+
+---
+
+### 🧠 Codebase Overview (Do Not Modify Structure)
+
+/client  
+├── /pages includes LandingPage, Dashboard, Auth, Admin subpages  
+├── /components includes reusable UI  
+├── /services handles `userApi`, `adminApi`, etc.  
+├── Admin pages: `Users.tsx`, `Transactions.tsx`, `Settings.tsx`, `Logs.tsx`, `Messages.tsx`, `Analytics.tsx`
+
+/server  
+├── /controllers, /routes, /services, /middleware are already in place  
+├── Uses JWT, rate-limiter, admin auth guard  
+├── MongoDB models: User, Transaction, Message, Log  
+├── Already has `emailService.js`, `riskDetectionService.js`, `backupService.js`
+
+---
+
+### 🔧 Now Add the Following Features:
+
+✅ **1. Admin Panel Enhancements**  
+- Add real-time transaction approval/rejection feedback (e.g., success toast)  
+- Enable search/filter/sort for Users and Transactions  
+- Add export functionality (CSV/PDF) for logs and users  
+- Add system notifications with status indicators (new messages, flagged accounts)
+
+✅ **2. Email & Verification Enhancements**  
+- Integrate email verification reminder on login if not verified  
+- Add admin-triggered email alerts for suspicious activity (using `emailService.js` + `riskDetectionService.js`)
+
+✅ **3. Audit & Security**  
+- Log all admin actions to `Log.js` with timestamps and user IDs  
+- Add 2FA placeholder UI and logic (future expansion)
+
+✅ **4. User Dashboard Features**  
+- View current balance, deposit/withdraw history (connected to `transactionService.js`)  
+- Add support ticket messaging linked to `/pages/Admin/Messages.tsx`  
+- Optional: Add referral tracking module
+
+✅ **5. Settings Panel (Admin)**  
+- Control withdrawal thresholds  
+- Toggle system maintenance mode  
+- Enable/disable user account manually
+
+✅ **6. Analytics (Admin Dashboard)**  
+- Show active users, volume of deposits/withdrawals, and flag rate  
+- Use dummy chart data if backend is not ready, but ensure code connects to `adminApi.getAnalytics()`
+
+✅ **7. Server Tasks**  
+- Ensure routes are secured with `isAdmin.js` middleware  
+- Clean up any mock data or unused test routes  
+- Add error logging in `errorHandler.js` for all transaction failures
+
+---
+
+### 🧪 Testing & Validation
+
+- Add form validation to all user/admin input forms  
+- Test with both normal user and admin accounts  
+- Ensure JWT and isAdmin middleware correctly restrict access  
+- Check for any missing loading/error states in UI
+
+---
+
+Keep all code clean and modular. Use Tailwind or existing CSS standards. Do not introduce breaking changes.
+
