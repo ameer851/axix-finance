@@ -1,4 +1,6 @@
 import { users, type User, type InsertUser, transactions, type Transaction, type InsertTransaction, transactionStatusEnum, roleEnum, transactionTypeEnum } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -18,61 +20,34 @@ export interface IStorage {
   updateTransactionStatus(id: number, status: "completed" | "rejected"): Promise<Transaction | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private transactions: Map<number, Transaction>;
-  userCurrentId: number;
-  transactionCurrentId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.transactions = new Map();
-    this.userCurrentId = 1;
-    this.transactionCurrentId = 1;
-
-    // Add an admin user by default
-    this.createUser({
-      username: "admin",
-      password: "admin123", // In a real app, this would be hashed
-      email: "admin@caraxfinance.com",
-      firstName: "Admin",
-      lastName: "User",
-      role: "admin"
-    });
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const result = await db.select().from(users).where(eq(users.username, username));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
+    return await db.select().from(users);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userCurrentId++;
-    const now = new Date();
-    const user: User = { 
-      ...insertUser, 
-      id, 
-      balance: "0", 
-      createdAt: now 
-    };
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values({
+      ...insertUser,
+      balance: "0",
+    }).returning();
+    
+    return result[0];
   }
 
   async updateUserBalance(userId: number, amount: number): Promise<User | undefined> {
@@ -80,59 +55,53 @@ export class MemStorage implements IStorage {
     if (!user) return undefined;
 
     const newBalance = parseFloat(user.balance as string) + amount;
-    const updatedUser: User = {
-      ...user,
-      balance: newBalance.toString()
-    };
-    this.users.set(userId, updatedUser);
-    return updatedUser;
+    
+    const result = await db.update(users)
+      .set({ balance: newBalance.toString() })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return result.length > 0 ? result[0] : undefined;
   }
 
   // Transaction methods
   async getTransaction(id: number): Promise<Transaction | undefined> {
-    return this.transactions.get(id);
+    const result = await db.select().from(transactions).where(eq(transactions.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getUserTransactions(userId: number): Promise<Transaction[]> {
-    return Array.from(this.transactions.values()).filter(
-      (transaction) => transaction.userId === userId,
-    );
+    return await db.select().from(transactions).where(eq(transactions.userId, userId));
   }
 
   async getAllTransactions(): Promise<Transaction[]> {
-    return Array.from(this.transactions.values());
+    return await db.select().from(transactions);
   }
 
   async getPendingTransactions(): Promise<Transaction[]> {
-    return Array.from(this.transactions.values()).filter(
-      (transaction) => transaction.status === "pending",
-    );
+    return await db.select().from(transactions).where(eq(transactions.status, "pending"));
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    const id = this.transactionCurrentId++;
-    const now = new Date();
-    const transaction: Transaction = {
+    const result = await db.insert(transactions).values({
       ...insertTransaction,
-      id,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.transactions.set(id, transaction);
-    return transaction;
+    }).returning();
+    
+    return result[0];
   }
 
   async updateTransactionStatus(id: number, status: "completed" | "rejected"): Promise<Transaction | undefined> {
     const transaction = await this.getTransaction(id);
     if (!transaction) return undefined;
 
-    const updatedTransaction: Transaction = {
-      ...transaction,
-      status,
-      updatedAt: new Date(),
-    };
-    this.transactions.set(id, updatedTransaction);
-
+    const result = await db.update(transactions)
+      .set({ 
+        status, 
+        updatedAt: new Date() 
+      })
+      .where(eq(transactions.id, id))
+      .returning();
+    
     // If the transaction is completed, update user balance
     if (status === "completed") {
       const amount = parseFloat(transaction.amount as string);
@@ -143,8 +112,33 @@ export class MemStorage implements IStorage {
       }
     }
 
-    return updatedTransaction;
+    return result.length > 0 ? result[0] : undefined;
   }
 }
 
-export const storage = new MemStorage();
+// Initialize database with admin user
+async function initializeDatabase() {
+  const storage = new DatabaseStorage();
+  
+  // Check if admin user exists
+  const adminUser = await storage.getUserByUsername("admin");
+  
+  // If admin doesn't exist, create one
+  if (!adminUser) {
+    await storage.createUser({
+      username: "admin",
+      password: "admin123", // In a real app, this would be hashed
+      email: "admin@caraxfinance.com",
+      firstName: "Admin",
+      lastName: "User",
+      role: "admin"
+    });
+    console.log("Admin user created");
+  }
+}
+
+// Export the storage instance
+export const storage = new DatabaseStorage();
+
+// Initialize the database when the app starts
+initializeDatabase().catch(console.error);
