@@ -1,0 +1,370 @@
+import React, { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { Transaction } from '@shared/schema';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Wallet,
+  Plus,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Copy,
+  Check,
+  AlertCircle
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { formatDate } from '@/lib/utils';
+
+const Wallets: React.FC = () => {
+  const { user } = useAuth();
+  const userId = user?.id;
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [activeDialog, setActiveDialog] = useState<'deposit' | 'withdraw' | null>(null);
+
+  // Fetch user transactions
+  const { data: transactions, isLoading } = useQuery<Transaction[]>({
+    queryKey: [`/api/users/${userId}/transactions`],
+    enabled: !!userId
+  });
+
+  // This would be fetched from an API in a real implementation
+  // For now, let's use a sample wallet address
+  const walletAddress = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
+
+  const handleCopyAddress = () => {
+    navigator.clipboard.writeText(walletAddress);
+    setCopiedText(walletAddress);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
+
+  const getTransactionsByType = (type: 'deposit' | 'withdrawal') => {
+    if (!transactions) return [];
+    return transactions.filter(t => t.type === type);
+  };
+
+  const deposits = getTransactionsByType('deposit');
+  const withdrawals = getTransactionsByType('withdrawal');
+
+  if (isLoading) {
+    return <div className="flex justify-center p-8">Loading wallet data...</div>;
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Wallets</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Main Wallet Card */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Main Wallet</CardTitle>
+                <CardDescription>Your primary investment wallet</CardDescription>
+              </div>
+              <Wallet className="h-10 w-10 text-primary-600 dark:text-primary-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Current Balance</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">${user?.balance || '0.00'}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Wallet Address</p>
+                <div className="flex items-center p-3 bg-gray-100 dark:bg-neutral-700 rounded-md">
+                  <p className="text-sm font-mono text-gray-800 dark:text-gray-200 flex-1 truncate">{walletAddress}</p>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={handleCopyAddress}
+                    className="ml-2 hover:bg-gray-200 dark:hover:bg-neutral-600"
+                  >
+                    {copiedText === walletAddress ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Dialog open={activeDialog === 'deposit'} onOpenChange={(open) => setActiveDialog(open ? 'deposit' : null)}>
+              <DialogTrigger asChild>
+                <Button className="bg-green-600 hover:bg-green-700 flex-1 mr-2">
+                  <ArrowDownLeft className="mr-2 h-4 w-4" />
+                  Deposit
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Deposit Funds</DialogTitle>
+                  <DialogDescription>
+                    Use the following details to deposit funds to your wallet.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Wallet Address</Label>
+                    <div className="flex items-center p-3 bg-gray-100 dark:bg-neutral-700 rounded-md">
+                      <p className="text-sm font-mono text-gray-800 dark:text-gray-200 flex-1 truncate">{walletAddress}</p>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={handleCopyAddress}
+                        className="ml-2 hover:bg-gray-200 dark:hover:bg-neutral-600"
+                      >
+                        {copiedText === walletAddress ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Network</Label>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Ethereum (ERC20)
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-amber-50 dark:bg-amber-900/30 p-4 mt-4">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <AlertCircle className="h-5 w-5 text-amber-400" aria-hidden="true" />
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-amber-800 dark:text-amber-200">Important Note</h3>
+                        <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                          <p>
+                            After making your deposit, please allow up to 30 minutes for the funds to be credited to your account.
+                            Contact our support team if your deposit has not been reflected after this time.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog open={activeDialog === 'withdraw'} onOpenChange={(open) => setActiveDialog(open ? 'withdraw' : null)}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex-1 ml-2">
+                  <ArrowUpRight className="mr-2 h-4 w-4" />
+                  Withdraw
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Withdraw Funds</DialogTitle>
+                  <DialogDescription>
+                    Enter the amount and destination address to withdraw your funds.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Amount (USD)</Label>
+                    <Input
+                      id="amount"
+                      placeholder="0.00"
+                      type="number"
+                      min="50"
+                      max={user?.balance || '0'}
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Available Balance: ${user?.balance || '0.00'}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="wallet-address">Wallet Address</Label>
+                    <Input
+                      id="wallet-address"
+                      placeholder="Enter destination wallet address"
+                    />
+                  </div>
+                  <div className="rounded-md bg-amber-50 dark:bg-amber-900/30 p-4 mt-4">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <AlertCircle className="h-5 w-5 text-amber-400" aria-hidden="true" />
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-amber-800 dark:text-amber-200">Important Note</h3>
+                        <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                          <p>
+                            Please verify your withdrawal address carefully. Withdrawals are typically processed within 24 hours.
+                            Minimum withdrawal amount is $50.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Submit Withdrawal Request</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardFooter>
+        </Card>
+        
+        {/* Quick Stats Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Wallet Stats</CardTitle>
+            <CardDescription>Transaction summary</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Deposits</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">
+                ${deposits.reduce((sum, t) => sum + parseFloat(t.amount), 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Withdrawals</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">
+                ${withdrawals.reduce((sum, t) => sum + parseFloat(t.amount), 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Pending Transactions</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">
+                {transactions?.filter(t => t.status === 'pending').length || 0}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Last Transaction</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">
+                {transactions && transactions.length > 0 
+                  ? formatDate(new Date(transactions[transactions.length - 1].createdAt))
+                  : 'None'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Transaction History Tabs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Transaction History</CardTitle>
+          <CardDescription>Your wallet's activity</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="all">
+            <TabsList className="grid grid-cols-3 w-[400px]">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="deposits">Deposits</TabsTrigger>
+              <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="all" className="mt-4">
+              <TransactionTable transactions={transactions || []} />
+            </TabsContent>
+            
+            <TabsContent value="deposits" className="mt-4">
+              <TransactionTable transactions={deposits} />
+            </TabsContent>
+            
+            <TabsContent value="withdrawals" className="mt-4">
+              <TransactionTable transactions={withdrawals} />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Helper component for transaction tables
+interface TransactionTableProps {
+  transactions: Transaction[];
+}
+
+const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => {
+  if (transactions.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        No transactions found.
+      </div>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Type</TableHead>
+          <TableHead>Date</TableHead>
+          <TableHead>Amount</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {transactions.map((transaction) => (
+          <TableRow key={transaction.id}>
+            <TableCell className="font-medium">
+              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+            </TableCell>
+            <TableCell>{formatDate(new Date(transaction.createdAt))}</TableCell>
+            <TableCell>
+              <span className={transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'}>
+                {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount}
+              </span>
+            </TableCell>
+            <TableCell>
+              <span 
+                className={`px-2 py-1 rounded-full text-xs font-medium 
+                  ${transaction.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
+                    transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`
+                }
+              >
+                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};
+
+export default Wallets;
