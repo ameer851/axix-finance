@@ -17,24 +17,9 @@ export async function getAdminDashboardStats(): Promise<{
   transactionVolume: string;
 }> {
   try {
-    // In a real application, this would be a dedicated API endpoint
-    // For now, we'll calculate based on available data
-    const users = await getAllUsers();
-    const pendingTransactions = await getPendingTransactions();
-    
-    // Calculate transaction volume (simplified)
-    const transactions = await getAllTransactions();
-    const totalVolume = transactions.reduce((sum, transaction) => {
-      const amount = parseFloat(transaction.amount as string);
-      return sum + amount;
-    }, 0);
-    
-    return {
-      totalUsers: users.length,
-      activeUsers: users.filter(user => parseFloat(user.balance as string) > 0).length,
-      pendingTransactions: pendingTransactions.length,
-      transactionVolume: totalVolume.toFixed(2)
-    };
+    // Fetch admin dashboard stats from API
+    const response = await apiRequest('GET', '/api/admin/analytics');
+    return await response.json();
   } catch (error: any) {
     throw new Error(error.message || 'Failed to fetch admin dashboard statistics');
   }
@@ -91,12 +76,7 @@ export async function getUserById(userId: number): Promise<User> {
 
 export async function searchUsers(query: string): Promise<User[]> {
   try {
-    const response = await apiRequest('GET', `/api/search/users?query=${encodeURIComponent(query)}`, undefined, {
-      headers: {
-        'x-user-role': 'admin', // For demo purposes
-        'x-user-id': '1'
-      }
-    });
+    const response = await apiRequest('GET', `/api/search/users?query=${encodeURIComponent(query)}`);
     return await response.json();
   } catch (error: any) {
     throw new Error(error.message || 'Failed to search users');
@@ -107,11 +87,6 @@ export async function updateUserVerification(userId: number, isVerified: boolean
   try {
     const response = await apiRequest('PATCH', `/api/users/${userId}/verify`, {
       isVerified
-    }, {
-      headers: {
-        'x-user-role': 'admin', // For demo purposes
-        'x-user-id': '1'
-      }
     });
     return await response.json();
   } catch (error: any) {
@@ -123,11 +98,6 @@ export async function updateUserActiveStatus(userId: number, isActive: boolean):
   try {
     const response = await apiRequest('PATCH', `/api/users/${userId}/status`, {
       isActive
-    }, {
-      headers: {
-        'x-user-role': 'admin', // For demo purposes
-        'x-user-id': '1'
-      }
     });
     return await response.json();
   } catch (error: any) {
