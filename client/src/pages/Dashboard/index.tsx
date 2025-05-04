@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Transaction } from '@shared/schema';
 import { Link } from 'wouter';
+import InvestmentCalculator from '@/components/InvestmentCalculator';
 import {
   ArrowDown,
   ArrowUp,
   ArrowLeftRight,
   PieChart,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  Calculator
 } from 'lucide-react';
 import {
   AreaChart,
@@ -59,7 +61,7 @@ const Dashboard: React.FC = () => {
   const columns = [
     {
       header: 'Transaction',
-      accessorKey: 'type',
+      accessorKey: 'type' as keyof Transaction,
       cell: (transaction: Transaction) => (
         <div className="flex items-center">
           <div className={`
@@ -87,20 +89,24 @@ const Dashboard: React.FC = () => {
     },
     {
       header: 'Date',
-      accessorKey: 'createdAt',
+      accessorKey: 'createdAt' as keyof Transaction,
       cell: (transaction: Transaction) => {
-        const date = new Date(transaction.createdAt);
+        const date = transaction.createdAt ? new Date(transaction.createdAt) : new Date();
         return (
           <div>
-            <div className="text-sm text-gray-900 dark:text-white">{formatDate(date)}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{date.toLocaleTimeString()}</div>
+            <div className="text-sm text-gray-900 dark:text-white">
+              {formatDate(date)}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {date.toLocaleTimeString()}
+            </div>
           </div>
         );
       }
     },
     {
       header: 'Amount',
-      accessorKey: 'amount',
+      accessorKey: 'amount' as keyof Transaction,
       cell: (transaction: Transaction) => {
         const isNegative = transaction.type === 'withdrawal' || transaction.type === 'investment';
         const prefix = isNegative ? '-' : '+';
@@ -115,7 +121,7 @@ const Dashboard: React.FC = () => {
     },
     {
       header: 'Status',
-      accessorKey: 'status',
+      accessorKey: 'status' as keyof Transaction,
       cell: (transaction: Transaction) => {
         let bgColor, textColor;
         
@@ -200,6 +206,11 @@ const Dashboard: React.FC = () => {
           </ResponsiveContainer>
         </div>
       </ChartCard>
+      
+      {/* Investment Calculator */}
+      <div className="mb-6">
+        <InvestmentCalculator />
+      </div>
 
       {/* Recent Transactions */}
       <div className="bg-white dark:bg-neutral-800 shadow sm:rounded-lg overflow-hidden">
