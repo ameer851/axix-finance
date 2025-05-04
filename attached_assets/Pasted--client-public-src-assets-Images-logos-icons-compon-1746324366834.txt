@@ -1,0 +1,64 @@
+/client
+├── /public
+├── /src
+│   ├── /assets                  # Images, logos, icons
+│   ├── /components              # Reusable UI elements (buttons, tables, etc.)
+│   ├── /layouts                 # Page shells (admin layout, dashboard layout)
+│   ├── /context                 # React contexts (AuthContext, AppContext)
+│   ├── /routes                  # Central routing config (React Router)
+│   ├── /services                # API interaction logic (userApi, adminApi)
+│   ├── /pages
+│   │   ├── /LandingPage         # Public-facing landing content
+│   │   ├── /Dashboard           # User dashboard
+│   │   ├── /Auth                # Login, Register, Email Verification
+│   │   ├── /Admin               # Admin dashboard & tools (see below)
+│   │   │   ├── index.tsx        # Admin overview
+│   │   │   ├── Users.tsx        # View/manage users
+│   │   │   ├── Transactions.tsx # Approve/reject deposits/withdrawals
+│   │   │   ├── Settings.tsx     # Platform settings/config
+│   │   │   ├── Logs.tsx         # Audit logs
+│   │   │   ├── Messages.tsx     # Admin-user communication
+│   │   │   └── Analytics.tsx    # Charts, KPIs, system health
+│   └── main.tsx / App.tsx       # App entrypoint
+
+/server
+├── /controllers
+│   ├── authController.js
+│   ├── userController.js
+│   ├── adminController.js         # Handles all admin routes logic
+│   ├── transactionController.js
+│   └── logController.js
+├── /models
+│   ├── User.js
+│   ├── Transaction.js
+│   ├── Message.js
+│   └── Log.js                     # For audit trail
+├── /routes
+│   ├── authRoutes.js
+│   ├── userRoutes.js
+│   ├── adminRoutes.js             # Admin-only endpoints
+│   ├── transactionRoutes.js
+│   └── notificationRoutes.js
+├── /middleware
+│   ├── auth.js                    # JWT auth middleware
+│   ├── isAdmin.js                 # Restrict routes to admin role
+│   ├── errorHandler.js
+│   └── rateLimiter.js             # Optional for brute-force protection
+├── /services
+│   ├── emailService.js
+│   ├── transactionService.js
+│   ├── backupService.js           # Optional: DB backup logic
+│   └── riskDetectionService.js    # Optional: flag suspicious activity
+├── /utils
+│   ├── validators.js
+│   ├── logger.js                  # Custom logger for audit logs
+│   └── helpers.js
+├── server.js
+└── .env                           # Secrets and config
+
+/docker
+├── Dockerfile
+└── docker-compose.yml
+
+/docs
+└── README.md
