@@ -69,7 +69,7 @@ const Users: React.FC = () => {
   });
 
   // Add useQuery for user search
-  const { data: searchResults, refetch: searchUsers } = useQuery<User[]>({
+  const { data: searchResults, refetch: performSearch } = useQuery<User[]>({
     queryKey: ['/api/search/users', searchQuery],
     queryFn: () => searchQuery.length >= 3 ? searchUsers(searchQuery) : [],
     enabled: false
@@ -105,7 +105,7 @@ const Users: React.FC = () => {
     if (searchQuery.length >= 3) {
       setIsUserSearchLoading(true);
       try {
-        await searchUsers();
+        await performSearch({ throwOnError: true });
       } catch (error) {
         toast({
           title: "Search failed",
