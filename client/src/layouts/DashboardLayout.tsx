@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,9 @@ import {
   Settings,
   Search,
   Menu,
-  LogOut
+  LogOut,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -24,6 +26,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [greeting, setGreeting] = useState('Good day');
+
+  useEffect(() => {
+    // Set greeting based on time of day
+    const hours = new Date().getHours();
+    if (hours < 12) {
+      setGreeting('Good morning');
+    } else if (hours < 18) {
+      setGreeting('Good afternoon');
+    } else {
+      setGreeting('Good evening');
+    }
+  }, []);
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
@@ -49,14 +65,29 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100 dark:bg-neutral-900">
       {/* Sidebar - Desktop */}
-      <div className="hidden md:flex md:flex-shrink-0">
-        <div className="flex flex-col w-64">
-          <div className="flex flex-col h-0 flex-1 bg-white dark:bg-neutral-800 shadow-lg">
+      <div className={`hidden md:flex md:flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'md:w-20' : 'md:w-64'}`}>
+        <div className="flex flex-col w-full">
+          <div className="flex flex-col h-0 flex-1 bg-white dark:bg-neutral-800 shadow-lg relative">
+            {/* Collapse Button */}
+            <button 
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="absolute -right-3 top-12 bg-white dark:bg-neutral-700 rounded-full p-1 shadow-md border border-gray-200 dark:border-gray-600 z-10"
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+              ) : (
+                <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+              )}
+            </button>
+            
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <div className="flex items-center flex-shrink-0 px-4">
+              <div className={`flex items-center flex-shrink-0 px-4 ${sidebarCollapsed ? 'justify-center' : ''}`}>
                 <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold">C</div>
-                <span className="ml-2 text-xl font-bold text-primary-800 dark:text-primary-400">Carax Finance</span>
+                {!sidebarCollapsed && (
+                  <span className="ml-2 text-xl font-bold text-primary-800 dark:text-primary-400">Carax Finance</span>
+                )}
               </div>
+              
               <nav className="mt-5 flex-1 px-2 bg-white dark:bg-neutral-800 space-y-1">
                 {navItems.map((item) => {
                   const isActive = location === item.path;
@@ -66,34 +97,38 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         isActive 
                           ? 'bg-gray-100 dark:bg-neutral-700 text-gray-900 dark:text-white'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
-                        } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                        } group flex ${sidebarCollapsed ? 'justify-center' : ''} items-center px-2 py-2 text-sm font-medium rounded-md`}
+                        title={sidebarCollapsed ? item.label : ''}
                       >
-                        <span className="mr-3 text-gray-500 dark:text-gray-300">{item.icon}</span>
-                        {item.label}
+                        <span className={sidebarCollapsed ? '' : 'mr-3'} >{item.icon}</span>
+                        {!sidebarCollapsed && item.label}
                       </a>
                     </Link>
                   );
                 })}
               </nav>
             </div>
+            
             <div className="flex-shrink-0 flex border-t border-gray-200 dark:border-gray-700 p-4">
               <div className="flex-shrink-0 w-full group block">
-                <div className="flex items-center">
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''}`}>
                   <div>
                     <Avatar className="h-10 w-10">
                       <AvatarImage src="" alt={userName} />
                       <AvatarFallback>{userInitials}</AvatarFallback>
                     </Avatar>
                   </div>
-                  <div className="ml-3">
-                    <p className="text-base font-medium text-gray-700 dark:text-white">{userName}</p>
-                    <button 
-                      onClick={handleLogout}
-                      className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 flex items-center"
-                    >
-                      <LogOut className="h-4 w-4 mr-1" /> Sign out
-                    </button>
-                  </div>
+                  {!sidebarCollapsed && (
+                    <div className="ml-3">
+                      <p className="text-base font-medium text-gray-700 dark:text-white">{userName}</p>
+                      <button 
+                        onClick={handleLogout}
+                        className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 flex items-center"
+                      >
+                        <LogOut className="h-4 w-4 mr-1" /> Sign out
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -218,6 +253,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+              {/* Welcome message */}
+              <div className="mb-6 bg-white dark:bg-neutral-800 rounded-lg shadow p-6">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  {greeting}, {user?.firstName || 'User'}!
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Welcome to your Carax Finance dashboard. Manage your investments and track your portfolio performance.
+                </p>
+              </div>
+              
               {children}
             </div>
           </div>
