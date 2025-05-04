@@ -90,10 +90,7 @@ const ResetPassword: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-900 px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
-            <div className="flex justify-between items-center mb-4">
-              <Link href="/" className="text-primary-600 hover:text-primary-500 dark:text-primary-400 flex items-center">
-                <Home className="h-4 w-4 mr-1" /> Back to Homepage
-              </Link>
+            <div className="flex justify-center items-center mb-4">
               <div className="h-12 w-12 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-xl">C</div>
             </div>
             <CardTitle className="text-2xl font-bold text-center">Invalid Reset Link</CardTitle>
@@ -117,10 +114,7 @@ const ResetPassword: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-900 px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex justify-between items-center mb-4">
-            <Link href="/" className="text-primary-600 hover:text-primary-500 dark:text-primary-400 flex items-center">
-              <Home className="h-4 w-4 mr-1" /> Back to Homepage
-            </Link>
+          <div className="flex justify-center items-center mb-4">
             <div className="h-12 w-12 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-xl">C</div>
           </div>
           <CardTitle className="text-2xl font-bold text-center">Reset your password</CardTitle>
@@ -199,6 +193,11 @@ const ResetPassword: React.FC = () => {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Resetting password..." : "Reset password"}
                 </Button>
+                <div className="mt-4 text-center">
+                  <Link href="/" className="text-primary-600 hover:text-primary-500 dark:text-primary-400 flex items-center justify-center">
+                    <Home className="h-4 w-4 mr-1" /> Back to Homepage
+                  </Link>
+                </div>
               </form>
             </Form>
           )}
