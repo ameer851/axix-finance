@@ -21,15 +21,32 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import AdminLayout from "@/layouts/AdminLayout";
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   
+  // Show loading state while authentication is being checked
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    window.location.href = "/login";
+    // Use a safer, more React-friendly approach for redirection
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 0);
     return null;
   }
   
+  // Check admin permissions for admin routes
   if (requireAdmin && user?.role !== "admin") {
-    window.location.href = "/dashboard";
+    // Use toast to show unauthorized message
+    setTimeout(() => {
+      window.location.href = "/dashboard";
+    }, 0);
     return null;
   }
   
