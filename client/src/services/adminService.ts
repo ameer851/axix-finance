@@ -54,10 +54,11 @@ export async function approveTransaction(transactionId: number): Promise<Transac
   }
 }
 
-export async function rejectTransaction(transactionId: number): Promise<Transaction> {
+export async function rejectTransaction(transactionId: number, rejectionReason?: string): Promise<Transaction> {
   try {
     const response = await apiRequest('PATCH', `/api/transactions/${transactionId}/status`, {
-      status: 'rejected'
+      status: 'rejected',
+      rejectionReason: rejectionReason || 'Transaction rejected by admin'
     });
     return await response.json();
   } catch (error: any) {

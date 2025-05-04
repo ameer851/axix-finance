@@ -615,7 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       return res.json(portfolioData);
     } catch (error) {
-      console.error('Failed to get portfolio performance:', error);
+      // Silent error handling for production
       return res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -691,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       return res.json(analyticsData);
     } catch (error) {
-      console.error('Failed to retrieve analytics data:', error);
+      // Silent error handling for production
       return res.status(500).json({ error: "Failed to retrieve analytics data" });
     }
   });
@@ -720,7 +720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: user.email
       });
     } catch (error) {
-      console.error('Failed to resend verification email:', error);
+      // Silent error handling for production
       return res.status(500).json({ message: "Internal server error" });
     }
   });
