@@ -116,13 +116,11 @@ const Settings: React.FC = () => {
 
   // Update password function
   const onPasswordSubmit = (data: PasswordFormValues) => {
-    console.log('Password form submitted:', data);
     // This would call an API to update the user's password in a real implementation
   };
 
   // Function to handle enabling/disabling 2FA
   const handle2FAToggle = (enabled: boolean) => {
-    console.log('2FA toggled:', enabled);
     // This would call an API to update the user's 2FA settings in a real implementation
   };
 

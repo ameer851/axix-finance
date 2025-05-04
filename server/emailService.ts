@@ -9,9 +9,8 @@ import { User } from "@shared/schema";
  */
 export async function sendVerificationEmail(user: User): Promise<void> {
   // In a real implementation, this would send an actual email
-  console.log(`[Email Service] Sending verification email to ${user.email}`);
-  
-  // Simulate delay
+  // In a real implementation, this would send an email via a service like SendGrid, Mailgun, etc.
+  // For now, we just simulate the delay
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Return success
@@ -24,9 +23,8 @@ export async function sendVerificationEmail(user: User): Promise<void> {
  * @returns A promise that resolves when the email is sent
  */
 export async function resendVerificationEmail(user: User): Promise<void> {
-  console.log(`[Email Service] Resending verification email to ${user.email}`);
-  
-  // Simulate delay
+  // In a real implementation, this would send an email via a service like SendGrid, Mailgun, etc.
+  // For now, we just simulate the delay
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Return success
