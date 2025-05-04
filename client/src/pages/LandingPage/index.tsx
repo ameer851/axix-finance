@@ -4,6 +4,7 @@ import Hero from '@/components/landing/Hero';
 import Features from '@/components/landing/Features';
 import Pricing from '@/components/landing/Pricing';
 import Testimonials from '@/components/landing/Testimonials';
+import Certificates from '@/components/landing/Certificates';
 import Footer from '@/components/landing/Footer';
 
 const LandingPage: React.FC = () => {
@@ -14,6 +15,7 @@ const LandingPage: React.FC = () => {
       <Features />
       <Pricing />
       <Testimonials />
+      <Certificates />
       <Footer />
     </div>
   );
