@@ -19,6 +19,10 @@ import Settings from "@/pages/Dashboard/Settings";
 import AdminDashboard from "@/pages/Admin";
 import AdminUsers from "@/pages/Admin/Users";
 import AdminTransactions from "@/pages/Admin/Transactions";
+import AdminAnalytics from "@/pages/Admin/Analytics";
+import AdminSettings from "@/pages/Admin/Settings";
+import AdminLogs from "@/pages/Admin/Logs";
+import AdminMessages from "@/pages/Admin/Messages";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import AdminLayout from "@/layouts/AdminLayout";
 
@@ -144,6 +148,46 @@ function Router() {
           <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminTransactions />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+
+      <Route path="/admin/analytics">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminAnalytics />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+
+      <Route path="/admin/settings">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminSettings />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+
+      <Route path="/admin/logs">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminLogs />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+
+      <Route path="/admin/messages">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminMessages />
             </AdminLayout>
           </ProtectedRoute>
         )}
