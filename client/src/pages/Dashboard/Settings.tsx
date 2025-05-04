@@ -52,7 +52,8 @@ import {
   User as UserIcon,
   Upload,
   CreditCard,
-  Download
+  Download,
+  Plus
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useForm } from 'react-hook-form';

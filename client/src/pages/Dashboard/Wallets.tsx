@@ -272,7 +272,7 @@ const Wallets: React.FC = () => {
             <div className="space-y-2">
               <p className="text-sm text-gray-500 dark:text-gray-400">Last Transaction</p>
               <p className="text-lg font-bold text-gray-900 dark:text-white">
-                {transactions && transactions.length > 0 
+                {transactions && transactions.length > 0 && transactions[transactions.length - 1].createdAt
                   ? formatDate(new Date(transactions[transactions.length - 1].createdAt))
                   : 'None'}
               </p>
@@ -343,7 +343,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => 
             <TableCell className="font-medium">
               {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
             </TableCell>
-            <TableCell>{formatDate(new Date(transaction.createdAt))}</TableCell>
+            <TableCell>{transaction.createdAt ? formatDate(new Date(transaction.createdAt)) : 'N/A'}</TableCell>
             <TableCell>
               <span className={transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'}>
                 {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount}

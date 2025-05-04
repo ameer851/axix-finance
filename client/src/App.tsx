@@ -10,6 +10,10 @@ import Login from "@/pages/Auth/Login";
 import Register from "@/pages/Auth/Register";
 import Dashboard from "@/pages/Dashboard";
 import Transactions from "@/pages/Dashboard/Transactions";
+import Portfolio from "@/pages/Dashboard/Portfolio";
+import Wallets from "@/pages/Dashboard/Wallets";
+import Notifications from "@/pages/Dashboard/Notifications";
+import Settings from "@/pages/Dashboard/Settings";
 import AdminDashboard from "@/pages/Admin";
 import AdminUsers from "@/pages/Admin/Users";
 import AdminTransactions from "@/pages/Admin/Transactions";
@@ -54,6 +58,42 @@ function Router() {
           <ProtectedRoute>
             <DashboardLayout>
               <Transactions />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/portfolio">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Portfolio />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/wallets">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Wallets />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/notifications">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Notifications />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/settings">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Settings />
             </DashboardLayout>
           </ProtectedRoute>
         )}
