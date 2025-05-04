@@ -30,6 +30,51 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
+  
+  // Password reset endpoints
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      const user = await storage.getUserByEmail(email);
+      
+      // Even if the user doesn't exist, we still return success for security
+      if (user) {
+        // In a production environment, we would generate a reset token and send an email
+        // For demo purposes, we just return success
+        console.log(`Password reset requested for ${email}`);
+      }
+      
+      return res.status(200).json({ message: "If this email is associated with an account, you will receive password reset instructions." });
+    } catch (error) {
+      console.error("Error in forgot-password:", error);
+      return res.status(500).json({ message: "An error occurred while processing your request" });
+    }
+  });
+  
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and password are required" });
+      }
+      
+      // In a production environment, we would verify the token and update the user's password
+      // For demo purposes, we just return success
+      console.log(`Password reset with token: ${token}`);
+      
+      return res.status(200).json({ message: "Password has been reset successfully" });
+    } catch (error) {
+      console.error("Error in reset-password:", error);
+      return res.status(500).json({ message: "An error occurred while processing your request" });
+    }
+  });
+  
   // Authentication routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
