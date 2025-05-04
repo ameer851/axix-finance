@@ -45,6 +45,7 @@ const Transactions: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [rejectionReason, setRejectionReason] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [confirmationDialog, setConfirmationDialog] = useState<{
     isOpen: boolean;
@@ -147,6 +148,8 @@ const Transactions: React.FC = () => {
       action: null,
       transactionId: null
     });
+    // Reset rejection reason when closing dialog
+    setRejectionReason('');
   };
 
   const confirmAction = () => {
@@ -155,8 +158,14 @@ const Transactions: React.FC = () => {
     if (confirmationDialog.action === 'approve') {
       approveMutation.mutate(confirmationDialog.transactionId);
     } else {
-      rejectMutation.mutate(confirmationDialog.transactionId);
+      rejectMutation.mutate({
+        transactionId: confirmationDialog.transactionId,
+        rejectionReason: rejectionReason || 'Transaction rejected by admin'
+      });
     }
+    
+    // Reset rejection reason after action
+    setRejectionReason('');
   };
 
   // Transaction icon helper
@@ -454,6 +463,13 @@ const Transactions: React.FC = () => {
                   <p className="mt-1 text-gray-900 dark:text-white">{selectedTransaction.description}</p>
                 </div>
               )}
+              
+              {selectedTransaction.status === 'rejected' && selectedTransaction.rejectionReason && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Rejection Reason</p>
+                  <p className="mt-1 text-gray-900 dark:text-white">{selectedTransaction.rejectionReason}</p>
+                </div>
+              )}
 
               {selectedTransaction.status === 'pending' && (
                 <div className="flex space-x-2 justify-end mt-4">
@@ -491,6 +507,22 @@ const Transactions: React.FC = () => {
                 : 'Are you sure you want to reject this transaction? This action cannot be undone.'}
             </DialogDescription>
           </DialogHeader>
+          
+          {confirmationDialog.action === 'reject' && (
+            <div className="mb-4">
+              <label htmlFor="rejectionReason" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Rejection Reason
+              </label>
+              <Input
+                id="rejectionReason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Provide a reason for rejection"
+                className="w-full"
+              />
+            </div>
+          )}
+          
           <DialogFooter className="sm:justify-between">
             <Button variant="outline" onClick={closeConfirmationDialog}>
               Cancel

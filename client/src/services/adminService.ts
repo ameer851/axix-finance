@@ -54,8 +54,11 @@ export async function approveTransaction(transactionId: number): Promise<Transac
   }
 }
 
-export async function rejectTransaction(transactionId: number, rejectionReason?: string): Promise<Transaction> {
+export async function rejectTransaction(
+  params: { transactionId: number, rejectionReason?: string }
+): Promise<Transaction> {
   try {
+    const { transactionId, rejectionReason } = params;
     const response = await apiRequest('PATCH', `/api/transactions/${transactionId}/status`, {
       status: 'rejected',
       rejectionReason: rejectionReason || 'Transaction rejected by admin'

@@ -99,7 +99,10 @@ const AdminDashboard: React.FC = () => {
 
   // Reject transaction handler
   const handleReject = (transactionId: number) => {
-    rejectMutation.mutate(transactionId);
+    rejectMutation.mutate({
+      transactionId,
+      rejectionReason: 'Transaction rejected by admin'
+    });
   };
 
   // Fetch system analytics data
