@@ -46,16 +46,22 @@ const Dashboard: React.FC = () => {
     { label: 'All', value: 'all' }
   ];
 
-  // Dummy chart data for the portfolio performance
-  const portfolioData = [
-    { date: '1', value: 20000 },
-    { date: '5', value: 21500 },
-    { date: '10', value: 19800 },
-    { date: '15', value: 22300 },
-    { date: '20', value: 23100 },
-    { date: '25', value: 22800 },
-    { date: '30', value: 24500 },
-  ];
+  // Portfolio performance data
+  const { data: portfolioData = [], isLoading: portfolioLoading } = useQuery({
+    queryKey: ['/api/user/portfolio-performance'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/user/portfolio-performance');
+        if (!response.ok) {
+          return [];
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Failed to fetch portfolio data:', error);
+        return [];
+      }
+    }
+  });
 
   // Table columns configuration
   const columns = [

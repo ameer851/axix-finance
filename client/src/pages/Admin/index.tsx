@@ -102,16 +102,22 @@ const AdminDashboard: React.FC = () => {
     rejectMutation.mutate(transactionId);
   };
 
-  // Chart data for Analytics
-  const analyticsData = [
-    { date: 'Jan', users: 280, transactions: 120 },
-    { date: 'Feb', users: 300, transactions: 150 },
-    { date: 'Mar', users: 450, transactions: 220 },
-    { date: 'Apr', users: 500, transactions: 250 },
-    { date: 'May', users: 600, transactions: 300 },
-    { date: 'Jun', users: 750, transactions: 350 },
-    { date: 'Jul', users: 900, transactions: 400 },
-  ];
+  // Fetch system analytics data
+  const { data: analyticsData = [], isLoading: analyticsLoading } = useQuery({
+    queryKey: ['/api/admin/analytics'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/admin/analytics');
+        if (!response.ok) {
+          return [];
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Failed to fetch analytics data:', error);
+        return [];
+      }
+    }
+  });
 
   // Chart settings
   const chartButtonOptions = [
