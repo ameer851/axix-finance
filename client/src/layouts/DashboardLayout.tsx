@@ -4,6 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
+import VerificationBanner from '@/components/VerificationBanner';
 import { 
   Home, 
   LineChart,
@@ -253,6 +255,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+              {/* Verification Banner - only show for unverified users */}
+              {user && !user.isVerified && (
+                <VerificationBanner 
+                  userEmail={user.email}
+                  onResendVerification={async () => {
+                    try {
+                      const response = await fetch('/api/user/resend-verification', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error('Failed to resend verification email');
+                      }
+                      
+                      return Promise.resolve();
+                    } catch (error) {
+                      console.error("Error resending verification email:", error);
+                      return Promise.reject(error);
+                    }
+                  }}
+                />
+              )}
+
               {/* Welcome message */}
               <div className="mb-6 bg-white dark:bg-neutral-800 rounded-lg shadow p-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">

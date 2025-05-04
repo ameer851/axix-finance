@@ -50,13 +50,13 @@ const Notifications: React.FC = () => {
   // Mark notification as read
   const handleMarkAsRead = (notificationId: number) => {
     // In a real implementation, this would call an API to mark as read
-    console.log(`Marking notification ${notificationId} as read`);
+    // Mark notification as read
   };
 
   // Mark all notifications as read
   const handleMarkAllAsRead = () => {
     // In a real implementation, this would call an API to mark all as read
-    console.log('Marking all notifications as read');
+    // Mark all notifications as read
   };
 
   // Filter notifications based on active tab

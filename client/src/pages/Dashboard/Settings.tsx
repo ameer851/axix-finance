@@ -110,7 +110,7 @@ const Settings: React.FC = () => {
 
   // Update profile function
   const onProfileSubmit = (data: ProfileFormValues) => {
-    console.log('Profile form submitted:', data);
+    // Submit profile data to server
     // This would call an API to update the user's profile in a real implementation
   };
 
