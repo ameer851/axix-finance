@@ -1,4 +1,4 @@
-import { User, Transaction } from '@shared/schema';
+import { User, Transaction, Message, Setting, Log } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 
 export async function getAllUsers(): Promise<User[]> {
@@ -122,5 +122,97 @@ export async function exportLogs(): Promise<void> {
     window.open('/api/logs/export', '_blank');
   } catch (error: any) {
     throw new Error(error.message || 'Failed to export logs');
+  }
+}
+
+// Analytics endpoints
+export async function getAnalyticsData(): Promise<any[]> {
+  try {
+    const response = await apiRequest('GET', '/api/admin/analytics');
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to fetch analytics data');
+  }
+}
+
+// Settings endpoints
+export async function getAllSettings(): Promise<Setting[]> {
+  try {
+    const response = await apiRequest('GET', '/api/settings');
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to fetch settings');
+  }
+}
+
+export async function updateSetting(name: string, value: string, description?: string): Promise<Setting> {
+  try {
+    const response = await apiRequest('PUT', `/api/settings/${name}`, {
+      name,
+      value,
+      description
+    });
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to update setting');
+  }
+}
+
+// Logs endpoints
+export async function getLogs(params?: {
+  type?: string;
+  query?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<Log[]> {
+  try {
+    let url = '/api/logs';
+    if (params) {
+      const queryParams = new URLSearchParams();
+      if (params.type) queryParams.append('type', params.type);
+      if (params.query) queryParams.append('query', params.query);
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.offset) queryParams.append('offset', params.offset.toString());
+      
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
+      }
+    }
+    
+    const response = await apiRequest('GET', url);
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to fetch logs');
+  }
+}
+
+// Messages endpoints
+export async function getAllMessages(): Promise<Message[]> {
+  try {
+    const response = await apiRequest('GET', '/api/messages');
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to fetch messages');
+  }
+}
+
+export async function getUnreadMessagesCount(): Promise<number> {
+  try {
+    const response = await apiRequest('GET', '/api/messages/unread');
+    const data = await response.json();
+    return data.count || 0;
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to fetch unread message count');
+  }
+}
+
+export async function respondToMessage(messageId: number, response: string): Promise<Message> {
+  try {
+    const apiResponse = await apiRequest('POST', `/api/messages/${messageId}/respond`, {
+      response
+    });
+    return await apiResponse.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to respond to message');
   }
 }
