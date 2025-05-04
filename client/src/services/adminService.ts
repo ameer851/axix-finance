@@ -18,7 +18,7 @@ export async function getAdminDashboardStats(): Promise<{
 }> {
   try {
     // Fetch admin dashboard stats from API
-    const response = await apiRequest('GET', '/api/admin/analytics');
+    const response = await apiRequest('GET', '/api/admin/stats');
     return await response.json();
   } catch (error: any) {
     throw new Error(error.message || 'Failed to fetch admin dashboard statistics');

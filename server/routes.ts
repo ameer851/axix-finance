@@ -666,6 +666,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin analytics endpoint
+  // Get admin dashboard stats
+  app.get("/api/admin/stats", isAdmin, async (req: Request, res: Response) => {
+    try {
+      // Get all users, transactions, and calculate needed stats
+      const users = await storage.getAllUsers();
+      const transactions = await storage.getAllTransactions();
+      
+      // Calculate total users
+      const totalUsers = users.length;
+      
+      // Calculate active users (users who have made a transaction in the last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const activeUserIds = new Set();
+      transactions.forEach(transaction => {
+        if (transaction.createdAt && new Date(transaction.createdAt) >= thirtyDaysAgo) {
+          activeUserIds.add(transaction.userId);
+        }
+      });
+      const activeUsers = activeUserIds.size;
+      
+      // Calculate pending transactions
+      const pendingTransactions = transactions.filter(t => t.status === 'pending').length;
+      
+      // Calculate transaction volume (sum of all completed transaction amounts)
+      const completedTransactions = transactions.filter(t => t.status === 'completed');
+      const transactionVolume = completedTransactions.reduce((sum, t) => {
+        return sum + parseFloat(t.amount as string);
+      }, 0).toFixed(2);
+      
+      return res.json({
+        totalUsers,
+        activeUsers,
+        pendingTransactions,
+        transactionVolume
+      });
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to retrieve admin dashboard statistics" });
+    }
+  });
+  
+  // Get admin analytics data
   app.get("/api/admin/analytics", isAdmin, async (req: Request, res: Response) => {
     try {
       // Get the date range - default to the last 6 months

@@ -268,10 +268,11 @@ const AdminDashboard: React.FC = () => {
           iconBgColor="bg-green-500"
           footer={
             <div className="text-sm">
-              <Link href="/admin/users">
-                <a className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-                  View analytics
-                </a>
+              <Link 
+                href="/admin/users"
+                className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+              >
+                View analytics
               </Link>
             </div>
           }
@@ -284,10 +285,11 @@ const AdminDashboard: React.FC = () => {
           iconBgColor="bg-yellow-500"
           footer={
             <div className="text-sm">
-              <Link href="/admin/transactions">
-                <a className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-                  Review transactions
-                </a>
+              <Link 
+                href="/admin/transactions"
+                className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+              >
+                Review transactions
               </Link>
             </div>
           }
@@ -300,10 +302,11 @@ const AdminDashboard: React.FC = () => {
           iconBgColor="bg-indigo-500"
           footer={
             <div className="text-sm">
-              <Link href="/admin/analytics">
-                <a className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-                  View reports
-                </a>
+              <Link 
+                href="/admin/analytics"
+                className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+              >
+                View reports
               </Link>
             </div>
           }
