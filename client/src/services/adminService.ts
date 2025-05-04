@@ -88,3 +88,65 @@ export async function getUserById(userId: number): Promise<User> {
     throw new Error(error.message || 'Failed to fetch user details');
   }
 }
+
+export async function searchUsers(query: string): Promise<User[]> {
+  try {
+    const response = await apiRequest('GET', `/api/search/users?query=${encodeURIComponent(query)}`, undefined, {
+      headers: {
+        'x-user-role': 'admin', // For demo purposes
+        'x-user-id': '1'
+      }
+    });
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to search users');
+  }
+}
+
+export async function updateUserVerification(userId: number, isVerified: boolean): Promise<User> {
+  try {
+    const response = await apiRequest('PATCH', `/api/users/${userId}/verify`, {
+      isVerified
+    }, {
+      headers: {
+        'x-user-role': 'admin', // For demo purposes
+        'x-user-id': '1'
+      }
+    });
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to update user verification status');
+  }
+}
+
+export async function updateUserActiveStatus(userId: number, isActive: boolean): Promise<User> {
+  try {
+    const response = await apiRequest('PATCH', `/api/users/${userId}/status`, {
+      isActive
+    }, {
+      headers: {
+        'x-user-role': 'admin', // For demo purposes
+        'x-user-id': '1'
+      }
+    });
+    return await response.json();
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to update user active status');
+  }
+}
+
+export async function exportUsers(): Promise<void> {
+  try {
+    window.open('/api/users/export', '_blank');
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to export users');
+  }
+}
+
+export async function exportLogs(): Promise<void> {
+  try {
+    window.open('/api/logs/export', '_blank');
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to export logs');
+  }
+}

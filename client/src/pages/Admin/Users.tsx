@@ -6,9 +6,14 @@ import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { User } from '@shared/schema';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { getAllUsers, searchUsers } from '@/services/adminService';
+import { 
+  getAllUsers, 
+  searchUsers, 
+  updateUserVerification, 
+  updateUserActiveStatus, 
+  exportUsers 
+} from '@/services/adminService';
 import { getUserTransactions } from '@/services/userService';
-import { apiRequest } from '@/lib/queryClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -115,16 +120,8 @@ const Users: React.FC = () => {
 
   // Verify user mutation
   const verifyUserMutation = useMutation({
-    mutationFn: async (params: { userId: number, isVerified: boolean }) => {
-      return apiRequest(`/api/users/${params.userId}/verify`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isVerified: params.isVerified }),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': 'admin', // For demo purposes
-          'x-user-id': '1' // For demo purposes
-        }
-      });
+    mutationFn: (params: { userId: number, isVerified: boolean }) => {
+      return updateUserVerification(params.userId, params.isVerified);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -146,16 +143,8 @@ const Users: React.FC = () => {
 
   // Activate/deactivate user mutation
   const updateUserStatusMutation = useMutation({
-    mutationFn: async (params: { userId: number, isActive: boolean }) => {
-      return apiRequest(`/api/users/${params.userId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive: params.isActive }),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': 'admin', // For demo purposes
-          'x-user-id': '1' // For demo purposes
-        }
-      });
+    mutationFn: (params: { userId: number, isActive: boolean }) => {
+      return updateUserActiveStatus(params.userId, params.isActive);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -522,7 +511,7 @@ const Users: React.FC = () => {
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Verification Status</p>
                   <div className="mt-1 flex items-center">
                     {selectedUser.isVerified ? (
-                      <Badge variant="success" className="gap-1">
+                      <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         <CheckCircle2 className="h-3 w-3" /> Verified
                       </Badge>
                     ) : (
@@ -536,7 +525,7 @@ const Users: React.FC = () => {
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Account Status</p>
                   <div className="mt-1 flex items-center">
                     {selectedUser.isActive ? (
-                      <Badge className="gap-1 bg-green-500">
+                      <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         <CheckCircle2 className="h-3 w-3" /> Active
                       </Badge>
                     ) : (
