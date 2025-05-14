@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+// Layout is handled in App.tsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import StatCard from '@/components/ui/stat-card';
 import ChartCard from '@/components/ui/chart-card';
@@ -35,22 +36,45 @@ import {
   Bar,
   Legend
 } from 'recharts';
+import { ColumnDef } from "@tanstack/react-table";
 
 const AdminDashboard: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch admin dashboard stats
-  const { data: dashboardStats, isLoading: statsLoading } = useQuery({
+  // Use initialData for proper initialization of stats
+  const { data: stats = {
+    totalUsers: 0,
+    activeUsers: 0,
+    pendingTransactions: 0,
+    transactionVolume: "0"
+  }, isLoading: statsLoading, isError: statsError } = useQuery({
     queryKey: ['/api/admin/stats'],
-    queryFn: getAdminDashboardStats
+    queryFn: getAdminDashboardStats,
+    staleTime: 30000,
+    retry: 2,
+    refetchOnWindowFocus: false
   });
 
-  // Fetch pending transactions
-  const { data: pendingTransactions, isLoading: transactionsLoading } = useQuery({
+  // Ensure pendingTransactions has a default empty array
+  const { data: pendingTransactions = [], isLoading: transactionsLoading, isError: transactionsError } = useQuery({
     queryKey: ['/api/transactions/pending'],
-    queryFn: getPendingTransactions
+    queryFn: getPendingTransactions,
+    staleTime: 30000,
+    retry: 2,
+    refetchOnWindowFocus: false
   });
+  
+  // Handle transaction errors
+  React.useEffect(() => {
+    if (transactionsError) {
+      toast({
+        title: "Error loading transactions",
+        description: "Could not load pending transactions",
+        variant: "destructive"
+      });
+    }
+  }, [transactionsError, toast]);
 
   // Approve transaction mutation
   const approveMutation = useMutation({
@@ -130,28 +154,30 @@ const AdminDashboard: React.FC = () => {
   ];
 
   // Table columns for pending transactions
-  const pendingTransactionsColumns = [
+  const columns: ColumnDef<Transaction>[] = [
     {
       header: 'User',
       accessorKey: 'userId',
-      cell: async (transaction: Transaction) => {
+      cell: async ({ row }) => {
         try {
-          // In a real implementation, you would use a query hook to fetch this data
-          // or ensure it's included in the transaction data from the API
-          const user = await getUserById(transaction.userId);
+          const user = await getUserById(row.original.userId);
           return (
             <div className="flex items-center">
               <div className="flex-shrink-0 h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
                 <span className="text-gray-600 dark:text-gray-300 font-medium">
-                  {`${user.firstName[0]}${user.lastName[0]}`}
+                  {user && user.firstName && user.lastName ? 
+                    `${user.firstName[0]}${user.lastName[0]}` : 
+                    `U${row.original.userId}`}
                 </span>
               </div>
               <div className="ml-4">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {`${user.firstName} ${user.lastName}`}
+                  {user && user.firstName && user.lastName ? 
+                    `${user.firstName} ${user.lastName}` : 
+                    `User #${row.original.userId}`}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  ID: #{user.id}
+                  ID: #{user?.id || row.original.userId}
                 </div>
               </div>
             </div>
@@ -164,7 +190,7 @@ const AdminDashboard: React.FC = () => {
               </div>
               <div className="ml-4">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  User #{transaction.userId}
+                  User #{row.original.userId}
                 </div>
               </div>
             </div>
@@ -175,7 +201,7 @@ const AdminDashboard: React.FC = () => {
     {
       header: 'Transaction Type',
       accessorKey: 'type',
-      cell: (transaction: Transaction) => {
+      cell: ({ row }) => {
         const getTransactionIcon = (type: string) => {
           switch (type) {
             case 'deposit':
@@ -194,10 +220,12 @@ const AdminDashboard: React.FC = () => {
         return (
           <div>
             <div className="text-sm text-gray-900 dark:text-white flex items-center">
-              {getTransactionIcon(transaction.type)}
-              <span className="ml-1">{transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</span>
+              {getTransactionIcon(row.original.type)}
+              <span className="ml-1">{row.original.type.charAt(0).toUpperCase() + row.original.type.slice(1)}</span>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{transaction.description || `${transaction.type} transaction`}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {row.original.description || `${row.original.type} transaction`}
+            </div>
           </div>
         );
       }
@@ -205,17 +233,17 @@ const AdminDashboard: React.FC = () => {
     {
       header: 'Amount',
       accessorKey: 'amount',
-      cell: (transaction: Transaction) => (
+      cell: ({ row }) => (
         <div className="text-sm font-medium text-gray-900 dark:text-white">
-          {formatCurrency(transaction.amount as string)}
+          {formatCurrency(row.original.amount)}
         </div>
       )
     },
     {
       header: 'Date',
       accessorKey: 'createdAt',
-      cell: (transaction: Transaction) => {
-        const date = transaction.createdAt ? new Date(transaction.createdAt) : new Date();
+      cell: ({ row }) => {
+        const date = row.original.createdAt ? new Date(row.original.createdAt) : new Date();
         return (
           <div>
             <div className="text-sm text-gray-900 dark:text-white">{formatDate(date)}</div>
@@ -227,15 +255,15 @@ const AdminDashboard: React.FC = () => {
     {
       header: 'Status',
       accessorKey: 'status',
-      cell: (transaction: Transaction) => {
-        const { bgClass, textClass } = getStatusColor(transaction.status);
+      cell: ({ row }) => {
+        const { bgClass, textClass } = getStatusColor(row.original.status);
         return (
           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bgClass} ${textClass}`}>
-            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+            {row.original.status.charAt(0).toUpperCase() + row.original.status.slice(1)}
           </span>
         );
       }
-    },
+    }
   ];
 
   return (
@@ -246,7 +274,7 @@ const AdminDashboard: React.FC = () => {
       <div className="grid gap-4 md:grid-cols-4 mb-6">
         <StatCard
           title="Total Users"
-          value={statsLoading ? "Loading..." : dashboardStats?.totalUsers.toString() || "0"}
+          value={statsLoading ? "Loading..." : stats.totalUsers.toString()}
           icon={<Users className="h-6 w-6 text-white" />}
           iconBgColor="bg-primary-500"
           footer={
@@ -263,7 +291,7 @@ const AdminDashboard: React.FC = () => {
         
         <StatCard
           title="Active Accounts"
-          value={statsLoading ? "Loading..." : dashboardStats?.activeUsers.toString() || "0"}
+          value={statsLoading ? "Loading..." : stats.activeUsers.toString()}
           icon={<UserCheck className="h-6 w-6 text-white" />}
           iconBgColor="bg-green-500"
           footer={
@@ -280,7 +308,7 @@ const AdminDashboard: React.FC = () => {
         
         <StatCard
           title="Pending Approvals"
-          value={statsLoading ? "Loading..." : dashboardStats?.pendingTransactions.toString() || "0"}
+          value={statsLoading ? "Loading..." : stats.pendingTransactions.toString()}
           icon={<ClockIcon className="h-6 w-6 text-white" />}
           iconBgColor="bg-yellow-500"
           footer={
@@ -297,7 +325,7 @@ const AdminDashboard: React.FC = () => {
         
         <StatCard
           title="Transaction Volume"
-          value={statsLoading ? "Loading..." : formatCurrency(dashboardStats?.transactionVolume || "0")}
+          value={statsLoading ? "Loading..." : formatCurrency(stats.transactionVolume)}
           icon={<BarChartIcon className="h-6 w-6 text-white" />}
           iconBgColor="bg-indigo-500"
           footer={
@@ -378,16 +406,16 @@ const AdminDashboard: React.FC = () => {
         </div>
         <div className="border-t border-gray-200 dark:border-gray-700">
           <DataTable
-            columns={pendingTransactionsColumns}
-            data={pendingTransactions || []}
+            columns={columns}
+            data={pendingTransactions}
             loading={transactionsLoading}
-            actions={(transaction) => (
+            actions={(row: Transaction) => (
               <div className="flex space-x-2 justify-end">
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 border-green-600 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900"
-                  onClick={() => handleApprove(transaction.id)}
+                  onClick={() => handleApprove(row.id)}
                   disabled={approveMutation.isPending}
                 >
                   <Check className="mr-1 h-4 w-4" /> Approve
@@ -396,7 +424,7 @@ const AdminDashboard: React.FC = () => {
                   variant="outline"
                   size="sm"
                   className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 border-red-600 dark:border-red-400 hover:bg-red-50 dark:hover:bg-red-900"
-                  onClick={() => handleReject(transaction.id)}
+                  onClick={() => handleReject(row.id)}
                   disabled={rejectMutation.isPending}
                 >
                   <X className="mr-1 h-4 w-4" /> Reject

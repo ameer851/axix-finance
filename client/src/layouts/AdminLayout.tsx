@@ -7,14 +7,17 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { 
   LayoutDashboard, 
   Users,
-  ArrowLeftRight,
   BarChart,
   Settings,
   ClipboardList,
-  MessageSquare,
   Search,
   Menu,
-  LogOut
+  LogOut,
+  Shield,
+  Database,
+  Bell,
+  Link2,
+  MessageSquare
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -29,11 +32,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navItems = [
     { path: '/admin', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
     { path: '/admin/users', label: 'Users', icon: <Users className="h-5 w-5" /> },
-    { path: '/admin/transactions', label: 'Transactions', icon: <ArrowLeftRight className="h-5 w-5" /> },
+    { path: '/admin/roles', label: 'Roles', icon: <Shield className="h-5 w-5" /> },
     { path: '/admin/analytics', label: 'Analytics', icon: <BarChart className="h-5 w-5" /> },
-    { path: '/admin/settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
+    { path: '/admin/security', label: 'Security', icon: <Shield className="h-5 w-5" /> },
+    { path: '/admin/system-config', label: 'System Config', icon: <Settings className="h-5 w-5" /> },
+    { path: '/admin/data', label: 'Data', icon: <Database className="h-5 w-5" /> },
+    { path: '/admin/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
     { path: '/admin/logs', label: 'Logs', icon: <ClipboardList className="h-5 w-5" /> },
-    { path: '/admin/messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
+    { path: '/admin/integrations', label: 'Integrations', icon: <Link2 className="h-5 w-5" /> },
   ];
 
   const getInitials = (name: string) => {

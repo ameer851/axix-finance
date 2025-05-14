@@ -2,35 +2,47 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Mail, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { resendVerificationEmail } from '@/services/authService';
+import { useAuth } from '@/context/AuthContext';
 
-interface VerificationBannerProps {
-  userEmail: string;
-  onResendVerification: () => Promise<void>;
-}
-
-const VerificationBanner: React.FC<VerificationBannerProps> = ({ 
-  userEmail, 
-  onResendVerification 
-}) => {
+const VerificationBanner: React.FC = () => {
   const [isResending, setIsResending] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const { toast } = useToast();
+  const { user, refreshUserData } = useAuth();
+  
+  // Safety check - don't render if user is verified or not logged in
+  if (!user || user.isVerified) {
+    return null;
+  }
+
+  const userEmail = user.email || '';
 
   const handleResendClick = async () => {
     setIsResending(true);
     setSuccessMessage('');
     
     try {
-      await onResendVerification();
-      setSuccessMessage(`Verification email sent to ${userEmail}`);
-      toast({
-        title: "Verification email sent",
-        description: `We've sent a verification email to ${userEmail}. Please check your inbox.`,
-      });
-    } catch (error) {
+      const result = await resendVerificationEmail();
+      if (result.success) {
+        setSuccessMessage(`Verification email sent to ${userEmail}`);
+        toast({
+          title: "Verification email sent",
+          description: `We've sent a verification email to ${userEmail}. Please check your inbox.`,
+        });
+        // Refresh user data in case verification status changed
+        await refreshUserData();
+      } else {
+        toast({
+          title: "Failed to send verification email",
+          description: result.message || "Please try again later or contact support.",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
       toast({
         title: "Failed to send verification email",
-        description: "Please try again later or contact support.",
+        description: error.message || "Please try again later or contact support.",
         variant: "destructive"
       });
     } finally {

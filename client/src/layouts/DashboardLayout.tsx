@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import VerificationBanner from '@/components/VerificationBanner';
+import CustomerSupport from '@/components/CustomerSupport';
+import NotificationDropdown from '@/components/ui/notification-dropdown';
+import useNotificationWebSocket from '@/hooks/useNotificationWebSocket';
 import { 
   Home, 
   LineChart,
@@ -17,7 +20,14 @@ import {
   Menu,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  X,
+  User,
+  History,
+  Share2,
+  TrendingUp,
+  Edit,
+  DollarSign
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -30,6 +40,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [greeting, setGreeting] = useState('Good day');
+  const { toast } = useToast();
+  
+  // Initialize WebSocket connection for real-time notifications
+  const { isConnected: wsConnected } = useNotificationWebSocket(user?.id);
+
+  // Search functionality
+  const [searchValue, setSearchValue] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   useEffect(() => {
     // Set greeting based on time of day
@@ -43,25 +62,72 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     }
   }, []);
 
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
-    { path: '/portfolio', label: 'Portfolio', icon: <LineChart className="h-5 w-5" /> },
-    { path: '/transactions', label: 'Transactions', icon: <ArrowLeftRight className="h-5 w-5" /> },
-    { path: '/wallets', label: 'Wallets', icon: <Wallet className="h-5 w-5" /> },
-    { path: '/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
-    { path: '/settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
-  ];
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(part => part[0]).join('').toUpperCase();
-  };
-
-  const userInitials = user ? getInitials(`${user.firstName} ${user.lastName}`) : 'U';
-  const userName = user ? `${user.firstName} ${user.lastName}` : 'User';
-
   const handleLogout = () => {
     logout();
     window.location.href = '/';
+  };
+
+  const navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+    { path: '/deposit', label: 'Deposit', icon: <DollarSign className="h-5 w-5" /> },
+    { path: '/deposit-list', label: 'Deposit List', icon: <LineChart className="h-5 w-5" /> },
+    { path: '/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
+    { path: '/withdraw', label: 'Withdraw', icon: <ArrowLeftRight className="h-5 w-5" /> },
+    { path: '/history', label: 'History', icon: <History className="h-5 w-5" /> },
+    { path: '/referrals', label: 'Referrals', icon: <Share2 className="h-5 w-5" /> },
+    { path: '/marketing', label: 'Marketing', icon: <TrendingUp className="h-5 w-5" /> },
+    { path: '/settings', label: 'Investment Plans', icon: <Settings className="h-5 w-5" /> },
+    { path: '/edit-account', label: 'Edit Account', icon: <Edit className="h-5 w-5" /> },
+    { path: '#', label: 'Logout', icon: <LogOut className="h-5 w-5" />, onClick: handleLogout },
+  ];
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(part => part?.[0] || '').join('').toUpperCase();
+  };
+
+  const userInitials = user && user.firstName && user.lastName ? 
+    getInitials(`${user.firstName} ${user.lastName}`) : 'U';
+  const userName = user && user.firstName && user.lastName ?
+    `${user.firstName} ${user.lastName}` : 'User';
+
+
+  // Handle search functionality
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchValue.trim()) return;
+
+    setIsSearching(true);
+
+    // Simulate searching through items
+    const results = [
+      ...navItems.filter(item => 
+        item.label.toLowerCase().includes(searchValue.toLowerCase())
+      ).map(item => ({
+        type: 'page',
+        label: item.label,
+        path: item.path
+      })),
+    ];
+
+    // Simulate an API call
+    setTimeout(() => {
+      setSearchResults(results);
+      setIsSearching(false);
+
+      if (results.length === 0) {
+        toast({
+          title: "No results found",
+          description: `No matches for "${searchValue}"`,
+          variant: "destructive"
+        });
+      }
+    }, 500);
+  };
+
+  // Handle clearing search
+  const clearSearch = () => {
+    setSearchValue("");
+    setSearchResults([]);
   };
 
   return (
@@ -69,7 +135,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       {/* Sidebar - Desktop */}
       <div className={`hidden md:flex md:flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'md:w-20' : 'md:w-64'}`}>
         <div className="flex flex-col w-full">
-          <div className="flex flex-col h-0 flex-1 bg-white dark:bg-neutral-800 shadow-lg relative">
+          <div className="flex flex-col h-0 flex-1 bg-primary text-white shadow-lg relative">
             {/* Collapse Button */}
             <button 
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -83,57 +149,41 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </button>
             
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <div className={`flex items-center flex-shrink-0 px-4 ${sidebarCollapsed ? 'justify-center' : ''}`}>
-                <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold">C</div>
+              <div className={`flex flex-col items-center flex-shrink-0 px-4 py-4 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+                <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center text-primary font-bold mb-2">
+                  <Avatar className="h-full w-full">
+                    <AvatarImage src="" alt={userName} />
+                    <AvatarFallback className="bg-white text-primary text-xl">{userInitials}</AvatarFallback>
+                  </Avatar>
+                </div>
                 {!sidebarCollapsed && (
-                  <span className="ml-2 text-xl font-bold text-primary-800 dark:text-primary-400">Carax Finance</span>
+                  <span className="text-lg font-medium text-white text-center">{userName}</span>
                 )}
               </div>
               
-              <nav className="mt-5 flex-1 px-2 bg-white dark:bg-neutral-800 space-y-1">
+              <nav className="mt-5 flex-1 px-2 bg-primary space-y-1">
                 {navItems.map((item) => {
                   const isActive = location === item.path;
                   return (
                     <Link key={item.path} href={item.path}>
-                      <a className={`${
-                        isActive 
-                          ? 'bg-gray-100 dark:bg-neutral-700 text-gray-900 dark:text-white'
-                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
-                        } group flex ${sidebarCollapsed ? 'justify-center' : ''} items-center px-2 py-2 text-sm font-medium rounded-md`}
+                      <div
+                        className={`${
+                          isActive 
+                            ? 'bg-white text-primary'
+                            : 'text-white hover:bg-primary-foreground/10 hover:text-white'
+                        } group flex ${sidebarCollapsed ? 'justify-center' : ''} items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer`}
                         title={sidebarCollapsed ? item.label : ''}
                       >
                         <span className={sidebarCollapsed ? '' : 'mr-3'} >{item.icon}</span>
                         {!sidebarCollapsed && item.label}
-                      </a>
+                      </div>
                     </Link>
                   );
                 })}
               </nav>
             </div>
             
-            <div className="flex-shrink-0 flex border-t border-gray-200 dark:border-gray-700 p-4">
-              <div className="flex-shrink-0 w-full group block">
-                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''}`}>
-                  <div>
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src="" alt={userName} />
-                      <AvatarFallback>{userInitials}</AvatarFallback>
-                    </Avatar>
-                  </div>
-                  {!sidebarCollapsed && (
-                    <div className="ml-3">
-                      <p className="text-base font-medium text-gray-700 dark:text-white">{userName}</p>
-                      <button 
-                        onClick={handleLogout}
-                        className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 flex items-center"
-                      >
-                        <LogOut className="h-4 w-4 mr-1" /> Sign out
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            {/* Removed user profile from bottom since it's now at the top */}
           </div>
         </div>
       </div>
@@ -150,27 +200,56 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <Menu className="h-6 w-6" />
           </button>
           <div className="flex-1 px-4 flex justify-between">
-            <div className="flex-1 flex">
-              <div className="w-full flex md:ml-0">
-                <label htmlFor="search" className="sr-only">Search</label>
-                <div className="relative w-full text-gray-400 focus-within:text-gray-600 dark:focus-within:text-gray-300">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Search className="h-5 w-5" />
+            <div className="flex-1 flex items-center">
+              <div className="w-full max-w-lg lg:max-w-xs">
+                <form onSubmit={handleSearch} className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
                   </div>
                   <Input
                     id="search"
-                    className="block w-full h-full pl-10 pr-3 py-2 border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-transparent sm:text-sm bg-transparent"
+                    name="search"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Search"
                     type="search"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
                   />
-                </div>
+                  {searchValue && (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={clearSearch}
+                    >
+                      <X className="h-4 w-4 text-gray-400" />
+                    </button>
+                  )}
+                </form>
+                
+                {/* Search results dropdown */}
+                {searchResults.length > 0 && (
+                  <div className="absolute mt-1 w-full bg-white dark:bg-neutral-800 shadow-lg rounded-md z-50 max-h-60 overflow-auto">
+                    <ul className="py-1">
+                      {searchResults.map((result, index) => (
+                        <li key={index}>
+                          <Link href={result.path}>
+                            <a 
+                              className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-700"
+                              onClick={clearSearch}
+                            >
+                              {result.label}
+                            </a>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
             <div className="ml-4 flex items-center md:ml-6">
-              <Button variant="ghost" size="icon" className="mr-2 relative">
-                <Bell className="h-6 w-6" />
-                <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-600"></span>
-              </Button>
+              {user && user.id && <NotificationDropdown userId={user.id} />}
 
               {/* Mobile user dropdown */}
               <div className="ml-3 relative md:hidden">
@@ -202,8 +281,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               </div>
               <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
                 <div className="flex-shrink-0 flex items-center px-4">
-                  <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold">C</div>
-                  <span className="ml-2 text-xl font-bold text-primary-800 dark:text-primary-400">Carax Finance</span>
+                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">C</div>
+                  <span className="ml-2 text-xl font-bold text-primary">Carax Finance</span>
                 </div>
                 <nav className="mt-5 px-2 space-y-1">
                   {navItems.map((item) => {
@@ -213,12 +292,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         <a
                           className={`${
                             isActive
-                              ? 'bg-gray-100 dark:bg-neutral-700 text-gray-900 dark:text-white'
-                              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
+                              ? 'bg-primary text-white'
+                              : 'text-primary hover:bg-primary/10 hover:text-primary-foreground'
                           } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
                           onClick={() => setMobileMenuOpen(false)}
                         >
-                          <span className="mr-4 text-gray-500 dark:text-gray-300">{item.icon}</span>
+                          <span className="mr-4 text-inherit">{item.icon}</span>
                           {item.label}
                         </a>
                       </Link>
@@ -226,20 +305,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   })}
                 </nav>
               </div>
-              <div className="flex-shrink-0 flex border-t border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex-shrink-0 flex border-t border-primary/20 p-4">
                 <div className="flex-shrink-0 group block">
                   <div className="flex items-center">
                     <div>
                       <Avatar className="h-10 w-10">
                         <AvatarImage src="" alt={userName} />
-                        <AvatarFallback>{userInitials}</AvatarFallback>
+                        <AvatarFallback className="bg-primary text-white">{userInitials}</AvatarFallback>
                       </Avatar>
                     </div>
                     <div className="ml-3">
-                      <p className="text-base font-medium text-gray-700 dark:text-white">{userName}</p>
+                      <p className="text-base font-medium text-primary">{userName}</p>
                       <button
                         onClick={handleLogout}
-                        className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 flex items-center"
+                        className="text-sm font-medium text-primary/70 hover:text-primary flex items-center"
                       >
                         <LogOut className="h-4 w-4 mr-1" /> Sign out
                       </button>
@@ -257,28 +336,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               {/* Verification Banner - only show for unverified users */}
               {user && !user.isVerified && (
-                <VerificationBanner 
-                  userEmail={user.email}
-                  onResendVerification={async () => {
-                    try {
-                      const response = await fetch('/api/user/resend-verification', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        }
-                      });
-                      
-                      if (!response.ok) {
-                        throw new Error('Failed to resend verification email');
-                      }
-                      
-                      return Promise.resolve();
-                    } catch (error) {
-                      // Silent error handling, the toast will be shown from the VerificationBanner component
-                      return Promise.reject(error);
-                    }
-                  }}
-                />
+                <VerificationBanner />
               )}
 
               {/* Welcome message */}
@@ -296,6 +354,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Customer Support Floating Buttons */}
+      <CustomerSupport whatsappNumber="" />
     </div>
   );
 };

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ColumnDef, Row, CellContext } from '@tanstack/react-table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
-import { User } from '@shared/schema';
+import { User, Transaction } from '@shared/schema';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { 
   getAllUsers, 
@@ -55,18 +56,41 @@ const Users: React.FC = () => {
   const [isUserSearchLoading, setIsUserSearchLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); // "all", "verified", "unverified", "active", "inactive"
 
-  // Fetch all users
-  const { data: users, isLoading } = useQuery<User[]>({
+  // Fetch all users with improved error handling
+  const { data: users, isLoading, isError: usersError } = useQuery<User[]>({
     queryKey: ['/api/users'],
-    queryFn: getAllUsers
+    queryFn: async () => {
+      try {
+        console.log('Fetching all users...');
+        const result = await getAllUsers();
+        console.log(`Fetched ${result?.length || 0} users`);
+        return result;
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        // Show error toast
+        toast({
+          title: 'Error loading users',
+          description: error instanceof Error ? error.message : 'Failed to load user data',
+          variant: 'destructive'
+        });
+        // Return empty array instead of throwing to prevent component crash
+        return [];
+      }
+    },
+    retry: 2,
+    refetchOnWindowFocus: false,
+    staleTime: 30000 // 30 seconds
   });
 
   // Fetch selected user's transactions
-  const { data: userTransactions, isLoading: transactionsLoading } = useQuery({
+  const { data: transactionResponse, isLoading: transactionsLoading } = useQuery({
     queryKey: ['/api/users', selectedUser?.id, 'transactions'],
     queryFn: () => getUserTransactions(selectedUser!.id),
     enabled: !!selectedUser && showTransactions,
   });
+  
+  // Extract transactions array from the response
+  const userTransactions = transactionResponse?.transactions || [];
 
   // Add useQuery for user search
   const { data: searchResults, refetch: performSearch } = useQuery<User[]>({
@@ -203,104 +227,132 @@ const Users: React.FC = () => {
     }
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
+  const getInitials = (firstName?: string, lastName?: string) => {
+    if (!firstName || !lastName) return 'U';
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   };
 
-  const userTableColumns = [
+  // Define the column types properly
+  const userTableColumns: ColumnDef<User, any>[] = [
     {
       header: 'User',
       accessorKey: 'username',
-      cell: (user: User) => (
-        <div className="flex items-center">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback className="bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
-              {getInitials(user.firstName, user.lastName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900 dark:text-white">
-              {`${user.firstName} ${user.lastName}`}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              @{user.username}
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <div className="flex items-center">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                {getInitials(user.firstName, user.lastName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                {user.firstName && user.lastName ? 
+                  `${user.firstName} ${user.lastName}` : 
+                  user.username || `User #${user.id}`}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                @{user.username}
+              </div>
             </div>
           </div>
-        </div>
-      )
+        );
+      }
     },
     {
       header: 'Email',
       accessorKey: 'email',
-      cell: (user: User) => (
-        <div className="text-sm text-gray-900 dark:text-white">{user.email}</div>
-      )
+      cell: ({ row }) => {
+        const user = row.original;
+        return <div className="text-sm text-gray-900 dark:text-white">{user.email}</div>;
+      }
     },
     {
       header: 'Role',
       accessorKey: 'role',
-      cell: (user: User) => (
-        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          user.role === 'admin' 
-            ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-            : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-        }`}>
-          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-        </span>
-      )
+      cell: ({ row }) => {
+        const user = row.original;
+        const userRole = user.role || 'user';
+        return (
+          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            userRole === 'admin' 
+              ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+              : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+          }`}>
+            {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+          </span>
+        );
+      }
     },
     {
       header: 'Account Balance',
       accessorKey: 'balance',
-      cell: (user: User) => (
-        <div className="text-sm font-medium text-gray-900 dark:text-white">
-          {formatCurrency(user.balance as string)}
-        </div>
-      )
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <div className="text-sm font-medium text-gray-900 dark:text-white">
+            {formatCurrency(user.balance as string)}
+          </div>
+        );
+      }
     },
     {
       header: 'Joined',
       accessorKey: 'createdAt',
-      cell: (user: User) => (
-        <div className="text-sm text-gray-900 dark:text-white">
-          {formatDate(user.createdAt)}
-        </div>
-      )
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <div className="text-sm text-gray-900 dark:text-white">
+            {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
+          </div>
+        );
+      }
     },
   ];
 
-  const transactionTableColumns = [
+  const transactionTableColumns: ColumnDef<Transaction, any>[] = [
     {
       header: 'Type',
       accessorKey: 'type',
-      cell: (transaction: any) => (
-        <div className="capitalize text-sm text-gray-900 dark:text-white">
-          {transaction.type}
-        </div>
-      )
+      cell: ({ row }) => {
+        const transaction = row.original;
+        return (
+          <div className="capitalize text-sm text-gray-900 dark:text-white">
+            {transaction.type}
+          </div>
+        );
+      }
     },
     {
       header: 'Amount',
       accessorKey: 'amount',
-      cell: (transaction: any) => (
-        <div className="text-sm font-medium text-gray-900 dark:text-white">
-          {formatCurrency(transaction.amount)}
-        </div>
-      )
+      cell: ({ row }) => {
+        const transaction = row.original;
+        return (
+          <div className="text-sm font-medium text-gray-900 dark:text-white">
+            {formatCurrency(transaction.amount)}
+          </div>
+        );
+      }
     },
     {
       header: 'Date',
       accessorKey: 'createdAt',
-      cell: (transaction: any) => (
-        <div className="text-sm text-gray-900 dark:text-white">
-          {formatDate(transaction.createdAt)}
-        </div>
-      )
+      cell: ({ row }) => {
+        const transaction = row.original;
+        return (
+          <div className="text-sm text-gray-900 dark:text-white">
+            {transaction.createdAt ? formatDate(transaction.createdAt) : 'N/A'}
+          </div>
+        );
+      }
     },
     {
       header: 'Status',
       accessorKey: 'status',
-      cell: (transaction: any) => {
+      cell: ({ row }) => {
+        const transaction = row.original;
         let bgColor, textColor;
         
         switch(transaction.status) {
@@ -322,8 +374,8 @@ const Users: React.FC = () => {
         }
         
         return (
-          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bgColor} ${textColor}`}>
-            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${bgColor} ${textColor}`}>
+            {transaction.status ? transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1) : 'Unknown'}
           </span>
         );
       }
@@ -481,7 +533,9 @@ const Users: React.FC = () => {
                 </Avatar>
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                    {`${selectedUser.firstName} ${selectedUser.lastName}`}
+                    {selectedUser.firstName && selectedUser.lastName ? 
+                      `${selectedUser.firstName} ${selectedUser.lastName}` : 
+                      selectedUser.username || `User #${selectedUser.id}`}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">@{selectedUser.username}</p>
                 </div>
@@ -497,7 +551,7 @@ const Users: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Role</p>
-                  <p className="mt-1 text-gray-900 dark:text-white capitalize">{selectedUser.role}</p>
+                  <p className="mt-1 text-gray-900 dark:text-white capitalize">{selectedUser.role || 'user'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Account Balance</p>
@@ -595,7 +649,9 @@ const Users: React.FC = () => {
               </Avatar>
               <div>
                 <h3 className="text-base font-medium text-gray-900 dark:text-white">
-                  {`${selectedUser.firstName} ${selectedUser.lastName}`}
+                  {selectedUser.firstName && selectedUser.lastName ? 
+                    `${selectedUser.firstName} ${selectedUser.lastName}` : 
+                    selectedUser.username || `User #${selectedUser.id}`}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedUser.username}</p>
               </div>
@@ -655,7 +711,9 @@ const Users: React.FC = () => {
               </Avatar>
               <div>
                 <h3 className="text-base font-medium text-gray-900 dark:text-white">
-                  {`${selectedUser.firstName} ${selectedUser.lastName}`}
+                  {selectedUser.firstName && selectedUser.lastName ? 
+                    `${selectedUser.firstName} ${selectedUser.lastName}` : 
+                    selectedUser.username || `User #${selectedUser.id}`}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedUser.username}</p>
               </div>
@@ -695,7 +753,11 @@ const Users: React.FC = () => {
         {selectedUser && (
           <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
-              <DialogTitle>{`${selectedUser.firstName} ${selectedUser.lastName}'s Transactions`}</DialogTitle>
+              <DialogTitle>
+                {selectedUser.firstName && selectedUser.lastName ? 
+                  `${selectedUser.firstName} ${selectedUser.lastName}'s Transactions` : 
+                  `${selectedUser.username || `User #${selectedUser.id}`}'s Transactions`}
+              </DialogTitle>
               <DialogDescription>
                 Transaction history for this user
               </DialogDescription>

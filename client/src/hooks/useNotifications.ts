@@ -1,0 +1,248 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import useNotificationWebSocket from './useNotificationWebSocket';
+import { toast as showToast } from 'react-toastify';
+import {
+  getNotifications,
+  getUnreadNotificationCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  deleteAllNotifications,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type NotificationFilters,
+} from '@/services/notificationService';
+
+// Updated Notification type to include missing properties
+export type Notification = {
+  id: number;
+  userId: number;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  priority: 'low' | 'medium' | 'high';
+  relatedEntityType: string | null;
+  relatedEntityId: number | null;
+  createdAt: Date;
+  expiresAt: Date | null;
+  read?: boolean; // Optional for compatibility
+};
+
+// Helper to map Notification to include `read` property for dropdown
+export function mapNotificationWithRead(n: Notification): Notification {
+  return {
+    ...n,
+    read: typeof n.read === 'boolean' ? n.read : (typeof n.isRead === 'boolean' ? n.isRead : false),
+  };
+}
+
+// Query key factory
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  lists: () => [...notificationKeys.all, 'list'] as const,
+  list: (filters: NotificationFilters = {}) => [...notificationKeys.lists(), filters] as const,
+  unreadCount: () => [...notificationKeys.all, 'unreadCount'] as const,
+  preferences: () => [...notificationKeys.all, 'preferences'] as const,
+};
+
+// Hook to fetch notifications with optional filters
+export function useNotifications(userId: number) {
+  const { isConnected, sendMessage, connectionAttempts } = useNotificationWebSocket(userId);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleNewNotification = (notification: Notification) => {
+      setNotifications((prev) => [...prev, notification]);
+
+      // Show toast notification for high-priority notifications
+      if (notification.priority === 'high') {
+        showToast(notification.message, {
+          autoClose: 5000, // Valid property for toast
+        });
+      }
+    };
+
+    // Simulate receiving notifications from WebSocket
+    const mockNotification: Notification = {
+      id: 1,
+      userId: 123,
+      type: 'system',
+      title: 'System Alert',
+      message: 'You have a new message!',
+      isRead: false,
+      priority: 'high',
+      relatedEntityType: null,
+      relatedEntityId: null,
+      createdAt: new Date(),
+      expiresAt: null,
+      read: false,
+    };
+    handleNewNotification(mockNotification);
+
+    return () => {
+      // Cleanup logic if needed
+    };
+  }, [isConnected]);
+
+  return { notifications, isConnected, sendMessage, connectionAttempts };
+}
+
+// Hook to fetch unread notification count
+export function useUnreadNotificationsCount() {
+  const { data = 0 } = useQuery({
+    queryKey: notificationKeys.unreadCount(),
+    queryFn: getUnreadNotificationCount,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
+  });
+
+  return data;
+}
+
+// Hook to mark a notification as read
+export function useMarkAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: () => {
+      // Invalidate and refetch notifications and count
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
+    },
+  });
+}
+
+// Hook to mark all notifications as read
+export function useMarkAllAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markAllNotificationsAsRead,
+    onSuccess: () => {
+      // Invalidate and refetch notifications and count
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
+    },
+  });
+}
+
+// Hook to delete a notification
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteNotification,
+    onSuccess: () => {
+      // Invalidate and refetch notifications
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+    },
+  });
+}
+
+// Hook to delete all notifications (with optional filter)
+export function useDeleteAllNotifications() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteAllNotifications,
+    onSuccess: () => {
+      // Invalidate and refetch notifications
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
+    },
+  });
+}
+
+// Hook to fetch notification preferences
+export function useNotificationPreferences() {
+  return useQuery({
+    queryKey: notificationKeys.preferences(),
+    queryFn: getNotificationPreferences,
+  });
+}
+
+// Hook to update notification preferences
+export function useUpdateNotificationPreferences() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateNotificationPreferences,
+    onSuccess: () => {
+      // Invalidate and refetch preferences
+      queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+    },
+  });
+}
+
+// Hook to handle real-time updates and display notifications
+export function useRealTimeNotifications() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  // Subscribe to WebSocket updates
+  const { isConnected, sendMessage, connectionAttempts } = useNotificationWebSocket();
+
+  useEffect(() => {
+    // Update the notifications cache
+    queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
+
+    // Show toast notifications for all updates
+    // This logic can be extended to handle real-time notifications
+  }, [queryClient, toast]);
+
+  return { isConnected, sendMessage, connectionAttempts };
+}
+
+// NotificationDropdown component
+export function NotificationDropdown({ userId }: NotificationDropdownProps) {
+  // ...existing code...
+  // Map notifications to ensure `read` property exists
+  const mappedNotifications = notifications ? notifications.map(mapNotificationWithRead) : [];
+  // ...existing code...
+  return (
+    <DropdownMenu>
+      {/* ...existing code... */}
+      <ScrollArea className="h-80">
+        {isMarkingAsRead ? (
+          <div className="p-2 space-y-3">
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} className="flex gap-3 p-2">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : mappedNotifications && mappedNotifications.length > 0 ? (
+          <div className="py-1">
+            {mappedNotifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onRead={handleMarkAsRead}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-40 p-4 text-center">
+            <Bell className="h-8 w-8 text-gray-300 mb-2" />
+            <p className="text-sm text-gray-500 mb-1">No notifications</p>
+            <p className="text-xs text-gray-400">
+              We'll notify you when something important happens
+            </p>
+          </div>
+        )}
+      </ScrollArea>
+      {/* ...existing code... */}
+    </DropdownMenu>
+  );
+}

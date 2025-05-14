@@ -1,5 +1,11 @@
 import React from 'react';
 import {
+  useReactTable,
+  flexRender,
+  getCoreRowModel,
+  type ColumnDef,
+} from "@tanstack/react-table";
+import {
   Table,
   TableBody,
   TableCell,
@@ -10,24 +16,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-interface Column<T> {
-  header: string;
-  accessorKey: keyof T;
-  cell?: (item: T) => React.ReactNode;
-}
-
-interface DataTableProps<T> {
-  columns: Column<T>[];
-  data: T[];
+interface DataTableProps<TData> {
+  columns: ColumnDef<TData, any>[];
+  data: TData[];
   loading?: boolean;
-  actions?: (item: T) => React.ReactNode;
+  actions?: (row: TData) => React.ReactNode;
   pageIndex?: number;
   pageSize?: number;
   pageCount?: number;
   onPageChange?: (page: number) => void;
 }
 
-export function DataTable<T>({
+export function DataTable<TData>({
   columns,
   data,
   loading = false,
@@ -36,7 +36,13 @@ export function DataTable<T>({
   pageSize = 10,
   pageCount = 1,
   onPageChange,
-}: DataTableProps<T>) {
+}: DataTableProps<TData>) {
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -50,15 +56,22 @@ export function DataTable<T>({
       <div className="rounded-md border">
         <Table>
           <TableHeader>
-            <TableRow>
-              {columns.map((column, i) => (
-                <TableHead key={i}>{column.header}</TableHead>
-              ))}
-              {actions && <TableHead>Actions</TableHead>}
-            </TableRow>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                  </TableHead>
+                ))}
+                {actions && <TableHead>Actions</TableHead>}
+              </TableRow>
+            ))}
           </TableHeader>
           <TableBody>
-            {data.length === 0 ? (
+            {!table.getRowModel().rows?.length ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length + (actions ? 1 : 0)}
@@ -68,17 +81,20 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((row, i) => (
-                <TableRow key={i}>
-                  {columns.map((column, j) => (
-                    <TableCell key={j}>
-                      {column.cell
-                        ? column.cell(row)
-                        : (row[column.accessorKey] as React.ReactNode)}
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                   {actions && (
-                    <TableCell className="text-right">{actions(row)}</TableCell>
+                    <TableCell className="text-right">
+                      {actions(row.original)}
+                    </TableCell>
                   )}
                 </TableRow>
               ))

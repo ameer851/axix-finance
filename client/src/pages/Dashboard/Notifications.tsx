@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { DollarSign, ShieldAlert, MessageSquare, CheckCircle2, Settings, Clock, UserCheck } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 import {
   Card,
   CardContent,
@@ -10,28 +11,42 @@ import {
 } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Bell,
-  Clock,
-  CheckCircle2,
-  DollarSign,
-  MessageSquare,
-  UserCheck,
-  ShieldAlert,
-  Settings
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Loader2,
+  MailOpen,
+  AlertCircle,
+  Search,
+  Shield,
+  Tag,
+  Trash2,
+  User
 } from 'lucide-react';
-import { formatDate, truncateText } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-// This would come from the API in a real implementation
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: 'system' | 'transaction' | 'security' | 'announcement';
-  isRead: boolean;
-  createdAt: string;
-}
+import { useToast } from '@/hooks/use-toast';
+import { 
+  getNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead, 
+  deleteNotification, 
+  getNotificationTitle,
+  NotificationType,
+  NotificationPriority,
+  type Notification 
+} from '@/services/notificationService';
 
 const Notifications: React.FC = () => {
   const { user } = useAuth();
@@ -161,13 +176,15 @@ const Notifications: React.FC = () => {
                             : 'text-gray-900 dark:text-white'}`}>
                             {notification.title}
                           </p>
-                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center text-xs text-gray-500">
                             <Clock className="h-3 w-3 mr-1" />
-                            {formatDate(new Date(notification.createdAt))}
+                            {notification.createdAt ? formatDate(notification.createdAt) : 'Unknown date'}
                           </div>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {truncateText(notification.message, 120)}
+                          {notification.message && notification.message.length > 100 ? 
+                            `${notification.message.substring(0, 100)}...` : 
+                            notification.message}
                         </p>
                         {!notification.isRead && (
                           <Button 

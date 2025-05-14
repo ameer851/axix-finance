@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Home } from 'lucide-react';
+import { Eye, EyeOff, Home, AlertCircle } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const formSchema = z.object({
   username: z.string().min(3, { message: 'Username must be at least 3 characters' }),
@@ -27,10 +28,29 @@ const formSchema = z.object({
 
 const Login: React.FC = () => {
   const [, navigate] = useLocation();
-  const { login } = useAuth();
+  const { login, isAdmin, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isServerAvailable, setIsServerAvailable] = useState<boolean>(true);
   const { toast } = useToast();
+
+  // Check server connection on component mount
+  useEffect(() => {
+    const checkServer = async () => {
+      try {
+        const response = await fetch('/api/health', { 
+          signal: AbortSignal.timeout(3000)
+        });
+        setIsServerAvailable(response.ok);
+      } catch (error) {
+        console.error('Server connection check failed:', error);
+        setIsServerAvailable(false);
+      }
+    };
+    
+    checkServer();
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,28 +63,41 @@ const Login: React.FC = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    setLoginError(null);
+    
     try {
-      await login(values.username, values.password);
+      if (!isServerAvailable) {
+        throw new Error('Cannot connect to the server. Please make sure the server is running.');
+      }
+      
+      if (typeof login !== 'function') {
+        throw new Error('Authentication service is not available. Please try again later.');
+      }
+      
+      const userData = await login(values.username, values.password);
 
       // Successfully logged in
       toast({
         title: "Login successful",
         description: "Welcome back to Carax Finance!",
       });
-
-      // Redirect based on role
-      const user = localStorage.getItem('user');
-      if (user) {
-        const userData = JSON.parse(user);
-        if (userData.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+      
+      // Check the user role from the response and redirect accordingly
+      // Handle case where role might be undefined by providing a default 'user' role
+      const userRole = userData?.role || 'user';
+      if (userRole === 'admin') {
+        navigate('/admin');
       } else {
         navigate('/dashboard');
       }
+      
     } catch (error: any) {
+      console.error("Login submission error:", error);
+      
+      // Set a user-friendly error message
+      setLoginError(error.message || "Invalid username or password");
+      
+      // Also show a toast notification
       toast({
         title: "Login failed",
         description: error.message || "Invalid username or password",
@@ -79,8 +112,8 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-900 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex justify-center items-center mb-4">
-            <div className="h-12 w-12 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-xl">C</div>
+          <div className="flex flex-col justify-center items-center mb-4">
+            <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Carax Finance</h1>
           </div>
           <CardTitle className="text-2xl font-bold text-center">Login to your account</CardTitle>
           <CardDescription className="text-center">
@@ -88,6 +121,24 @@ const Login: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {!isServerAvailable && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Cannot connect to the server. Please make sure the server is running.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {loginError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {loginError}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField

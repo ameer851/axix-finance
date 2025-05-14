@@ -56,7 +56,7 @@ const Pricing: React.FC = () => {
     {
       name: "LUXURY PLAN",
       description: "Our premium plan for high-volume investors.",
-      price: "$20000+",
+      price: "$20000-UNLIMITED",
       returnRate: "7.5% daily for 30 days",
       features: [
         "Principal included",

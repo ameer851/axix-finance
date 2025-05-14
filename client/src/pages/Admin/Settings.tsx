@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { getAllSettings, updateSetting } from '@/services/adminService';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -47,11 +47,7 @@ const AdminSettings: React.FC = () => {
     queryKey: ['/api/settings'],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', '/api/settings');
-        if (!response.ok) {
-          throw new Error('Failed to fetch settings');
-        }
-        return await response.json();
+        return await getAllSettings();
       } catch (error) {
         toast({
           title: 'Error',
@@ -60,7 +56,9 @@ const AdminSettings: React.FC = () => {
         });
         return [];
       }
-    }
+    },
+    staleTime: 60000, // 1 minute
+    refetchOnWindowFocus: false
   });
 
   // Setup form
@@ -76,11 +74,7 @@ const AdminSettings: React.FC = () => {
   // Update setting mutation
   const updateMutation = useMutation({
     mutationFn: async (values: SettingForm) => {
-      const response = await apiRequest('PUT', `/api/settings/${values.name}`, values);
-      if (!response.ok) {
-        throw new Error('Failed to update setting');
-      }
-      return await response.json();
+      return await updateSetting(values.name, values.value, values.description);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
@@ -103,11 +97,7 @@ const AdminSettings: React.FC = () => {
   // Create setting mutation
   const createMutation = useMutation({
     mutationFn: async (values: SettingForm) => {
-      const response = await apiRequest('PUT', `/api/settings/${values.name}`, values);
-      if (!response.ok) {
-        throw new Error('Failed to create setting');
-      }
-      return await response.json();
+      return await updateSetting(values.name, values.value, values.description);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });

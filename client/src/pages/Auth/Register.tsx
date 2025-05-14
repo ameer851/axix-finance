@@ -24,7 +24,12 @@ const formSchema = z.object({
   lastName: z.string().min(2, { message: 'Last name must be at least 2 characters' }),
   email: z.string().email({ message: 'Please enter a valid email address' }),
   username: z.string().min(3, { message: 'Username must be at least 3 characters' }),
-  walletAddress: z.string().min(1, { message: 'Wallet address is required' }),
+  // Wallet address fields - they're all optional
+  bitcoinAddress: z.string().optional(),
+  bitcoinCashAddress: z.string().optional(),
+  ethereumAddress: z.string().optional(),
+  bnbAddress: z.string().optional(),
+  usdtTrc20Address: z.string().optional(),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
   confirmPassword: z.string(),
   terms: z.boolean().refine(val => val === true, {
@@ -50,7 +55,11 @@ const Register: React.FC = () => {
       lastName: '',
       email: '',
       username: '',
-      walletAddress: '',
+      bitcoinAddress: '',
+      bitcoinCashAddress: '',
+      ethereumAddress: '',
+      bnbAddress: '',
+      usdtTrc20Address: '',
       password: '',
       confirmPassword: '',
       terms: false,
@@ -89,8 +98,8 @@ const Register: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-900 px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex justify-center items-center mb-4">
-            <div className="h-12 w-12 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-xl">C</div>
+          <div className="flex flex-col justify-center items-center mb-4">
+            <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Carax Finance</h1>
           </div>
           <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
           <CardDescription className="text-center">
@@ -159,12 +168,68 @@ const Register: React.FC = () => {
 
               <FormField
                 control={form.control}
-                name="walletAddress"
+                name="bitcoinAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Wallet Address</FormLabel>
+                    <FormLabel>Bitcoin (BTC) Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your crypto wallet address" {...field} />
+                      <Input placeholder="Enter your Bitcoin address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="bitcoinCashAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bitcoin Cash (BCH) Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your Bitcoin Cash address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="ethereumAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ethereum (ETH) Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your Ethereum address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="bnbAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Binance Coin (BNB) Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your BNB address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="usdtTrc20Address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>USDT (TRC20) Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your USDT TRC20 address" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

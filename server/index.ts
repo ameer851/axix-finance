@@ -1,50 +1,209 @@
+import 'dotenv/config'; // Load .env file
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { DatabaseStorage } from "./storage";
+import { checkDatabaseConnection } from "./db"; // Import our enhanced database connection check
 
+// Declare global variables for TypeScript
+declare global {
+  var dbConnectionIssues: boolean;
+}
+
+// Create a storage instance
+const storage = new DatabaseStorage();
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+
+// Initialize express application
 const app = express();
-app.use(express.json());
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production',
+  crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production',
+  crossOriginOpenerPolicy: process.env.NODE_ENV === 'production',
+  crossOriginResourcePolicy: process.env.NODE_ENV === 'production'
+}));
+// For development, set up a very permissive CORS policy
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:4000');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+    } else {
+      next();
+    }
+  });
+} else {
+  // For production, use the more restrictive cors middleware
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || 'https://your-production-domain.com',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
+}
+
+// Body parsers
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false }));
 
+// Rate limiting to prevent brute force attacks
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+
+// Request logging middleware with improved formatting
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  
+  // Store original methods
+  const originalJson = res.json;
+  const originalSend = res.send;
+  
+  // Override json method
+  res.json = function(body) {
+    // Restore original method before calling it
+    res.json = originalJson;
+    
+    // Log response info after the response has been set up
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      
+      if (path.startsWith("/api")) {
+        // Create log entry for API calls
+        const logData = {
+          timestamp: new Date().toISOString(),
+          method: req.method,
+          path,
+          status: res.statusCode,
+          duration: `${duration}ms`,
+          ip,
+          userId: req.user?.id || 'anonymous'
+        };
+        
+        // Log to console in development
+        if (process.env.NODE_ENV !== 'production') {
+          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+          if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
+          log(logLine);
+        } else {
+          // Log to database in production for important events
+          if (res.statusCode >= 400 || path.includes('/auth/') || path.includes('/admin/')) {
+            storage.createLog({
+              type: res.statusCode >= 400 ? "error" : "info",
+              message: `${req.method} ${path} ${res.statusCode}`,
+              details: logData,
+              userId: req.user?.id,
+              ipAddress: ip as string
+            }).catch(err => console.error('Failed to log to database:', err));
+          }
+          
+          // Always console log in production, formatted as JSON for easier parsing
+          console.log(JSON.stringify(logData));
+        }
+      }
+    });
+    
+    // Call the original method
+    return originalJson.call(this, body);
   };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+  
+  // Also handle res.send for completeness
+  res.send = function(body) {
+    // Restore original method before calling it
+    res.send = originalSend;
+    
+    // Log response info after the response has been set up
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        if (process.env.NODE_ENV !== 'production') {
+          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+          if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
+          log(logLine);
+        } else {
+          console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            method: req.method,
+            path,
+            status: res.statusCode,
+            duration: `${duration}ms`,
+            ip,
+            userId: req.user?.id || 'anonymous'
+          }));
+        }
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
+    });
+    
+    // Call the original method
+    return originalSend.call(this, body);
+  };
+  
   next();
 });
 
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // Global error handler - should be registered after all routes
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    
+    // Log error details but don't expose them in production
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const logData = {
+      error: err.name || 'Error',
+      message: err.message,
+      stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
+      path: req.path,
+      method: req.method,
+      status,
+      ip,
+      userId: req.user?.id || 'anonymous',
+      timestamp: new Date().toISOString()
+    };
+    
+    // Log all errors to console
+    console.error('Server error:', JSON.stringify(logData));
+    
+    // For production, also log severe errors to database
+    if (process.env.NODE_ENV === 'production' && status >= 500) {
+      storage.createLog({
+        type: "error",
+        message: `${err.name || 'Error'}: ${err.message}`,
+        details: logData,
+        userId: req.user?.id,
+        ipAddress: ip as string
+      }).catch(err => console.error('Failed to log error to database:', err));
+    }
 
-    res.status(status).json({ message });
-    throw err;
+    // Only send response if headers haven't been sent yet
+    if (!res.headersSent) {
+      // Sanitize error messages in production
+      const clientMessage = process.env.NODE_ENV === 'production' && status >= 500
+        ? 'An unexpected error occurred. Our team has been notified.'
+        : message;
+        
+      res.status(status).json({ 
+        message: clientMessage,
+        requestId: Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+        status
+      });
+    }
   });
 
   // importantly only setup vite in development and after
@@ -56,15 +215,92 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-})();
+  // ALWAYS serve the app on a configurable port
+  // this serves both the API and the client
+  const port = process.env.PORT || 4000;
+  const host = process.env.HOST || '0.0.0.0'; // Listen on all interfaces in production
+  
+  // Check database connection before starting the server
+  try {
+    // Always check database connection regardless of environment
+    const dbConnected = await checkDatabaseConnection();
+    
+    if (!dbConnected) {
+      console.warn('⚠️ Database connection issues detected. Server will start but some features may be limited.');
+      // Set a global flag that can be used to show a maintenance message in the UI
+      global.dbConnectionIssues = true;
+    }
+    
+    // Start the server
+    server.listen({
+      port,
+      host,
+      reusePort: true,
+    }, () => {
+      console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode`);
+      console.log(`🔗 http://localhost:${port}`);
+      
+      if (dbConnected) {
+        console.log('📊 Database connection established');
+        
+        // Initialize database with admin user and required settings
+        if (process.env.NODE_ENV === 'production') {
+          storage.initializeDatabase().catch(err => {
+            console.error('Failed to initialize database:', err);
+          });
+        }
+      } else {
+        console.log('⚠️ Running with limited functionality due to database connection issues');
+        console.log('⚠️ The application will automatically retry connecting to the database');
+      }
+      
+      // Set up periodic database connection check (every 30 seconds)
+      const dbCheckInterval = setInterval(async () => {
+        const reconnected = await checkDatabaseConnection();
+        
+        if (reconnected && global.dbConnectionIssues) {
+          console.log('✅ Database connection re-established');
+          global.dbConnectionIssues = false;
+          
+          // Initialize database if needed
+          if (process.env.NODE_ENV === 'production') {
+            storage.initializeDatabase().catch(err => {
+              console.error('Failed to initialize database:', err);
+            });
+          }
+        } else if (!reconnected && !global.dbConnectionIssues) {
+          console.error('❌ Lost connection to database');
+          global.dbConnectionIssues = true;
+        }
+      }, 30000); // Check every 30 seconds
+      
+      // Clean up interval on process exit
+      process.on('SIGTERM', () => {
+        clearInterval(dbCheckInterval);
+        server.close();
+      });
+      
+      process.on('SIGINT', () => {
+        clearInterval(dbCheckInterval);
+        server.close();
+      });
+    });
+  } catch (err) {
+    console.error('Failed to check database connection:', err);
+    console.warn('⚠️ Starting server without database connection check');
+    
+    // Start the server anyway
+    server.listen({
+      port,
+      host,
+      reusePort: true,
+    }, () => {
+      console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode`);
+      console.log(`🔗 http://localhost:${port}`);
+      console.log('⚠️ Running with limited functionality due to database connection issues');
+    });
+  }
+})().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

@@ -8,6 +8,8 @@ export const transactionTypeEnum = pgEnum("transaction_type", ["deposit", "withd
 export const transactionStatusEnum = pgEnum("transaction_status", ["pending", "completed", "rejected"]);
 export const logTypeEnum = pgEnum("log_type", ["info", "warning", "error", "audit"]);
 export const messageStatusEnum = pgEnum("message_status", ["unread", "read", "replied"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["transaction", "account", "security", "marketing", "system", "verification"]);
+export const notificationPriorityEnum = pgEnum("notification_priority", ["low", "medium", "high"]);
 
 // Users table
 export const users = pgTable("users", {
@@ -26,6 +28,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorSecret: text("two_factor_secret"),
+  verificationToken: text("verification_token"),
+  verificationTokenExpiry: timestamp("verification_token_expiry"),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetTokenExpiry: timestamp("password_reset_token_expiry"),
+  // New wallet address fields
+  bitcoinAddress: text("bitcoin_address"),
+  bitcoinCashAddress: text("bitcoin_cash_address"),
+  ethereumAddress: text("ethereum_address"),
+  bnbAddress: text("bnb_address"),
+  usdtTrc20Address: text("usdt_trc20_address"),
 });
 
 // Transactions table
@@ -66,6 +78,21 @@ export const messages = pgTable("messages", {
   response: text("response"),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: notificationTypeEnum("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").default(false),
+  priority: notificationPriorityEnum("priority").notNull().default("medium"),
+  relatedEntityType: text("related_entity_type"),
+  relatedEntityId: integer("related_entity_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
 // System settings table
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
@@ -86,7 +113,12 @@ export const insertUserSchema = createInsertSchema(users).omit({
   isActive: true,
   twoFactorEnabled: true,
   twoFactorSecret: true,
-  referredBy: true
+  referredBy: true,
+  bitcoinAddress: true,
+  bitcoinCashAddress: true,
+  ethereumAddress: true,
+  bnbAddress: true,
+  usdtTrc20Address: true
 });
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ 
@@ -117,6 +149,12 @@ export const insertSettingSchema = createInsertSchema(settings).omit({
   updatedBy: true
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+  isRead: true
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -133,8 +171,13 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
 
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
 export type TransactionType = "deposit" | "withdrawal" | "transfer" | "investment";
 export type TransactionStatus = "pending" | "completed" | "rejected";
 export type LogType = "info" | "warning" | "error" | "audit";
 export type MessageStatus = "unread" | "read" | "replied";
 export type Role = "user" | "admin";
+export type NotificationType = "transaction" | "account" | "security" | "marketing" | "system" | "verification";
+export type NotificationPriority = "low" | "medium" | "high";

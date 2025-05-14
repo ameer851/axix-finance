@@ -21,11 +21,17 @@ const Navbar: React.FC = () => {
               <a href="#features" className="border-transparent text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:border-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                 Features
               </a>
+              <a href="#video" className="border-transparent text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:border-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                Watch Demo
+              </a>
               <a href="#pricing" className="border-transparent text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:border-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                 Investment Plans
               </a>
               <a href="#testimonials" className="border-transparent text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:border-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                 Testimonials
+              </a>
+              <a href="#team" className="border-transparent text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:border-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                Our Team
               </a>
             </div>
           </div>
@@ -90,6 +96,13 @@ const Navbar: React.FC = () => {
                 Features
               </a>
               <a
+                href="#video"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Watch Demo
+              </a>
+              <a
                 href="#pricing"
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
                 onClick={() => setMobileMenuOpen(false)}
@@ -102,6 +115,13 @@ const Navbar: React.FC = () => {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Testimonials
+              </a>
+              <a
+                href="#team"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Our Team
               </a>
               <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex space-y-2 flex-col mt-3 px-2">
