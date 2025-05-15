@@ -12,6 +12,14 @@ export type NotificationFilters = {
   limit?: number;
 };
 
+// Alert settings type definitions
+export type AlertSetting = {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+};
+
 /**
  * Get all notifications for the current user
  */
@@ -298,9 +306,101 @@ export function getNotificationIcon(notification: Notification): string {
 export function getNotificationColor(priority: NotificationPriority): string {
   const colors: Record<NotificationPriority, string> = {
     low: 'blue',
-    medium: 'green',
+    medium: 'yellow',
     high: 'red'
   };
   
   return colors[priority] || 'blue';
+}
+
+/**
+ * Get user alert settings
+ */
+export async function getAlertSettings(userId: number): Promise<AlertSetting[]> {
+  try {
+    const response = await apiRequest('GET', `/api/users/${userId}/alert-settings`);
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching alert settings:', error);
+    
+    if (error.status === 401) {
+      throw new Error('You must be logged in to view alert settings.');
+    } else if (error.status === 404) {
+      throw new Error('User not found.');
+    } else if (error.isOffline || error.isNetworkError) {
+      // Return default alert settings for offline mode
+      return [
+        {
+          id: 'price_alerts',
+          name: 'Price Alerts',
+          description: 'Notifications when securities reach your target price',
+          enabled: true
+        },
+        {
+          id: 'market_news',
+          name: 'Market News',
+          description: 'Important news about the market and your holdings',
+          enabled: true
+        },
+        {
+          id: 'deposit_withdrawal',
+          name: 'Deposits & Withdrawals',
+          description: 'Notifications about account funding activities',
+          enabled: true
+        },
+        {
+          id: 'trade_confirmations',
+          name: 'Trade Confirmations',
+          description: 'Confirmations when your trades are executed',
+          enabled: true
+        },
+        {
+          id: 'dividend_payments',
+          name: 'Dividend Payments',
+          description: 'Notifications about dividend payments',
+          enabled: true
+        },
+        {
+          id: 'account_statements',
+          name: 'Account Statements',
+          description: 'Notifications when new statements are available',
+          enabled: false
+        },
+        {
+          id: 'tax_documents',
+          name: 'Tax Documents',
+          description: 'Notifications when tax documents are ready',
+          enabled: true
+        }
+      ];
+    }
+    
+    throw new Error(error.message || 'Failed to fetch alert settings. Please try again later.');
+  }
+}
+
+/**
+ * Update an alert setting
+ */
+export async function updateAlertSetting(userId: number, settingId: string, enabled: boolean): Promise<AlertSetting> {
+  try {
+    const response = await apiRequest('PATCH', `/api/users/${userId}/alert-settings/${settingId}`, {
+      enabled
+    });
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error updating alert setting:', error);
+    
+    if (error.status === 401) {
+      throw new Error('You must be logged in to update alert settings.');
+    } else if (error.status === 404) {
+      throw new Error('Setting not found.');
+    } else if (error.status === 403) {
+      throw new Error('You do not have permission to update this setting.');
+    } else if (error.isOffline || error.isNetworkError) {
+      throw new Error('You are currently offline. Please try again when you have an internet connection.');
+    }
+    
+    throw new Error(error.message || 'Failed to update alert setting. Please try again later.');
+  }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Bell, CheckIcon, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -30,27 +30,14 @@ import {
   getNotificationColor
 } from "@/services/notificationService";
 
-// Updated Notification type to include specific `type` values and `read` property
-export type Notification = {
-  id: number;
-  userId: number;
-  type: 'transaction' | 'account' | 'security' | 'marketing' | 'system' | 'verification';
-  title: string;
-  message: string;
-  isRead: boolean | null;
-  priority: 'low' | 'medium' | 'high';
-  relatedEntityType: string | null;
-  relatedEntityId: number | null;
-  createdAt: Date | null;
-  expiresAt: Date | null;
-  read: boolean; // Added `read` property
-};
+// Use Notification type from useNotifications to ensure compatibility
+import type { Notification } from "@/hooks/useNotifications";
 
 // Refactored NotificationItem to ensure it is a valid JSX component
 const NotificationItem: React.FC<{ notification: Notification; onRead: (id: number) => void }> = ({ notification, onRead }) => {
-  const navigate = useNavigate();
-  const title = getNotificationTitle(notification);
-  const icon = getNotificationIcon(notification);
+  const [, setLocation] = useLocation();
+  const title = getNotificationTitle(notification as Parameters<typeof getNotificationTitle>[0]);
+  const icon = getNotificationIcon(notification as any);
   const color = getNotificationColor(notification.priority || 'medium');
 
   const handleClick = () => {
@@ -62,13 +49,13 @@ const NotificationItem: React.FC<{ notification: Notification; onRead: (id: numb
     if (notification.relatedEntityType && notification.relatedEntityId) {
       switch (notification.relatedEntityType) {
         case 'transaction':
-          navigate(`/dashboard/transactions/${notification.relatedEntityId}`);
+          setLocation(`/dashboard/transactions/${notification.relatedEntityId}`);
           break;
         case 'account':
-          navigate('/dashboard/settings/profile');
+          setLocation('/dashboard/settings/profile');
           break;
         case 'security_event':
-          navigate('/dashboard/settings/security');
+          setLocation('/dashboard/settings/security');
           break;
         default:
           // Just mark as read without navigation
@@ -124,7 +111,7 @@ interface NotificationDropdownProps {
 
 export function NotificationDropdown({ userId }: NotificationDropdownProps) {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const unreadCount = useUnreadNotificationsCount();
   const { notifications, isConnected, sendMessage, connectionAttempts } = useNotifications(userId);
   
@@ -169,7 +156,7 @@ export function NotificationDropdown({ userId }: NotificationDropdownProps) {
   };
   
   const handleViewAll = () => {
-    navigate('/dashboard/notifications');
+    setLocation('/dashboard/notifications');
   };
   
   // Map notifications to ensure `read` property exists

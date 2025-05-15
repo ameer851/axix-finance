@@ -69,8 +69,8 @@ const Navbar: React.FC = () => {
         <div className="sm:hidden">
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
           
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-white dark:bg-secondary shadow-lg">
-            <div className="flex items-center justify-between px-4 pt-4">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-white dark:bg-secondary shadow-lg transition-transform duration-300 ease-in-out">
+            <div className="flex items-center justify-between px-4 pt-5 pb-2">
               <div className="flex items-center">
                 <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
                   <Landmark className="h-5 w-5" />
@@ -87,51 +87,33 @@ const Navbar: React.FC = () => {
               </Button>
             </div>
             
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              <a
-                href="#features"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Features
-              </a>
-              <a
-                href="#video"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Watch Demo
-              </a>
-              <a
-                href="#pricing"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Investment Plans
-              </a>
-              <a
-                href="#testimonials"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Testimonials
-              </a>
-              <a
-                href="#team"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Our Team
-              </a>
-              <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex space-y-2 flex-col mt-3 px-2">
+            <div className="px-4 pt-2 pb-6 space-y-1 max-h-[calc(100vh-100px)] overflow-y-auto">
+              {[
+                { href: "#features", label: "Features" },
+                { href: "#video", label: "Watch Demo" },
+                { href: "#pricing", label: "Investment Plans" },
+                { href: "#testimonials", label: "Testimonials" },
+                { href: "#team", label: "Our Team" }
+              ].map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  className="flex items-center px-4 py-3 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-primary hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ))}
+              
+              <div className="pt-5 pb-3 mt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col space-y-3 mt-4 px-1">
                   <Link href="/login">
-                    <Button variant="outline" className="w-full justify-center border-primary text-primary hover:bg-primary/10">
+                    <Button variant="outline" className="w-full justify-center border-primary text-primary hover:bg-primary/10 py-5 text-base">
                       Login
                     </Button>
                   </Link>
                   <Link href="/register">
-                    <Button className="w-full justify-center text-white bg-primary hover:bg-primary/90">
+                    <Button className="w-full justify-center text-white bg-primary hover:bg-primary/90 py-5 text-base">
                       Start Investing
                     </Button>
                   </Link>

@@ -264,7 +264,7 @@ const NotificationsAlerts: React.FC<NotificationsAlertsProps> = ({
                               {notification.title}
                             </h4>
                             <span className="text-xs text-muted-foreground">
-                              {notification.createdAt ? new Date(notification.createdAt).toLocaleDateString() : ''}
+                              {new Date(notification.createdAt).toLocaleDateString()}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground">{notification.message}</p>

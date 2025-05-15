@@ -34,8 +34,8 @@ const Withdraw: React.FC = () => {
     staleTime: 60000 // 1 minute
   });
 
-  // availableBalance is already a number from the API
-  const availableBalance = balanceData?.availableBalance || 0;
+  // Make sure availableBalance is a number
+  const availableBalance = balanceData?.availableBalance ? Number(balanceData.availableBalance) : 0;
 
   // Withdraw mutation
   const withdrawMutation = useMutation({
@@ -89,7 +89,7 @@ const Withdraw: React.FC = () => {
     if (parseFloat(amount) > availableBalance) {
       toast({
         title: 'Insufficient Balance',
-        description: `Your available balance is $${availableBalance.toFixed(2)}.`,
+        description: `Your available balance is $${Number(availableBalance).toFixed(2)}.`,
         variant: 'destructive'
       });
       return;
@@ -153,7 +153,7 @@ const Withdraw: React.FC = () => {
                 {balanceLoading ? (
                   <span className="animate-pulse">Loading...</span>
                 ) : (
-                  `$${availableBalance.toFixed(2)}`
+                  `$${Number(availableBalance).toFixed(2)}`
                 )}
               </span>
             </div>

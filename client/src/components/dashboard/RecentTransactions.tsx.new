@@ -209,7 +209,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
                       </div>
                     </TableCell>
                     <TableCell>{transaction.description || '—'}</TableCell>
-                    <TableCell>{transaction.createdAt ? formatDate(typeof transaction.createdAt === 'string' ? transaction.createdAt : transaction.createdAt.toISOString()) : '—'}</TableCell>
+                    <TableCell>{formatDate(transaction.createdAt)}</TableCell>
                     <TableCell className={`text-right ${getAmountClass(transaction.type)}`}>
                       {getAmountPrefix(transaction.type)}{formatCurrency(transaction.amount)}
                     </TableCell>

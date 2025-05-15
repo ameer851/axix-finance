@@ -199,50 +199,5 @@ export function useRealTimeNotifications() {
   return { isConnected, sendMessage, connectionAttempts };
 }
 
-// NotificationDropdown component
-export function NotificationDropdown({ userId }: NotificationDropdownProps) {
-  // ...existing code...
-  // Map notifications to ensure `read` property exists
-  const mappedNotifications = notifications ? notifications.map(mapNotificationWithRead) : [];
-  // ...existing code...
-  return (
-    <DropdownMenu>
-      {/* ...existing code... */}
-      <ScrollArea className="h-80">
-        {isMarkingAsRead ? (
-          <div className="p-2 space-y-3">
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className="flex gap-3 p-2">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-1/3" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : mappedNotifications && mappedNotifications.length > 0 ? (
-          <div className="py-1">
-            {mappedNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onRead={handleMarkAsRead}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-40 p-4 text-center">
-            <Bell className="h-8 w-8 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500 mb-1">No notifications</p>
-            <p className="text-xs text-gray-400">
-              We'll notify you when something important happens
-            </p>
-          </div>
-        )}
-      </ScrollArea>
-      {/* ...existing code... */}
-    </DropdownMenu>
-  );
-}
+// Import notification component from the ui folder instead of defining it here
+import NotificationDropdown from '@/components/ui/notification-dropdown';

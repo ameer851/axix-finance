@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { depositFunds, withdrawFunds, investInSecurity } from '@/services/portfolioService';
 
 // Import dashboard components
 import PortfolioOverview from '@/components/dashboard/PortfolioOverview';
@@ -36,9 +37,8 @@ const Dashboard: React.FC = () => {
   // Deposit mutation
   const depositMutation = useMutation({
     mutationFn: async (amount: string) => {
-      // In a real app, this would be an API call
-      // For now, we'll simulate a successful response
-      return { success: true, amount };
+      // Call the real API function
+      return await depositFunds(user?.id as number, parseFloat(amount));
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });
@@ -61,9 +61,8 @@ const Dashboard: React.FC = () => {
   // Withdraw mutation
   const withdrawMutation = useMutation({
     mutationFn: async (amount: string) => {
-      // In a real app, this would be an API call
-      // For now, we'll simulate a successful response
-      return { success: true, amount };
+      // Call the real API function
+      return await withdrawFunds(user?.id as number, parseFloat(amount));
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });
@@ -86,9 +85,8 @@ const Dashboard: React.FC = () => {
   // Invest mutation
   const investMutation = useMutation({
     mutationFn: async ({ symbol, amount }: { symbol: string, amount: string }) => {
-      // In a real app, this would be an API call
-      // For now, we'll simulate a successful response
-      return { success: true, symbol, amount };
+      // Call the real API function
+      return await investInSecurity(user?.id as number, symbol, parseFloat(amount));
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });

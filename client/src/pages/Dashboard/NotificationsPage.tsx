@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, Notification } from '@/hooks/useNotifications';
 import { getNotificationIcon, getNotificationColor, NotificationType, NotificationPriority } from '@/services/notificationService';
 import { formatDistanceToNow } from 'date-fns';
@@ -53,7 +53,7 @@ const userId = 1; // Replace with actual userId from context or props
 
 const NotificationsPage = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [selectedTab, setSelectedTab] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -230,7 +230,7 @@ const NotificationsPage = () => {
           <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
           <p className="text-muted-foreground">View and manage your notifications</p>
         </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={() => setLocation('/dashboard')}>
           <ChevronLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
@@ -435,7 +435,7 @@ const NotificationsPage = () => {
                       <div className="flex-1 cursor-pointer" onClick={() => {
                         if (!notification.isRead) markAsRead(notification.id);
                         if (notification.relatedEntityType && notification.relatedEntityId) {
-                          navigate(`/dashboard/${notification.relatedEntityType}/${notification.relatedEntityId}`);
+                          setLocation(`/dashboard/${notification.relatedEntityType}/${notification.relatedEntityId}`);
                         }
                       }}>
                         <div className="flex items-center gap-2">

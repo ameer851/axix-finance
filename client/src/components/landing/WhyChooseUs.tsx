@@ -54,20 +54,20 @@ const WhyChooseUs: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {benefits.map((benefit, index) => (
             <div 
               key={index}
-              className="bg-gray-50 dark:bg-neutral-700 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow"
+              className="bg-gray-50 dark:bg-neutral-700 rounded-lg p-5 md:p-6 shadow-md hover:shadow-lg transition-shadow"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="mb-4">
-                  {benefit.icon}
+                <div className="mb-3 md:mb-4">
+                  {React.cloneElement(benefit.icon, { className: "h-8 w-8 md:h-10 md:w-10 text-primary-600" })}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   {benefit.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-sm md:text-base text-gray-600 dark:text-gray-300">
                   {benefit.description}
                 </p>
               </div>
@@ -75,13 +75,13 @@ const WhyChooseUs: React.FC = () => {
           ))}
         </div>
         
-        <div className="mt-12 text-center">
-          <p className="text-gray-700 dark:text-gray-200 font-medium mb-6 max-w-3xl mx-auto">
+        <div className="mt-10 md:mt-12 text-center">
+          <p className="text-gray-700 dark:text-gray-200 text-sm md:text-base font-medium mb-5 md:mb-6 max-w-3xl mx-auto px-4">
             Join thousands of successful investors who have already discovered the Carax Finance advantage. Start your investment journey today.
           </p>
           <a 
             href="/auth" 
-            className="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-md shadow transition-colors"
+            className="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-5 md:py-3 md:px-6 rounded-md shadow transition-colors text-sm md:text-base"
           >
             Start Investing Now
           </a>

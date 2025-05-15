@@ -49,16 +49,16 @@ const Features: React.FC = () => {
         </div>
 
         <div className="mt-10">
-          <dl className="space-y-10 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-x-8 md:gap-y-10">
+          <dl className="space-y-6 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-x-6 md:gap-y-8 lg:gap-x-8 lg:gap-y-10">
             {features.map((feature, index) => (
-              <div key={index} className="relative bg-accent dark:bg-accent/20 p-6 rounded-lg transition-all hover:shadow-md">
+              <div key={index} className="relative bg-accent dark:bg-accent/20 p-5 md:p-6 rounded-lg transition-all hover:shadow-md">
                 <dt>
-                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary text-white mb-4">
+                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary text-white mb-3 md:mb-4">
                     {feature.icon}
                   </div>
-                  <p className="text-lg leading-6 font-bold text-secondary dark:text-white">{feature.title}</p>
+                  <p className="text-lg leading-6 font-bold text-secondary dark:text-white mb-1">{feature.title}</p>
                 </dt>
-                <dd className="mt-2 text-base text-gray-600 dark:text-gray-300">
+                <dd className="mt-1 text-sm md:text-base text-gray-600 dark:text-gray-300">
                   {feature.description}
                 </dd>
               </div>

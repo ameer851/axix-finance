@@ -49,22 +49,22 @@ const Hero: React.FC = () => {
       </div>
       <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
         <div className="h-56 w-full bg-gradient-to-br from-primary to-amber-700 flex items-center justify-center sm:h-72 md:h-96 lg:w-full lg:h-full">
-          <div className="text-white text-center p-4 grid grid-cols-2 gap-6">
-            <div className="flex flex-col items-center p-4 bg-white/10 rounded-lg backdrop-blur-sm">
-              <TrendingUp className="w-12 h-12 mb-2" />
-              <p className="text-lg font-medium">Daily Returns</p>
+          <div className="text-white text-center p-4 grid grid-cols-2 gap-3 sm:gap-6 max-w-md mx-auto">
+            <div className="flex flex-col items-center p-3 sm:p-4 bg-white/10 rounded-lg backdrop-blur-sm">
+              <TrendingUp className="w-8 h-8 sm:w-12 sm:h-12 mb-1 sm:mb-2" />
+              <p className="text-sm sm:text-lg font-medium">Daily Returns</p>
             </div>
-            <div className="flex flex-col items-center p-4 bg-white/10 rounded-lg backdrop-blur-sm">
-              <DollarSign className="w-12 h-12 mb-2" />
-              <p className="text-lg font-medium">Up to 7.5% Daily</p>
+            <div className="flex flex-col items-center p-3 sm:p-4 bg-white/10 rounded-lg backdrop-blur-sm">
+              <DollarSign className="w-8 h-8 sm:w-12 sm:h-12 mb-1 sm:mb-2" />
+              <p className="text-sm sm:text-lg font-medium">Up to 7.5% Daily</p>
             </div>
-            <div className="flex flex-col items-center p-4 bg-white/10 rounded-lg backdrop-blur-sm">
-              <BarChart2 className="w-12 h-12 mb-2" />
-              <p className="text-lg font-medium">Multiple Plans</p>
+            <div className="flex flex-col items-center p-3 sm:p-4 bg-white/10 rounded-lg backdrop-blur-sm">
+              <BarChart2 className="w-8 h-8 sm:w-12 sm:h-12 mb-1 sm:mb-2" />
+              <p className="text-sm sm:text-lg font-medium">Multiple Plans</p>
             </div>
-            <div className="flex flex-col items-center p-4 bg-white/10 rounded-lg backdrop-blur-sm">
-              <Users className="w-12 h-12 mb-2" />
-              <p className="text-lg font-medium">10% Referrals</p>
+            <div className="flex flex-col items-center p-3 sm:p-4 bg-white/10 rounded-lg backdrop-blur-sm">
+              <Users className="w-8 h-8 sm:w-12 sm:h-12 mb-1 sm:mb-2" />
+              <p className="text-sm sm:text-lg font-medium">10% Referrals</p>
             </div>
           </div>
         </div>

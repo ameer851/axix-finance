@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { getNotificationIcon, getNotificationTitle, getNotificationColor } from '@/services/notificationService';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,7 @@ const NotificationItem = ({ notification, onMarkAsRead }: {
   notification: any; 
   onMarkAsRead: (id: number) => void;
 }) => {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const icon = getNotificationIcon(notification);
   const title = getNotificationTitle(notification);
   const color = getNotificationColor(notification.priority || 'medium');
@@ -52,13 +52,13 @@ const NotificationItem = ({ notification, onMarkAsRead }: {
     if (notification.relatedEntityType && notification.relatedEntityId) {
       switch (notification.relatedEntityType) {
         case 'transaction':
-          navigate(`/dashboard/transactions/${notification.relatedEntityId}`);
+          setLocation(`/dashboard/transactions/${notification.relatedEntityId}`);
           break;
         case 'account':
-          navigate('/dashboard/settings/profile');
+          setLocation('/dashboard/settings/profile');
           break;
         case 'security_event':
-          navigate('/dashboard/settings/security');
+          setLocation('/dashboard/settings/security');
           break;
         default:
           // Just mark as read without navigation
@@ -104,7 +104,7 @@ const NotificationItem = ({ notification, onMarkAsRead }: {
 };
 
 const DashboardNotifications = ({ userId, className, limit = 5 }: DashboardNotificationsProps) => {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { notifications, isConnected, sendMessage, connectionAttempts } = useNotifications(userId);
   const unreadCount = useUnreadNotificationsCount();
   const { mutate: markAsRead, isPending: isMarkingAsRead } = useMarkAsRead();
@@ -129,9 +129,8 @@ const DashboardNotifications = ({ userId, className, limit = 5 }: DashboardNotif
   const handleMarkAllAsRead = () => {
     markAllAsRead();
   };
-  
-  const handleViewAll = () => {
-    navigate('/dashboard/notifications');
+    const handleViewAll = () => {
+    setLocation('/dashboard/notifications');
   };
   
   return (
