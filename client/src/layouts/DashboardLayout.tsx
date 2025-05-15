@@ -62,8 +62,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     }
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
+    localStorage.removeItem('user');
     window.location.href = '/';
   };
 

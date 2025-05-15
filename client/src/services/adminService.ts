@@ -11,7 +11,7 @@ export interface AdminDashboardStats {
 
 export async function getAllUsers(): Promise<User[]> {
   try {
-    console.log('Making API request to fetch all users');
+    // API request to fetch all users
     
     // Use a direct fetch with explicit error handling for more reliable results
     const response = await fetch('/api/users', {
@@ -59,7 +59,7 @@ export async function getAllUsers(): Promise<User[]> {
       return [];
     }
     
-    console.log(`Successfully fetched ${data.length} users`);
+    // Process user data
     return data;
   } catch (error: any) {
     console.error('Error fetching all users:', error);
@@ -300,7 +300,7 @@ export async function getAnalyticsData(dateRange?: { from?: Date; to?: Date }): 
     
     // Check if the response is an array (the server returns an array of monthly data points)
     if (Array.isArray(rawData)) {
-      console.log('Received array data from analytics endpoint, transforming to expected format');
+      // Transform array data to expected format
       
       // Transform the array data into the expected AnalyticsData format
       const transformedData: AnalyticsData = {

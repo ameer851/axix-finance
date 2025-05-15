@@ -138,46 +138,88 @@ const Withdraw: React.FC = () => {
     }
   };
 
+  // Define supported cryptos
+  const cryptos = [
+    { key: 'bitcoin', label: 'BITCOIN' },
+    { key: 'bitcoinCash', label: 'Bitcoin cash' },
+    { key: 'ethereum', label: 'Ethereum' },
+    { key: 'usdt', label: 'Usdt trc20' },
+    { key: 'bnb', label: 'BNB' },
+  ];
+
+  // Simulated structure for demo; replace with real user data if available
+  const withdrawalData = cryptos.map(crypto => ({
+    ...crypto,
+    processing: 0,
+    available: 0,
+    pending: 0,
+    account: 'not set',
+    // TODO: Replace above with real user data if available
+  }));
+
   return (
-    <div className="container mx-auto py-6 max-w-4xl">
+    <div className="container mx-auto py-6 max-w-6xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Withdraw Funds</CardTitle>
-          <CardDescription>Request a withdrawal from your account</CardDescription>
+          <CardTitle className="text-base md:text-lg font-bold text-amber-900">Ask for withdrawal</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-md">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Available Balance:</span>
-              <span className="text-xl font-bold">
-                {balanceLoading ? (
-                  <span className="animate-pulse">Loading...</span>
-                ) : (
-                  `$${Number(availableBalance).toFixed(2)}`
-                )}
-              </span>
-            </div>
+          {/* Account Balance and Pending Withdrawals */}
+          <div className="mb-4 flex flex-wrap justify-between items-center text-sm">
+            <div>Account Balance:</div>
+            <div className="font-bold">${balanceLoading ? <span className="animate-pulse">Loading...</span> : Number(availableBalance).toFixed(2)}</div>
           </div>
+          <div className="mb-2 flex flex-wrap justify-between items-center text-sm">
+            <div>Pending Withdrawals:</div>
+            <div className="font-bold">$0</div>
+          </div>
+
+          {/* Crypto Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-t border-b border-amber-100 text-xs md:text-sm">
+              <thead className="bg-amber-50">
+                <tr>
+                  <th className="py-2 px-3 text-left font-semibold"> </th>
+                  <th className="py-2 px-3 text-left font-semibold">Processing</th>
+                  <th className="py-2 px-3 text-left font-semibold">Available</th>
+                  <th className="py-2 px-3 text-left font-semibold">Pending</th>
+                  <th className="py-2 px-3 text-left font-semibold">Account</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawalData.map(row => (
+                  <tr key={row.key} className="border-t border-amber-100">
+                    <td className="py-2 px-3 font-medium text-amber-900">{row.label}</td>
+                    <td className="py-2 px-3">${row.processing.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-green-600 font-semibold">${row.available.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-red-600 font-semibold">${row.pending.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-gray-500 italic">{row.account}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 text-xs text-gray-700">You have no funds to withdraw.</div>
           
-          <Tabs defaultValue="bank" onValueChange={setWithdrawMethod}>
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="bank">
-                <DollarSign className="h-4 w-4 mr-2" />
+          <Tabs defaultValue="bank" className="mt-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="bank" onClick={() => setWithdrawMethod('bank')}>
+                <CreditCard className="mr-2 h-4 w-4" />
                 Bank Transfer
               </TabsTrigger>
-              <TabsTrigger value="crypto">
-                <Wallet className="h-4 w-4 mr-2" />
+              <TabsTrigger value="crypto" onClick={() => setWithdrawMethod('crypto')}>
+                <Wallet className="mr-2 h-4 w-4" />
                 Cryptocurrency
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="bank">
               <form onSubmit={handleWithdraw}>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="amount">Amount (USD)</Label>
+                    <Label htmlFor="bank-amount">Amount (USD)</Label>
                     <Input
-                      id="amount"
+                      id="bank-amount"
                       placeholder="Enter amount"
                       type="number"
                       min="10"
@@ -187,7 +229,7 @@ const Withdraw: React.FC = () => {
                       className="mt-1"
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-4 gap-2">
                     <Button 
                       type="button" 
@@ -218,7 +260,7 @@ const Withdraw: React.FC = () => {
                       100%
                     </Button>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="bank-name">Bank Name</Label>
                     <Input

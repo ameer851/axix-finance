@@ -125,117 +125,106 @@ const DepositList: React.FC = () => {
     );
   }
 
+  // Plans definition (ensure this matches your backend/plan logic)
+  const plans = [
+    {
+      id: 'starter',
+      name: 'Starter plan',
+      spentRange: '$150.00 - $999.00',
+      dailyProfit: 1.5,
+    },
+    {
+      id: 'premium',
+      name: 'Premium plan',
+      spentRange: '$1000.00 - $4999.00',
+      dailyProfit: 3.0,
+    },
+    {
+      id: 'deluxe',
+      name: 'Deluxe plan',
+      spentRange: '$5000.00 - $19999.00',
+      dailyProfit: 5.0,
+    },
+    {
+      id: 'luxury',
+      name: 'Luxury plan',
+      spentRange: '$20000.00 and more',
+      dailyProfit: 7.5,
+    },
+  ];
+
+  // Group deposits by plan
+  const depositsByPlan = plans.reduce((acc, plan) => {
+    acc[plan.id] = filteredDeposits.filter((d: any) => d.plan === plan.id);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Calculate total deposited
+  const totalDeposited = filteredDeposits.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
+
   return (
     <div className="container mx-auto py-6 max-w-6xl">
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <CardTitle className="text-2xl">Deposit History</CardTitle>
-              <CardDescription>View all your past deposits</CardDescription>
+          <CardTitle className="text-lg md:text-xl font-bold text-amber-900">Your deposits</CardTitle>
+          <CardDescription className="text-amber-700 font-medium mt-1">Total: <span className="font-bold">{formatCurrency(totalDeposited)}</span></CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          {/* For each plan */}
+          {plans.map(plan => (
+            <div key={plan.id} className="mb-8">
+              <div className="border-b border-amber-200 pb-1 mb-2 flex flex-col md:flex-row md:items-end md:justify-between">
+                <div>
+                  <div className="font-semibold text-amber-800 text-base md:text-lg">{plan.name}</div>
+                  <div className="flex flex-wrap gap-4 text-xs text-amber-700 mt-1">
+                    <span>Amount Spent ($): <span className="font-medium">{plan.spentRange}</span></span>
+                    <span>Daily Profit (%): <span className="font-medium">{plan.dailyProfit}</span></span>
+                  </div>
+                </div>
+              </div>
+              {/* Table or no deposits */}
+              {depositsByPlan[plan.id] && depositsByPlan[plan.id].length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {depositsByPlan[plan.id].map((deposit: any) => (
+                        <TableRow key={deposit.id}>
+                          <TableCell className="font-medium">#{deposit.id}</TableCell>
+                          <TableCell>{formatDate(deposit.createdAt)}</TableCell>
+                          <TableCell>{formatCurrency(deposit.amount)}</TableCell>
+                          <TableCell className="capitalize">{deposit.method}</TableCell>
+                          <TableCell>{getStatusBadge(deposit.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-xs font-semibold text-amber-900 py-3">No deposits for this plan</div>
+              )}
             </div>
-            <Button onClick={exportToCSV} variant="outline" className="shrink-0">
+          ))}
+          {/* Export button at bottom */}
+          <div className="flex justify-end">
+            <Button onClick={exportToCSV} variant="outline" className="bg-white border-amber-300 text-amber-800 hover:bg-amber-100">
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <Input
-                  placeholder="Search deposits..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              
-              <div className="flex flex-col md:flex-row gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="from-date" className="sr-only">From Date</Label>
-                    <Input
-                      id="from-date"
-                      type="date"
-                      value={dateRange.from}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
-                      placeholder="From"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="to-date" className="sr-only">To Date</Label>
-                    <Input
-                      id="to-date"
-                      type="date"
-                      value={dateRange.to}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
-                      placeholder="To"
-                    />
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <Label htmlFor="status-filter" className="sr-only">Status</Label>
-                  <select
-                    id="status-filter"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-10 pl-3 pr-10 py-2 border rounded-md bg-background text-foreground"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50" />
-                </div>
-              </div>
-            </div>
-            
-            {/* Deposits Table */}
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
-            ) : filteredDeposits.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-gray-400">No deposits found</p>
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredDeposits.map((deposit: any) => (
-                      <TableRow key={deposit.id}>
-                        <TableCell className="font-medium">#{deposit.id}</TableCell>
-                        <TableCell>{formatDate(deposit.createdAt)}</TableCell>
-                        <TableCell>{formatCurrency(deposit.amount)}</TableCell>
-                        <TableCell className="capitalize">{deposit.method}</TableCell>
-                        <TableCell>{getStatusBadge(deposit.status)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
     </div>
   );
-};
+}
 
 export default DepositList;
+

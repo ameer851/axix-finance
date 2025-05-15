@@ -17,6 +17,6 @@ const config = {
   debug: true
 };
 
-console.log('CaraxFinance config loaded:', config);
+// Config loaded
 
 export default config;

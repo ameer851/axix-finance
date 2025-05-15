@@ -66,8 +66,8 @@ export async function apiRequest(
     
     // Debug logging for development
     if (config.debug) {
-      console.log(`API Request: ${method} ${fullUrl}`);
-      if (data) console.log('Request data:', data);
+      // API Request initiated
+      // Request includes data
     }
     
     // Add mode: 'cors' explicitly for cross-origin requests
@@ -81,7 +81,7 @@ export async function apiRequest(
     
     // Debug logging for development
     if (config.debug) {
-      console.log(`API Response status: ${res.status} ${res.statusText}`);
+      // API Response received
     }
 
     // Only throw if needed
@@ -114,7 +114,7 @@ export const getQueryFn: <T>(options: {
       
       // Debug logging for development
       if (config.debug) {
-        console.log(`Query Request: GET ${fullUrl}`);
+        // Query Request initiated
       }
       
       const res = await fetch(fullUrl, {
@@ -124,7 +124,7 @@ export const getQueryFn: <T>(options: {
       
       // Debug logging for development
       if (config.debug) {
-        console.log(`Query Response status: ${res.status} ${res.statusText}`);
+        // Query Response received
       }
 
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {

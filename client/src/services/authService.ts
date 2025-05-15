@@ -33,7 +33,7 @@ export async function login(username: string, password: string): Promise<User> {
       throw new Error('Unable to connect to the server. Please try again later.');
     }
 
-    console.log('Attempting login for user:', username);
+    // Attempt login for user
     
     // Use a direct fetch call with explicit error handling for login
     const response = await fetch('/api/login', {
@@ -66,7 +66,7 @@ export async function login(username: string, password: string): Promise<User> {
     const deviceInfo = `${navigator.platform} - ${navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'}`;
     triggerSecurityNotification(data.id, 'login', `Device: ${deviceInfo}`);
     
-    console.log('Login successful for user:', username);
+    // Login successful
     return data;
   } catch (error: any) {
     console.error('Login error details:', error);

@@ -7,14 +7,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { getUserProfile, getUserBalance, getUserActivity } from '@/services/userService';
+import { getUserProfile, getUserBalance, getUserActivity, updateUserProfile } from '@/services/userService';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Shield, Clock, CreditCard, User, Bell, Lock, Activity } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [currentTab, setCurrentTab] = useState('overview');
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch user profile data
   const { data: profileData, isLoading: profileLoading } = useQuery({
@@ -44,10 +49,11 @@ const Profile: React.FC = () => {
     return name.split(' ').map(part => part?.[0] || '').join('').toUpperCase();
   };
 
+  // Only use real user data from context or backend queries
   const userInitials = user && user.firstName && user.lastName ? 
-    getInitials(`${user.firstName} ${user.lastName}`) : 'U';
+    getInitials(`${user.firstName} ${user.lastName}`) : (user?.username?.[0]?.toUpperCase() || 'U');
   const userName = user && user.firstName && user.lastName ?
-    `${user.firstName} ${user.lastName}` : 'User';
+    `${user.firstName} ${user.lastName}` : (user?.username || '');
 
   const getVerificationBadge = (isVerified: boolean) => {
     return isVerified ? (
@@ -61,6 +67,47 @@ const Profile: React.FC = () => {
         Pending
       </Badge>
     );
+  };
+
+  // Open edit dialog and prefill with profileData
+  const handleEditProfile = () => {
+    setEditForm({
+      firstName: profileData?.firstName || '',
+      lastName: profileData?.lastName || '',
+      email: profileData?.email || '',
+      phone: profileData?.phone || '',
+      address: profileData?.address || '',
+      city: profileData?.city || '',
+      state: profileData?.state || '',
+      zipCode: profileData?.zipCode || '',
+      country: profileData?.country || '',
+      dateOfBirth: profileData?.dateOfBirth || '',
+    });
+    setShowEditDialog(true);
+  };
+
+  // Handle form input change
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditForm((prev: any) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle save
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    setIsSaving(true);
+    try {
+      await updateUserProfile(user.id, editForm);
+      toast({ title: 'Profile updated', description: 'Your profile was updated successfully.' });
+      setShowEditDialog(false);
+      // Optionally, refetch profile data
+      // queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+      window.location.reload(); // quick refresh for now
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to update profile.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (profileLoading || balanceLoading) {
@@ -205,7 +252,7 @@ const Profile: React.FC = () => {
                   </div>
                   
                   <div className="flex justify-end">
-                    <Button variant="outline" className="mr-2">
+                    <Button variant="outline" className="mr-2" onClick={handleEditProfile}>
                       <User className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
@@ -342,6 +389,42 @@ const Profile: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={e => { e.preventDefault(); handleSaveProfile(); }}>
+            <div className="grid gap-4 py-2">
+              <label htmlFor="firstName">First Name</label>
+              <Input name="firstName" id="firstName" placeholder="First Name" value={editForm.firstName} onChange={handleEditChange} required />
+              <label htmlFor="lastName">Last Name</label>
+              <Input name="lastName" id="lastName" placeholder="Last Name" value={editForm.lastName} onChange={handleEditChange} required />
+              <label htmlFor="email">Email</label>
+              <Input name="email" id="email" placeholder="Email" value={editForm.email} onChange={handleEditChange} required />
+              <label htmlFor="phone">Phone</label>
+              <Input name="phone" id="phone" placeholder="Phone" value={editForm.phone} onChange={handleEditChange} />
+              <label htmlFor="address">Address</label>
+              <Input name="address" id="address" placeholder="Address" value={editForm.address} onChange={handleEditChange} />
+              <label htmlFor="city">City</label>
+              <Input name="city" id="city" placeholder="City" value={editForm.city} onChange={handleEditChange} />
+              <label htmlFor="state">State</label>
+              <Input name="state" id="state" placeholder="State" value={editForm.state} onChange={handleEditChange} />
+              <label htmlFor="zipCode">Zip Code</label>
+              <Input name="zipCode" id="zipCode" placeholder="Zip Code" value={editForm.zipCode} onChange={handleEditChange} />
+              <label htmlFor="country">Country</label>
+              <Input name="country" id="country" placeholder="Country" value={editForm.country} onChange={handleEditChange} />
+              <label htmlFor="dateOfBirth">Date of Birth</label>
+              <Input name="dateOfBirth" id="dateOfBirth" type="date" value={editForm.dateOfBirth} onChange={handleEditChange} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

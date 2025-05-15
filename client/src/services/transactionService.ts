@@ -62,39 +62,6 @@ const MOCK_TRANSACTIONS: Transaction[] = [
   }
 ];
 
-const MOCK_DEPOSITS = [
-  {
-    id: '1',
-    userId: '1',
-    amount: '1000',
-    status: 'completed',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    method: 'bank',
-    description: 'Bank transfer deposit'
-  },
-  {
-    id: '3',
-    userId: '1',
-    amount: '250',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    method: 'investment',
-    description: 'Investment in AAPL'
-  },
-  {
-    id: '5',
-    userId: '1',
-    amount: '500',
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    method: 'crypto',
-    description: 'Bitcoin deposit'
-  }
-];
-
 export type TransactionFilters = {
   userId?: number;
   status?: TransactionStatus;
@@ -350,21 +317,11 @@ export async function getUserDeposits(userId?: number | string): Promise<any[]> 
   if (!userId) {
     throw new Error('User ID is required');
   }
-  
   try {
-    // In a real app, this would make an API call
-    // const response = await apiRequest('GET', `/api/deposits/${userId}`);
-    // return await response.json();
-    
-    // For development, return mock data
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(MOCK_DEPOSITS);
-      }, 500);
-    });
+    const response = await apiRequest('GET', `/api/deposits/${userId}`);
+    return await response.json();
   } catch (error: any) {
     console.error('Error fetching user deposits:', error);
-    
     if (error.status === 403) {
       throw new Error('You do not have permission to view these deposits.');
     } else if (error.status === 404) {
@@ -372,7 +329,6 @@ export async function getUserDeposits(userId?: number | string): Promise<any[]> 
     } else if (error.isOffline || error.isNetworkError) {
       throw new Error('Cannot connect to server. Please check your internet connection and try again.');
     }
-    
     throw new Error(error.message || 'Failed to fetch user deposits. Please try again later.');
   }
 }

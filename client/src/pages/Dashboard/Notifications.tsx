@@ -47,20 +47,20 @@ import {
   NotificationPriority,
   type Notification 
 } from '@/services/notificationService';
+import { useQuery } from '@tanstack/react-query';
 
 const Notifications: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('all');
   
-  // This would be fetched from an API in a real implementation
-  const dummyNotifications: Notification[] = [];
+  // Use notifications from API
+  const { data: notificationsData, isLoading } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: () => getNotifications({ userId: user?.id }),
+    enabled: !!user?.id
+  });
   
-  // In a real implementation, we would have an API endpoint to get notifications
-  // const { data: notifications, isLoading } = useQuery<Notification[]>({
-  //   queryKey: ['/api/notifications'],
-  // });
-  const notifications = dummyNotifications;
-  const isLoading = false;
+  const notifications = notificationsData?.notifications || [];
 
   // Mark notification as read
   const handleMarkAsRead = (notificationId: number) => {
@@ -77,7 +77,7 @@ const Notifications: React.FC = () => {
   // Filter notifications based on active tab
   const getFilteredNotifications = () => {
     if (activeTab === 'all') return notifications;
-    return notifications.filter(notification => notification.type === activeTab);
+    return notifications.filter((notification: Notification) => notification.type === activeTab);
   };
 
   // Get notification icon based on type
@@ -95,7 +95,7 @@ const Notifications: React.FC = () => {
   };
 
   // Count unread notifications
-  const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
+  const unreadCount = notifications?.filter((n: Notification) => !n.isRead).length || 0;
 
   if (isLoading) {
     return <div className="flex justify-center p-8">Loading notifications...</div>;
@@ -159,7 +159,7 @@ const Notifications: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {getFilteredNotifications().map((notification) => (
+                  {getFilteredNotifications().map((notification: Notification) => (
                     <div 
                       key={notification.id} 
                       className={`flex p-4 rounded-lg border ${notification.isRead 
