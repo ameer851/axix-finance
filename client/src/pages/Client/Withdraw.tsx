@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,8 +7,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, CreditCard, Wallet } from 'lucide-react';
+import { DollarSign, CreditCard, Wallet, AlertCircle } from 'lucide-react';
 import { withdrawFunds, getUserBalance } from '@/services/transactionService';
+import { handleError, ErrorCategory } from '@/services/errorService';
+import { debounce, optimizeObject } from '@/lib/dataOptimization';
+import { logAuditEvent } from '@/services/auditService';
+
+// Define the type for the balance data
+interface BalanceData {
+  availableBalance: number;
+  pendingBalance: number;
+  totalBalance: number;
+  lastUpdated: string;
+}
+
+// Define the type for withdrawal response
+interface WithdrawalResponse {
+  success: boolean;
+  amount: number;
+  transactionId: number;
+}
 
 const Withdraw: React.FC = () => {
   const { user } = useAuth();
@@ -26,33 +44,74 @@ const Withdraw: React.FC = () => {
   const [cryptoAddress, setCryptoAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Fetch user balance
-  const { data: balanceData, isLoading: balanceLoading } = useQuery({
+  // Fetch user balance with retry for better reliability
+  const { data: balanceData, isLoading: balanceLoading, error: balanceError } = useQuery<BalanceData, Error>({
     queryKey: ['balance', user?.id],
     queryFn: () => getUserBalance(user?.id),
     enabled: !!user?.id,
-    staleTime: 60000 // 1 minute
+    staleTime: 60000, // 1 minute
+    retry: 3
   });
+  
+  // Optimize balance data in a separate effect if needed
+  const [optimizedBalanceData, setOptimizedBalanceData] = React.useState<BalanceData | null>(null);
+  
+  React.useEffect(() => {
+    if (balanceData) {
+      // Store only what we need from the balance data
+      setOptimizedBalanceData(balanceData as BalanceData);
+    }
+  }, [balanceData]);
+  
+  // Handle balance fetch errors
+  React.useEffect(() => {
+    if (balanceError) {
+      handleError(balanceError, {
+        fallbackMessage: 'Unable to fetch your current balance. Please try refreshing the page.',
+        context: { userId: user?.id, action: 'getUserBalance' }
+      });
+    }
+  }, [balanceError, user?.id]);
 
   // Make sure availableBalance is a number
   const availableBalance = balanceData?.availableBalance ? Number(balanceData.availableBalance) : 0;
 
-  // Withdraw mutation
-  const withdrawMutation = useMutation({
+  // Enhanced withdraw mutation with proper error handling and retry logic
+  const withdrawMutation = useMutation<WithdrawalResponse, Error, any>({
     mutationFn: withdrawFunds,
     onMutate: () => {
       setIsProcessing(true);
     },
     onSuccess: (data) => {
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['transactions', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['balance', user?.id] });
+      
+      // Log successful withdrawal to audit logs
+      logAuditEvent({
+        userId: user?.id || 0,
+        action: 'withdrawal_submitted',
+        category: 'transaction',
+        targetId: data.transactionId,
+        targetType: 'withdrawal',
+        metadata: {
+          amount: data.amount,
+          method: withdrawMethod,
+          currency: 'USD',
+          status: 'pending',
+          timestamp: new Date().toISOString()
+        }
+      }).catch(err => {
+        console.error('Failed to log successful withdrawal audit event:', err);
+      });
       
       toast({
         title: 'Withdrawal Request Submitted',
         description: `Your withdrawal request for $${data.amount} has been submitted and is pending approval.`,
       });
       
+      // Reset form
       setAmount('');
       setAccountDetails({
         bankName: '',
@@ -62,21 +121,78 @@ const Withdraw: React.FC = () => {
         address: ''
       });
       setCryptoAddress('');
+      setAmountError(null);
       setIsProcessing(false);
     },
-    onError: (error: any) => {
-      toast({
-        title: 'Withdrawal Failed',
-        description: error.message || 'There was an error processing your withdrawal. Please try again.',
-        variant: 'destructive'
+    onError: (error: Error) => {
+      // Use centralized error handling service
+      handleError(error, {
+        showToast: true,
+        fallbackMessage: 'There was an error processing your withdrawal. Please try again.',
+        context: { 
+          userId: user?.id,
+          amount: parseFloat(amount),
+          method: withdrawMethod,
+          action: 'withdrawFunds'
+        },
+        onError: (appError) => {
+          // Log failed withdrawal to audit logs
+          logAuditEvent({
+            userId: user?.id || 0,
+            action: 'withdrawal_failed',
+            category: 'transaction',
+            metadata: {
+              amount: parseFloat(amount),
+              method: withdrawMethod,
+              error: appError.message,
+              errorCategory: appError.category,
+              timestamp: new Date().toISOString()
+            }
+          }).catch(err => {
+            console.error('Failed to log failed withdrawal audit event:', err);
+          });
+        }
       });
+      
       setIsProcessing(false);
-    }
+    },
+    retry: 1 // Only retry once for mutations to avoid duplicate transactions
   });
 
-  const handleWithdraw = (e: React.FormEvent) => {
+  // Use debounced validation to improve performance during form input
+  const validateAmount = useCallback((inputAmount: string): string | null => {
+    if (!inputAmount || isNaN(parseFloat(inputAmount)) || parseFloat(inputAmount) <= 0) {
+      return 'Please enter a valid withdrawal amount';
+    }
+    
+    if (parseFloat(inputAmount) > availableBalance) {
+      return `Amount exceeds available balance of $${Number(availableBalance).toFixed(2)}`;
+    }
+    
+    return null;
+  }, [availableBalance]);
+  
+  // Create a debounced version of the validation function
+  const debouncedValidateAmount = useCallback(
+    debounce((inputAmount: string, callback: (result: string | null) => void) => {
+      const result = validateAmount(inputAmount);
+      callback(result);
+    }, 300),
+    [validateAmount]
+  );
+  
+  const [amountError, setAmountError] = useState<string | null>(null);
+  
+  // Validate amount on change with debounce for better UX
+  const handleAmountChange = (value: string) => {
+    setAmount(value);
+    debouncedValidateAmount(value, setAmountError);
+  };
+
+  const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Final validation before submission
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       toast({
         title: 'Invalid Amount',
@@ -96,20 +212,28 @@ const Withdraw: React.FC = () => {
     }
     
     let withdrawalDetails = {};
+    let validationError = false;
     
     if (withdrawMethod === 'bank') {
-      // Validate bank details
-      if (!accountDetails.bankName || !accountDetails.accountName || !accountDetails.accountNumber) {
-        toast({
-          title: 'Missing Information',
-          description: 'Please fill in all required bank account details.',
-          variant: 'destructive'
-        });
-        return;
+      // Enhanced bank details validation
+      if (!accountDetails.bankName) {
+        toast({ title: 'Missing Bank Name', description: 'Please enter your bank name.', variant: 'destructive' });
+        validationError = true;
+      } else if (!accountDetails.accountName) {
+        toast({ title: 'Missing Account Name', description: 'Please enter the account holder name.', variant: 'destructive' });
+        validationError = true;
+      } else if (!accountDetails.accountNumber) {
+        toast({ title: 'Missing Account Number', description: 'Please enter your account number.', variant: 'destructive' });
+        validationError = true;
+      } else if (!accountDetails.routingNumber) {
+        toast({ title: 'Missing Routing Number', description: 'Please enter the routing number.', variant: 'destructive' });
+        validationError = true;
       }
+      
+      if (validationError) return;
       withdrawalDetails = { ...accountDetails };
     } else if (withdrawMethod === 'crypto') {
-      // Validate crypto address
+      // Enhanced crypto address validation
       if (!cryptoAddress) {
         toast({
           title: 'Missing Information',
@@ -118,16 +242,55 @@ const Withdraw: React.FC = () => {
         });
         return;
       }
+      
+      // Basic format validation for crypto addresses
+      if (cryptoAddress.length < 26 || cryptoAddress.length > 100) {
+        toast({
+          title: 'Invalid Crypto Address',
+          description: 'The wallet address you entered appears to be invalid.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
       withdrawalDetails = { cryptoAddress };
     }
     
-    withdrawMutation.mutate({
-      userId: user?.id,
-      amount: parseFloat(amount),
-      method: withdrawMethod,
-      currency: 'USD',
-      details: withdrawalDetails
-    });
+    try {
+      // Create audit log entry before submitting withdrawal
+      await logAuditEvent({
+        userId: user?.id || 0,
+        action: 'withdrawal_requested',
+        category: 'transaction',
+        metadata: {
+          amount: parseFloat(amount),
+          method: withdrawMethod,
+          currency: 'USD',
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      // Submit withdrawal request
+      withdrawMutation.mutate({
+        userId: user?.id,
+        amount: parseFloat(amount),
+        method: withdrawMethod,
+        currency: 'USD',
+        details: withdrawalDetails
+      });
+    } catch (error) {
+      // Handle audit logging error but still proceed with withdrawal
+      console.error('Failed to log withdrawal audit event:', error);
+      
+      // Submit withdrawal anyway
+      withdrawMutation.mutate({
+        userId: user?.id,
+        amount: parseFloat(amount),
+        method: withdrawMethod,
+        currency: 'USD',
+        details: withdrawalDetails
+      });
+    }
   };
 
   const handleQuickAmount = (percentage: number) => {
@@ -218,18 +381,26 @@ const Withdraw: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="bank-amount">Amount (USD)</Label>
-                    <Input
-                      id="bank-amount"
-                      placeholder="Enter amount"
-                      type="number"
-                      min="10"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="mt-1"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="bank-amount"
+                        placeholder="Enter amount"
+                        type="number"
+                        min="10"
+                        step="0.01"
+                        value={amount}
+                        onChange={(e) => handleAmountChange(e.target.value)}
+                        className={`mt-1 ${amountError ? 'border-red-500' : ''}`}
+                      />
+                      {amountError && (
+                        <div className="flex items-center gap-1 text-red-500 text-sm mt-1">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{amountError}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-
+                  
                   <div className="grid grid-cols-4 gap-2">
                     <Button 
                       type="button" 
@@ -260,7 +431,6 @@ const Withdraw: React.FC = () => {
                       100%
                     </Button>
                   </div>
-
                   <div>
                     <Label htmlFor="bank-name">Bank Name</Label>
                     <Input
@@ -340,16 +510,24 @@ const Withdraw: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="crypto-amount">Amount (USD)</Label>
-                    <Input
-                      id="crypto-amount"
-                      placeholder="Enter amount"
-                      type="number"
-                      min="10"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="mt-1"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="crypto-amount"
+                        placeholder="Enter amount"
+                        type="number"
+                        min="10"
+                        step="0.01"
+                        value={amount}
+                        onChange={(e) => handleAmountChange(e.target.value)}
+                        className={`mt-1 ${amountError ? 'border-red-500' : ''}`}
+                      />
+                      {amountError && (
+                        <div className="flex items-center gap-1 text-red-500 text-sm mt-1">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{amountError}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-4 gap-2">

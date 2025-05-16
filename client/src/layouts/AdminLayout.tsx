@@ -7,17 +7,14 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { 
   LayoutDashboard, 
   Users,
-  BarChart,
-  Settings,
-  ClipboardList,
   Search,
   Menu,
   LogOut,
-  Shield,
-  Database,
-  Bell,
-  Link2,
-  MessageSquare
+  ClipboardList,
+  Settings,
+  DollarSign,
+  ToggleLeft,
+  AlertTriangle
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -31,15 +28,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const navItems = [
     { path: '/admin', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
+    { path: '/admin/transactions', label: 'Transactions', icon: <DollarSign className="h-5 w-5" /> },
     { path: '/admin/users', label: 'Users', icon: <Users className="h-5 w-5" /> },
-    { path: '/admin/roles', label: 'Roles', icon: <Shield className="h-5 w-5" /> },
-    { path: '/admin/analytics', label: 'Analytics', icon: <BarChart className="h-5 w-5" /> },
-    { path: '/admin/security', label: 'Security', icon: <Shield className="h-5 w-5" /> },
-    { path: '/admin/system-config', label: 'System Config', icon: <Settings className="h-5 w-5" /> },
-    { path: '/admin/data', label: 'Data', icon: <Database className="h-5 w-5" /> },
-    { path: '/admin/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
+    { path: '/admin/maintenance', label: 'Maintenance', icon: <ToggleLeft className="h-5 w-5" /> },
     { path: '/admin/logs', label: 'Logs', icon: <ClipboardList className="h-5 w-5" /> },
-    { path: '/admin/integrations', label: 'Integrations', icon: <Link2 className="h-5 w-5" /> },
   ];
 
   const getInitials = (name: string) => {
@@ -140,7 +132,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </div>
             <div className="ml-4 flex items-center md:ml-6">
               <Button variant="ghost" size="icon" className="relative">
-                <MessageSquare className="h-6 w-6" />
+                <AlertTriangle className="h-6 w-6" />
                 <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-600"></span>
               </Button>
 

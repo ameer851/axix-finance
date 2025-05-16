@@ -29,16 +29,12 @@ import Referrals from "@/pages/Client/Referrals";
 import Marketing from "@/pages/Client/Marketing";
 import EditAccount from "@/pages/Client/EditAccount";
 import ClientSettings from "@/pages/Client/Settings";
-import AdminDashboard from "@/pages/Admin";
-import AdminUsers from "@/pages/Admin/Users";
-import AdminAnalytics from "@/pages/Admin/Analytics";
-import AdminRoles from "@/pages/Admin/Roles";
-import AdminSecurity from "@/pages/Admin/Security";
-import AdminData from "@/pages/Admin/Data";
-import AdminSystemConfig from "@/pages/Admin/SystemConfig";
-import AdminNotifications from "@/pages/Admin/Notifications";
-import AdminLogs from "@/pages/Admin/Logs";
-import AdminIntegrations from "@/pages/Admin/Integrations";
+// Import new admin components
+import AdminDashboard from "@/pages/Admin/Dashboard";
+import TransactionsManager from "@/pages/Admin/TransactionsManager";
+import UserManagement from "@/pages/Admin/UserManagement";
+import MaintenanceMode from "@/pages/Admin/MaintenanceMode";
+import AdminLogs from "@/pages/Admin/AdminLogs";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import AdminLayout from "@/layouts/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
@@ -242,7 +238,7 @@ function Router() {
         )}
       </Route>
       
-      {/* Admin Routes */}
+      {/* New Admin Routes */}
       <Route path="/admin">
         {() => (
           <ProtectedRoute requireAdmin>
@@ -252,65 +248,29 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/admin/transactions">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <TransactionsManager />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/admin/users">
         {() => (
           <ProtectedRoute requireAdmin>
             <AdminLayout>
-              <AdminUsers />
+              <UserManagement />
             </AdminLayout>
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/admin/analytics">
+      <Route path="/admin/maintenance">
         {() => (
           <ProtectedRoute requireAdmin>
             <AdminLayout>
-              <AdminAnalytics />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/roles">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminRoles />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/security">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminSecurity />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/data">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminData />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/system-config">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminSystemConfig />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/notifications">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminNotifications />
+              <MaintenanceMode />
             </AdminLayout>
           </ProtectedRoute>
         )}
@@ -320,15 +280,6 @@ function Router() {
           <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminLogs />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/integrations">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminIntegrations />
             </AdminLayout>
           </ProtectedRoute>
         )}

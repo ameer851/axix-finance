@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import config from "../config";
+import { addCSRFToken, validateOrigin } from "./csrfProtection";
 
 /**
  * Custom error handler for API responses
@@ -48,10 +49,11 @@ export async function apiRequest(
     returnRawResponse?: boolean;
   }
 ): Promise<Response> {
-  const headers = { 
+  // Apply CSRF protection to all API requests
+  const csrfHeaders = addCSRFToken({
     ...(data ? { "Content-Type": "application/json" } : {}),
     ...(options?.headers || {})
-  };
+  });
 
   try {
     // Check for network connectivity
@@ -59,6 +61,16 @@ export async function apiRequest(
       const error = new Error('You are currently offline. Please check your internet connection.');
       (error as any).isOffline = true;
       throw error;
+    }
+    
+    // Add origin validation for security if this is a mutation (POST, PUT, DELETE)
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+      const expectedOrigins = [config.apiUrl, window.location.origin];
+      if (!validateOrigin(expectedOrigins)) {
+        const error = new Error('Security validation failed: Invalid request origin');
+        (error as any).isSecurityError = true;
+        throw error;
+      }
     }
 
     // Prepend API URL for relative paths (those starting with /)
@@ -73,7 +85,7 @@ export async function apiRequest(
     // Add mode: 'cors' explicitly for cross-origin requests
     const res = await fetch(fullUrl, {
       method,
-      headers,
+      headers: csrfHeaders,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
       mode: 'cors',

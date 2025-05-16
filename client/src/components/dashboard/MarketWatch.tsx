@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { getMarketData } from '@/services/portfolioService';
 import { getWatchlist } from '@/services/watchlistService';
+import { getMarketNews, MarketNews } from '@/services/marketService';
 
 interface MarketWatchProps {
   onAddToWatchlist?: (symbol: string) => void;
@@ -62,55 +63,12 @@ const MarketWatch: React.FC<MarketWatchProps> = ({
     enabled: !!user?.id
   });
 
-  // Fetch market news
-  const { data: marketNews = [], isLoading: marketNewsLoading } = useQuery({
+  // Fetch market news from API
+  const { data: marketNews = [], isLoading: marketNewsLoading } = useQuery<MarketNews[]>({
     queryKey: ['marketNews'],
-    queryFn: async () => {
-      try {
-        // In a real app, this would fetch from API
-        // For now, return mock news
-        return [
-          {
-            id: '1',
-            title: 'Fed signals potential interest rate cut later this year',
-            source: 'Financial Times',
-            date: '2025-05-12T08:30:00Z',
-            url: 'https://example.com/news/1'
-          },
-          {
-            id: '2',
-            title: 'Tech stocks rally as inflation concerns ease',
-            source: 'Wall Street Journal',
-            date: '2025-05-12T07:15:00Z',
-            url: 'https://example.com/news/2'
-          },
-          {
-            id: '3',
-            title: 'Oil prices drop amid increased production',
-            source: 'Bloomberg',
-            date: '2025-05-11T22:45:00Z',
-            url: 'https://example.com/news/3'
-          },
-          {
-            id: '4',
-            title: 'Retail sales exceed expectations in April',
-            source: 'CNBC',
-            date: '2025-05-11T16:20:00Z',
-            url: 'https://example.com/news/4'
-          },
-          {
-            id: '5',
-            title: 'New AI regulations proposed by EU commission',
-            source: 'Reuters',
-            date: '2025-05-11T14:10:00Z',
-            url: 'https://example.com/news/5'
-          }
-        ];
-      } catch (error) {
-        console.error('Error fetching market news:', error);
-        throw error;
-      }
-    }
+    queryFn: getMarketNews,
+    staleTime: 300000, // 5 minutes
+    retry: 3
   });
   
   // Format market data
