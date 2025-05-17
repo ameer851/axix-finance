@@ -6,6 +6,7 @@ const storage = new DatabaseStorage();
 import { requireEmailVerification, isAdmin } from './auth';
 import { z } from 'zod';
 import { InsertNotification, NotificationType, NotificationPriority } from '@shared/schema';
+import { sendNotification } from './websocketServer';
 
 const router = express.Router();
 
@@ -300,8 +301,29 @@ router.patch('/preferences', requireEmailVerification, async (req, res) => {
     return res.status(200).json(updatedPreferences);
   } catch (error) {
     console.error('Error updating notification preferences:', error);
-    return res.status(500).json({ message: 'Failed to update notification preferences' });
-  }
+    return res.status(500).json({ message: 'Failed to update notification preferences' });  }
 });
+
+// Helper function to create a notification and send it via WebSocket
+export async function createAndSendNotification(notification: InsertNotification) {
+  try {
+    // First, store the notification in the database
+    const createdNotification = await storage.createNotification(notification);
+    
+    if (createdNotification) {
+      // Then try to send it via WebSocket if the user is connected
+      sendNotification(notification.userId, {
+        ...createdNotification,
+        title: notification.title || 'New notification',
+        message: notification.message
+      });
+    }
+    
+    return createdNotification;
+  } catch (error) {
+    console.error('Failed to create and send notification:', error);
+    return null;
+  }
+}
 
 export default router;

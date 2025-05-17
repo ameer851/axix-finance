@@ -15,7 +15,8 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Filter, X, Check, Search, AlertTriangle, Clock, Ban, Info, ChevronDown, ChevronUp, Download, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
 import { Transaction } from '@shared/schema';
 import { formatCurrency, formatDate, getTransactionTypeColor, getStatusColor } from '@/lib/utils';
-import { getPendingTransactions, getTransactions, approveTransaction, rejectTransaction, getUserDetails, bulkApproveTransactions, bulkRejectTransactions } from '@/services/adminService';
+import { getPendingTransactions, approveTransaction, rejectTransaction, getUserDetails } from '@/services/adminService';
+import { getTransactions, bulkApproveTransactions, bulkRejectTransactions } from '@/services/transactionService';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TransactionFilters } from './types';
@@ -84,16 +85,29 @@ const TransactionsManager: React.FC = () => {
     error: pendingError
   } = useQuery({
     queryKey: ['pending-transactions', filters],
-    queryFn: () => getPendingTransactions({
-      search: filters.search,
-      type: filters.type,
-      dateRange: filters.dateRange,
-      amountRange: filters.amountRange,
-      page: filters.page,
-      limit: filters.limit,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder
-    }),
+    queryFn: async () => {
+      try {
+        return await getPendingTransactions({
+          search: filters.search,
+          type: filters.type,
+          dateRange: filters.dateRange,
+          amountRange: filters.amountRange,
+          page: filters.page,
+          limit: filters.limit,
+          sortBy: filters.sortBy,
+          sortOrder: filters.sortOrder
+        });
+      } catch (err: any) {
+        // Try to parse error response for more helpful message
+        if (err instanceof SyntaxError) {
+          throw new Error('The server returned invalid JSON. This may indicate a backend error or misconfiguration.');
+        }
+        if (err && err.message && err.message.includes('Unexpected token')) {
+          throw new Error('The server returned a non-JSON response. Check backend logs for errors.');
+        }
+        throw err;
+      }
+    },
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000 // Refetch every minute
   });
@@ -109,7 +123,7 @@ const TransactionsManager: React.FC = () => {
       toast({
         title: 'Transaction Approved',
         description: 'The transaction has been successfully approved.',
-        variant: 'success'
+        variant: 'default' // changed from 'success'
       });
     },
     onError: (error: any) => {
@@ -135,7 +149,7 @@ const TransactionsManager: React.FC = () => {
       toast({
         title: 'Transaction Rejected',
         description: 'The transaction has been successfully rejected.',
-        variant: 'success'
+        variant: 'default' // changed from 'success'
       });
     },
     onError: (error: any) => {
@@ -149,7 +163,7 @@ const TransactionsManager: React.FC = () => {
   
   // Mutations for bulk operations
   const bulkApproveMutation = useMutation({
-    mutationFn: bulkApproveTransactions,
+    mutationFn: bulkApproveTransactions, // changed to correct function
     onSuccess: (data) => {
       setSelectedTransactions([]);
       
@@ -160,7 +174,7 @@ const TransactionsManager: React.FC = () => {
       toast({
         title: 'Bulk Approval Complete',
         description: `Successfully approved ${data.processed} transactions. ${data.failed > 0 ? `Failed: ${data.failed}` : ''}`,
-        variant: 'success'
+        variant: 'default' // changed from 'success'
       });
     },
     onError: (error: any) => {
@@ -173,21 +187,20 @@ const TransactionsManager: React.FC = () => {
   });
   
   const bulkRejectMutation = useMutation({
-    mutationFn: (params: { transactionIds: number[], rejectionReason: string }) => 
-      bulkRejectTransactions(params),
-    onSuccess: (data) => {
+    mutationFn: (params: { transactionIds: number[], rejectionReason: string }) =>
+      bulkRejectTransactions(params.transactionIds, params.rejectionReason),
+    onSuccess: (data: any) => {
       setSelectedTransactions([]);
       setRejectionDialog({ isOpen: false, isMultiple: false });
       setRejectionReason('');
-      
-      // Invalidate queries to refetch data
       queryClient.invalidateQueries({ queryKey: ['pending-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      
       toast({
         title: 'Bulk Rejection Complete',
-        description: `Successfully rejected ${data.processed} transactions. ${data.failed > 0 ? `Failed: ${data.failed}` : ''}`,
-        variant: 'success'
+        description: data && typeof data === 'object' && 'processed' in data
+          ? `Successfully rejected ${data.processed} transactions. ${data.failed > 0 ? `Failed: ${data.failed}` : ''}`
+          : 'Bulk rejection complete.',
+        variant: 'default'
       });
     },
     onError: (error: any) => {
@@ -250,7 +263,6 @@ const TransactionsManager: React.FC = () => {
   // Handle bulk approve
   const handleBulkApprove = () => {
     if (selectedTransactions.length === 0) return;
-    
     setConfirmDialog({
       isOpen: true,
       title: 'Bulk Approve Transactions',
@@ -265,7 +277,6 @@ const TransactionsManager: React.FC = () => {
   // Handle bulk reject
   const handleBulkReject = () => {
     if (selectedTransactions.length === 0) return;
-    
     setRejectionDialog({
       isOpen: true,
       isMultiple: true,
@@ -351,7 +362,7 @@ const TransactionsManager: React.FC = () => {
       header: 'Amount',
       cell: ({ row }) => (
         <span className="font-medium">
-          {formatCurrency(Number(row.original.amount), row.original.currency || 'USD')}
+          {formatCurrency(Number(row.original.amount))}
         </span>
       ),
     },
@@ -380,7 +391,7 @@ const TransactionsManager: React.FC = () => {
       accessorKey: 'method',
       header: 'Method',
       cell: ({ row }) => (
-        <span>{row.original.method || 'Standard'}</span>
+        <span>{(row.original as any).method || 'Standard'}</span>
       ),
     },
     {
@@ -388,9 +399,9 @@ const TransactionsManager: React.FC = () => {
       header: 'Date',
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="text-sm">{formatDate(row.original.createdAt)}</span>
+          <span className="text-sm">{row.original.createdAt ? formatDate(row.original.createdAt) : 'N/A'}</span>
           <span className="text-xs text-gray-500">
-            {new Date(row.original.createdAt).toLocaleTimeString()}
+            {row.original.createdAt ? new Date(row.original.createdAt).toLocaleTimeString() : ''}
           </span>
         </div>
       ),
@@ -542,21 +553,7 @@ const TransactionsManager: React.FC = () => {
             <DataTable
               columns={columns}
               data={filteredTransactions}
-              enableRowSelection
-              onSelectedRowsChange={setSelectedTransactions}
-              onPaginationChange={(pagination) => 
-                setFilters(prev => ({ 
-                  ...prev, 
-                  page: pagination.pageIndex + 1,
-                  limit: pagination.pageSize
-                }))
-              }
               pageCount={pendingTransactionsData?.totalPages || 1}
-              manualPagination
-              pagination={{
-                pageIndex: filters.page - 1,
-                pageSize: filters.limit
-              }}
             />
           )}
         </CardContent>
@@ -689,14 +686,14 @@ const TransactionsManager: React.FC = () => {
                 
                 <div className="flex justify-center mt-2">
                   <Badge 
-                    variant={userDetails.isActive ? "success" : "destructive"}
+                    variant={userDetails.isActive ? "default" : "destructive"}
                     className="mx-1"
                   >
                     {userDetails.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                   
                   <Badge 
-                    variant={userDetails.isVerified ? "success" : "outline"}
+                    variant={userDetails.isVerified ? "default" : "outline"}
                     className="mx-1"
                   >
                     {userDetails.isVerified ? 'Verified' : 'Unverified'}
@@ -708,14 +705,14 @@ const TransactionsManager: React.FC = () => {
                 <div className="bg-primary/5 p-3 rounded-md">
                   <p className="text-xs text-gray-500">Available Balance</p>
                   <p className="text-lg font-semibold">
-                    {formatCurrency(userDetails.balance.available, 'USD')}
+                    {formatCurrency(userDetails.balance.available)}
                   </p>
                 </div>
                 
                 <div className="bg-primary/5 p-3 rounded-md">
                   <p className="text-xs text-gray-500">Pending Balance</p>
                   <p className="text-lg font-semibold">
-                    {formatCurrency(userDetails.balance.pending, 'USD')}
+                    {formatCurrency(userDetails.balance.pending)}
                   </p>
                 </div>
                 

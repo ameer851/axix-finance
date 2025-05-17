@@ -58,6 +58,24 @@ export interface IStorage {
   getLogsByDateRange(startDate: Date, endDate: Date): Promise<Log[]>;
   searchLogs(query: string): Promise<Log[]>;
   
+  // Admin logs methods
+  getAdminLogs(options: {
+    page?: number;
+    limit?: number;
+    adminId?: string;
+    action?: string;
+    targetType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any[]>;
+  getAdminLogsCount(options: {
+    adminId?: string;
+    action?: string;
+    targetType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<number>;
+  
   // Message methods
   createMessage(message: InsertMessage): Promise<Message>;
   getMessage(id: number): Promise<Message | undefined>;
@@ -554,6 +572,125 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(logs)
       .where(like(logs.message, searchPattern))
       .orderBy(desc(logs.createdAt));
+  }
+  
+  // Admin logs methods
+  async getAdminLogs(options: {
+    page?: number;
+    limit?: number;
+    adminId?: string;
+    action?: string;
+    targetType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any[]> {
+    try {
+      const {
+        page = 1,
+        limit = 50,
+        adminId,
+        action,
+        targetType,
+        startDate,
+        endDate
+      } = options;
+      
+      const offset = (page - 1) * limit;
+      
+      let query = db.select().from(logs);
+      
+      // Apply filters
+      if (adminId) {
+        query = query.where(eq(logs.userId, parseInt(adminId)));
+      }
+      
+      if (action) {
+        query = query.where(like(logs.message, `%${action}%`));
+      }
+      
+      if (targetType) {
+        query = query.where(like(logs.details, `%${targetType}%`));
+      }
+      
+      if (startDate && endDate) {
+        query = query.where(
+          between(
+            logs.timestamp,
+            new Date(startDate),
+            new Date(endDate)
+          )
+        );
+      } else if (startDate) {
+        query = query.where(sql`${logs.timestamp} >= ${new Date(startDate)}`);
+      } else if (endDate) {
+        query = query.where(sql`${logs.timestamp} <= ${new Date(endDate)}`);
+      }
+      
+      // Add pagination
+      query = query.limit(limit).offset(offset);
+      
+      // Order by newest first
+      query = query.orderBy(desc(logs.timestamp));
+      
+      const result = await query;
+      return result;
+    } catch (error) {
+      console.error('Error getting admin logs:', error);
+      return [];
+    }
+  }
+  
+  async getAdminLogsCount(options: {
+    adminId?: string;
+    action?: string;
+    targetType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<number> {
+    try {
+      const {
+        adminId,
+        action,
+        targetType,
+        startDate,
+        endDate
+      } = options;
+      
+      let query = db.select({ count: sql`count(*)` }).from(logs);
+      
+      // Apply filters
+      if (adminId) {
+        query = query.where(eq(logs.userId, parseInt(adminId)));
+      }
+      
+      if (action) {
+        query = query.where(like(logs.message, `%${action}%`));
+      }
+      
+      if (targetType) {
+        query = query.where(like(logs.details, `%${targetType}%`));
+      }
+      
+      if (startDate && endDate) {
+        query = query.where(
+          between(
+            logs.timestamp,
+            new Date(startDate),
+            new Date(endDate)
+          )
+        );
+      } else if (startDate) {
+        query = query.where(sql`${logs.timestamp} >= ${new Date(startDate)}`);
+      } else if (endDate) {
+        query = query.where(sql`${logs.timestamp} <= ${new Date(endDate)}`);
+      }
+      
+      const result = await query;
+      return parseInt(result[0]?.count?.toString() || '0');
+    } catch (error) {
+      console.error('Error counting admin logs:', error);
+      return 0;
+    }
   }
   
   // Message methods

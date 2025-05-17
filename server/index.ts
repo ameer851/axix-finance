@@ -26,29 +26,15 @@ app.use(helmet({
   crossOriginOpenerPolicy: process.env.NODE_ENV === 'production',
   crossOriginResourcePolicy: process.env.NODE_ENV === 'production'
 }));
-// For development, set up a very permissive CORS policy
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:4000');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-    } else {
-      next();
-    }
-  });
-} else {
-  // For production, use the more restrictive cors middleware
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'https://your-production-domain.com',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
-}
+// For all environments, use the standard cors middleware with appropriate settings
+app.use(cors({
+  origin: process.env.NODE_ENV !== 'production' 
+    ? 'http://localhost:5000' 
+    : (process.env.CORS_ORIGIN || 'https://your-production-domain.com'),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+}));
 
 // Body parsers
 app.use(express.json({ limit: '1mb' }));
@@ -217,7 +203,7 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on a configurable port
   // this serves both the API and the client
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 5000;
   const host = process.env.HOST || '0.0.0.0'; // Listen on all interfaces in production
   
   // Check database connection before starting the server

@@ -5,8 +5,8 @@ import { notificationKeys } from '@/hooks/useNotifications';
 
 const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || (
   window.location.protocol === 'https:' 
-    ? `wss://${window.location.host}/ws` 
-    : `ws://${window.location.host}/ws`
+    ? `wss://localhost:5000/ws` 
+    : `ws://localhost:5000/ws`
 );
 
 interface WebSocketMessage {
@@ -29,7 +29,7 @@ const useNotificationWebSocket = (userId?: number) => {
     if (connectionAttempts >= 5) return;
     
     try {
-      const ws = new WebSocket(`${WEBSOCKET_URL}/notifications?userId=${userId}`);
+      const ws = new WebSocket(`ws://localhost:5000/ws/notifications?userId=${userId}`);
       
       ws.onopen = () => {
         console.log('WebSocket connection established');

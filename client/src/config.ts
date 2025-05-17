@@ -1,10 +1,10 @@
 // Application configuration
 const config = {
   // API base URL - explicitly set based on environment
-  apiUrl: 'http://localhost:3000',
+  apiUrl: 'http://localhost:5000',
   
   // Set with protocol to avoid CORS issues
-  frontendUrl: 'http://localhost:4000',
+  frontendUrl: 'http://localhost:5000',
   
   // Health check endpoint
   healthCheckEndpoint: '/api/health',

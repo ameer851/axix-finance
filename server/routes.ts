@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./storage";
+import { setupWebSocketServer } from "./websocketServer";
 
 // Create a storage instance
 const storage = new DatabaseStorage();
@@ -380,6 +381,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch pending transactions' });
     }
   });
+  
+  // User-specific transactions endpoint
+  app.get("/api/transactions/:userId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      // Check if the user is authorized to access these transactions
+      if (req.user?.id !== userId && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'You do not have permission to view these transactions' });
+      }
+      
+      const transactions = await storage.getUserTransactions(userId);
+      res.status(200).json(transactions);
+    } catch (error) {
+      console.error('Error fetching user transactions:', error);
+      res.status(500).json({ message: 'Failed to fetch user transactions' });
+    }
+  });
 
   // Logs endpoints
   app.get("/api/logs", isAdmin, async (req: Request, res: Response) => {
@@ -391,28 +410,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch logs' });
     }
   });
-
-  // Messages endpoints
-  app.get("/api/messages", isAdmin, async (req: Request, res: Response) => {
+  
+  // Settings endpoints
+  app.get("/api/settings", async (req: Request, res: Response) => {
     try {
-      const messages = await storage.getAllMessages();
-      res.status(200).json(messages);
+      const settings = await storage.getAllSettings();
+      res.status(200).json(settings);
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      res.status(500).json({ message: 'Failed to fetch messages' });
+      console.error('Error fetching settings:', error);
+      res.status(500).json({ message: 'Failed to fetch settings' });
     }
   });
-
-  app.get("/api/messages/unread", isAdmin, async (req: Request, res: Response) => {
+  
+  app.get("/api/settings/:name", async (req: Request, res: Response) => {
     try {
-      const messages = await storage.getUnreadMessages();
-      res.status(200).json({ count: messages.length });
+      const { name } = req.params;
+      const setting = await storage.getSetting(name);
+      
+      if (!setting) {
+        return res.status(404).json({ message: `Setting "${name}" not found` });
+      }
+      
+      res.status(200).json(setting);
     } catch (error) {
-      console.error('Error fetching unread messages:', error);
-      res.status(500).json({ message: 'Failed to fetch unread messages count' });
+      console.error('Error fetching setting:', error);
+      res.status(500).json({ message: 'Failed to fetch setting' });
     }
   });
-
+  
+  // Admin logs endpoint with pagination
+  app.get("/api/admin/logs", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const adminId = req.query.adminId as string;
+      const action = req.query.action as string;
+      const targetType = req.query.targetType as string;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      
+      const logs = await storage.getAdminLogs({
+        page,
+        limit,
+        adminId,
+        action,
+        targetType,
+        startDate,
+        endDate
+      });
+      
+      const total = await storage.getAdminLogsCount({
+        adminId,
+        action,
+        targetType,
+        startDate,
+        endDate
+      });
+      
+      const totalPages = Math.ceil(total / limit);
+      
+      res.status(200).json({
+        logs,
+        total,
+        page,
+        totalPages
+      });
+    } catch (error) {
+      console.error('Error fetching admin logs:', error);
+      res.status(500).json({ message: 'Failed to fetch admin logs' });
+    }
+  });
+  
   // Existing endpoints
   app.get("/api/health", async (req: Request, res: Response) => {
     try {
@@ -507,5 +575,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server
+  setupWebSocketServer(httpServer);
+  
   return httpServer;
 }
