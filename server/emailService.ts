@@ -488,3 +488,71 @@ export async function verifyUserEmail(token: string): Promise<User | null> {
     return null;
   }
 }
+
+/**
+ * Send a test email to verify email configuration
+ * @param recipient The email address to send the test to
+ * @param subject The email subject
+ * @param text The email text content
+ * @returns A promise that resolves when the email is sent
+ */
+export async function sendTestEmail(recipient: string, subject: string, text: string): Promise<void> {
+  try {
+    // Enhanced validation to prevent "No recipients defined" error
+    if (!recipient || typeof recipient !== 'string') {
+      console.error("Cannot send test email: Recipient email is missing");
+      return Promise.reject(new Error("Recipient email is missing"));
+    }
+
+    // Additional validation for email format
+    const email = recipient.trim();
+    if (!email.includes('@') || !email.includes('.')) {
+      console.error("Cannot send test email: Invalid email format", email);
+      return Promise.reject(new Error("Invalid email format"));
+    }
+
+    const message = {
+      from: process.env.EMAIL_FROM || '"Carax Finance" <noreply@caraxfinance.com>',
+      to: email,
+      subject: subject,
+      text: text,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Test Email</h2>
+          <p>${text}</p>
+          <hr style="border: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #777; font-size: 12px;">Carax Finance - Secure Financial Services</p>
+        </div>
+      `
+    };
+    
+    console.log(`Sending test email to ${email}`);
+    const emailTransporter = await getEmailTransporter();
+    
+    const info = await emailTransporter.sendMail(message);
+
+    // Enhanced handling for Ethereal test emails in development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n===== TEST EMAIL SENT SUCCESSFULLY =====');
+      console.log('📧 Message ID:', info.messageId);
+      
+      // Always try to get the preview URL from Ethereal
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      
+      if (previewUrl) {
+        console.log('📬 Preview URL:', previewUrl);
+        console.log('Open this URL to view the test email');
+      }
+      
+      console.log('=======================================\n');
+    }
+    
+    return Promise.resolve();
+  } catch (error) {
+    console.error("Failed to send test email:", error);
+    if (error instanceof Error) {
+      console.error(`Error name: ${error.name}, message: ${error.message}`);
+    }
+    return Promise.reject(error);
+  }
+}

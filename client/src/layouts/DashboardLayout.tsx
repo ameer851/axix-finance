@@ -202,56 +202,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </button>
           <div className="flex-1 px-4 flex justify-between">
             <div className="flex-1 flex items-center">
-              <div className="w-full max-w-lg lg:max-w-xs">
-                <form onSubmit={handleSearch} className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <Input
-                    id="search"
-                    name="search"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Search"
-                    type="search"
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                  />
-                  {searchValue && (
-                    <button
-                      type="button"
-                      aria-label="Clear search"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={clearSearch}
-                    >
-                      <X className="h-4 w-4 text-gray-400" />
-                    </button>
-                  )}
-                </form>
-                
-                {/* Search results dropdown */}
-                {searchResults.length > 0 && (
-                  <div className="absolute mt-1 w-full bg-white dark:bg-neutral-800 shadow-lg rounded-md z-50 max-h-60 overflow-auto">
-                    <ul className="py-1">
-                      {searchResults.map((result, index) => (
-                        <li key={index}>
-                          <Link href={result.path}>
-                            <a 
-                              className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-700"
-                              onClick={clearSearch}
-                            >
-                              {result.label}
-                            </a>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+              {/* REMOVE: Search bar */}
             </div>
             <div className="ml-4 flex items-center md:ml-6">
-              {user && user.id && <NotificationDropdown userId={user.id} />}
-
+              {/* REMOVE: NotificationDropdown and related code */}
               {/* Mobile user dropdown */}
               <div className="ml-3 relative md:hidden">
                 <Avatar className="h-8 w-8 cursor-pointer">

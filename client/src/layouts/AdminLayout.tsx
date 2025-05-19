@@ -28,10 +28,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const navItems = [
     { path: '/admin', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { path: '/admin/transactions', label: 'Transactions', icon: <DollarSign className="h-5 w-5" /> },
     { path: '/admin/users', label: 'Users', icon: <Users className="h-5 w-5" /> },
-    { path: '/admin/maintenance', label: 'Maintenance', icon: <ToggleLeft className="h-5 w-5" /> },
-    { path: '/admin/logs', label: 'Logs', icon: <ClipboardList className="h-5 w-5" /> },
   ];
 
   const getInitials = (name: string) => {

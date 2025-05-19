@@ -39,7 +39,6 @@ A modern financial management platform built with React, TypeScript, and Node.js
 
 ### Prerequisites
 - Node.js 18+
-- Docker and Docker Compose
 - PostgreSQL (or use the provided Docker setup)
 
 ### Installation
@@ -72,8 +71,8 @@ npm run dev:client
 ```
 
 5. Access the application:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:4000
+- Frontend: http://localhost:4000
+- Backend API: http://localhost:5000
 
 ## Environment Variables
 
