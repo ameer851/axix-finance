@@ -28,7 +28,7 @@ import {
   getAlertSettings,
   updateAlertSetting,
   AlertSetting
-} from '@/services/notificationService.new';
+} from '@/services/notificationService';
 
 interface NotificationsAlertsProps {
   onViewAll?: () => void;

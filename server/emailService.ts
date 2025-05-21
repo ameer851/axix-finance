@@ -25,8 +25,9 @@ export let etherealAccount: {user: string, pass: string} | null = null;
 // Initialize the email transporter
 async function initializeEmailTransporter() {
   try {
-    // In production, use configured SMTP settings
+    // In production, use configured SMTP settings (Brevo)
     if (process.env.NODE_ENV === 'production' && process.env.SMTP_HOST) {
+      console.log('Initializing email service with Brevo SMTP...');
       transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 587,
@@ -38,8 +39,35 @@ async function initializeEmailTransporter() {
         debug: true, // Enable debugging
         logger: true  // Enable logging
       });
+    } else if (process.env.ETHEREAL_USER && process.env.ETHEREAL_PASS) {
+      // Use existing Ethereal credentials from .env file
+      console.log('Using existing Ethereal credentials from .env file...');
+      etherealAccount = {
+        user: process.env.ETHEREAL_USER,
+        pass: process.env.ETHEREAL_PASS
+      };
+      
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.ETHEREAL_USER,
+          pass: process.env.ETHEREAL_PASS
+        },
+        debug: true,
+        logger: true
+      });
+      
+      console.log('\n===== ETHEREAL EMAIL CREDENTIALS =====');
+      console.log('📧 Username:', process.env.ETHEREAL_USER);
+      console.log('🔑 Password:', process.env.ETHEREAL_PASS);
+      console.log('🌐 Web Interface: https://ethereal.email/login');
+      console.log('Note: Use these credentials to login and view test emails');
+      console.log('=======================================\n');
     } else {
-      // For development/testing, use Ethereal (creates a new test account each time)
+      // For development/testing, create a new Ethereal test account
+      console.log('Creating new Ethereal test account...');
       const testAccount = await nodemailer.createTestAccount();
       etherealAccount = {
         user: testAccount.user,
@@ -58,7 +86,7 @@ async function initializeEmailTransporter() {
         logger: true
       });
       
-      console.log('\n===== ETHEREAL EMAIL TEST ACCOUNT =====');
+      console.log('\n===== NEW ETHEREAL EMAIL TEST ACCOUNT =====');
       console.log('📧 Username:', testAccount.user);
       console.log('🔑 Password:', testAccount.pass);
       console.log('🌐 Web Interface: https://ethereal.email/login');
@@ -105,7 +133,7 @@ export function generateSecureToken(userId: number, type: 'verification' | 'pass
   
   const expiresIn = type === 'verification' ? TOKEN_EXPIRY.VERIFICATION : TOKEN_EXPIRY.PASSWORD_RESET;
   
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn } as jwt.SignOptions);
 }
 
 /**
@@ -222,7 +250,11 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
     return Promise.resolve();
   } catch (error) {
     console.error('Failed to send verification email:', error);
-    console.error('Error details:', error.message);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    } else {
+      console.error('Error details:', error);
+    }
     
     // Create activity log for failed email
     if (user && user.id) {
@@ -230,7 +262,7 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
         type: 'error',
         userId: user.id,
         message: 'Failed to send verification email',
-        details: { error: error.message }
+        details: { error: error instanceof Error ? error.message : String(error) }
       }).catch(e => console.error('Failed to log email error:', e));
     }
     
@@ -260,6 +292,7 @@ export async function resendVerificationEmail(user: User): Promise<void> {
  * @param token The reset token
  * @returns A promise that resolves when the email is sent
  */
+
 export async function sendPasswordResetEmail(user: User, token: string): Promise<void> {
   // Enhanced validation to prevent "No recipients defined" error
   if (!user) {

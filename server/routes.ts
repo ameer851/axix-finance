@@ -512,6 +512,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Debug endpoint to list database tables (only available in development mode)
+  if (process.env.NODE_ENV === 'development') {
+    app.get("/api/debug/tables", async (req: Request, res: Response) => {
+      try {
+        const client = await pool.connect();
+        try {
+          const result = await client.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name;
+          `);
+          res.status(200).json({
+            tables: result.rows.map(row => row.table_name)
+          });
+        } catch (error) {
+          console.error('Error listing tables:', error);
+          res.status(500).json({ error: 'Failed to list tables' });
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        console.error('Database connection error:', error);
+        res.status(500).json({ error: 'Database connection failed' });
+      }
+    });
+  }
+  
   app.get("/api/auth/verify-email", async (req: Request, res: Response) => {
     try {
       const { token } = req.query;

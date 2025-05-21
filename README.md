@@ -80,7 +80,8 @@ See `.env.example` for a complete list of environment variables. Critical variab
 
 - `DATABASE_URL`: PostgreSQL connection string
 - `JWT_SECRET`: Secret key for JWT tokens
-- `EMAIL_SERVICE`, `EMAIL_USER`, `EMAIL_PASSWORD`: Email service configuration
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`: Email service configuration (Brevo)
+- `ETHEREAL_USER`, `ETHEREAL_PASS`: Development email testing configuration
 - `NODE_ENV`: Environment ('development', 'test', or 'production')
 
 ## Project Structure
@@ -112,7 +113,19 @@ See `.env.example` for a complete list of environment variables. Critical variab
 └── package.json           # Project dependencies and scripts
 ```
 
-## API Documentation
+## Documentation
+
+### Email Service
+The project uses a dual email service configuration:
+- **Production**: Brevo SMTP for reliable delivery in production environments
+- **Development**: Ethereal for testing without sending real emails
+
+Documentation:
+- [Email Service Guide](docs/email-service-guide.md): Comprehensive guide to the email system
+- [Brevo Setup Guide](docs/brevo-setup-guide.md): How to configure Brevo SMTP
+- [Email Setup Summary](docs/email-setup-summary.md): Current status of email configuration
+
+### API Documentation
 
 ### Authentication
 - `POST /api/auth/register`: Register a new user
@@ -177,6 +190,61 @@ For production deployment, use Docker Compose:
 ```bash
 # Start the application stack
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+## Troubleshooting
+
+### CORS Configuration
+
+If you encounter CORS errors during development:
+
+1. Make sure your backend server has the correct CORS configuration:
+
+```typescript
+import cors from "cors";
+
+// CORS configuration for development
+if (process.env.NODE_ENV !== 'production') {
+  app.use(cors({
+    origin: 'http://localhost:4000',  // Your frontend URL
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With']
+  }));
+} else {
+  // Production CORS settings
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || 'https://your-production-domain.com',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
+}
+```
+
+2. Test the connection with:
+
+```javascript
+fetch('http://localhost:5000/api/health', {
+  method: 'GET',
+  credentials: 'include',
+  headers: { 'Accept': 'application/json' }
+})
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));
+```
+
+### Database Issues
+
+If you encounter database-related errors:
+
+1. Make sure your PostgreSQL server is running
+2. Verify DATABASE_URL in your .env file is correct
+3. Apply database migrations with:
+
+```bash
+npm run db:push
 ```
 
 ## License

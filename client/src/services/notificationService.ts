@@ -1,4 +1,4 @@
-import { type Notification, type InsertNotification, type NotificationType, type NotificationPriority } from '@shared/schema';
+import { Notification, InsertNotification, NotificationType, NotificationPriority } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 
 export type NotificationFilters = {
@@ -12,8 +12,13 @@ export type NotificationFilters = {
   limit?: number;
 };
 
-// Re-export types for convenience
-export type { NotificationType, NotificationPriority, Notification, InsertNotification };
+// Alert settings type definitions
+export type AlertSetting = {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+};
 
 /**
  * Get all notifications for the current user
@@ -133,13 +138,13 @@ export async function markAllNotificationsAsRead(): Promise<{ count: number }> {
  */
 export async function deleteNotification(notificationId: number): Promise<boolean> {
   try {
-    const response = await apiRequest('DELETE', `/api/notifications/${notificationId}`);
+    await apiRequest('DELETE', `/api/notifications/${notificationId}`);
     return true;
   } catch (error: any) {
     console.error('Error deleting notification:', error);
     
     if (error.status === 404) {
-      throw new Error('Notification not found. It may have been already deleted.');
+      throw new Error('Notification not found.');
     } else if (error.status === 403) {
       throw new Error('You do not have permission to delete this notification.');
     } else if (error.isOffline || error.isNetworkError) {
@@ -153,20 +158,21 @@ export async function deleteNotification(notificationId: number): Promise<boolea
 /**
  * Delete all notifications for the current user
  */
-export async function deleteAllNotifications(): Promise<{ count: number }> {
+export async function deleteAllNotifications(userId?: number): Promise<boolean> {
   try {
-    const response = await apiRequest('DELETE', '/api/notifications');
-    return await response.json();
+    const url = userId ? `/api/notifications/all/${userId}` : '/api/notifications/all';
+    await apiRequest('DELETE', url);
+    return true;
   } catch (error: any) {
     console.error('Error deleting all notifications:', error);
-
-    if (error.status === 401) {
-      throw new Error('You must be logged in to delete notifications.');
+    
+    if (error.status === 403) {
+      throw new Error('You do not have permission to delete all notifications.');
     } else if (error.isOffline || error.isNetworkError) {
       throw new Error('Cannot connect to server. Please check your internet connection and try again.');
     }
-
-    throw new Error(error.message || 'Failed to delete notifications. Please try again later.');
+    
+    throw new Error(error.message || 'Failed to delete all notifications. Please try again later.');
   }
 }
 
@@ -187,7 +193,7 @@ export async function updateNotificationPreferences(preferences: {
   notificationTypes: Record<NotificationType, boolean>;
 }> {
   try {
-    const response = await apiRequest('PATCH', '/api/notifications/preferences', preferences);
+    const response = await apiRequest('PATCH', '/api/user/notification-preferences', preferences);
     return await response.json();
   } catch (error: any) {
     console.error('Error updating notification preferences:', error);
@@ -213,7 +219,7 @@ export async function getNotificationPreferences(): Promise<{
   notificationTypes: Record<NotificationType, boolean>;
 }> {
   try {
-    const response = await apiRequest('GET', '/api/notifications/preferences');
+    const response = await apiRequest('GET', '/api/user/notification-preferences');
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching notification preferences:', error);
@@ -321,9 +327,101 @@ export function getNotificationIcon(notification: Notification): string {
 export function getNotificationColor(priority: NotificationPriority): string {
   const colors: Record<NotificationPriority, string> = {
     low: 'blue',
-    medium: 'green',
+    medium: 'yellow',
     high: 'red'
   };
   
   return colors[priority] || 'blue';
+}
+
+/**
+ * Get user alert settings
+ */
+export async function getAlertSettings(userId: number): Promise<AlertSetting[]> {
+  try {
+    const response = await apiRequest('GET', `/api/users/${userId}/alert-settings`);
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching alert settings:', error);
+    
+    if (error.status === 401) {
+      throw new Error('You must be logged in to view alert settings.');
+    } else if (error.status === 404) {
+      throw new Error('User not found.');
+    } else if (error.isOffline || error.isNetworkError) {
+      // Return default alert settings for offline mode
+      return [
+        {
+          id: 'price_alerts',
+          name: 'Price Alerts',
+          description: 'Notifications when securities reach your target price',
+          enabled: true
+        },
+        {
+          id: 'market_news',
+          name: 'Market News',
+          description: 'Important news about the market and your holdings',
+          enabled: true
+        },
+        {
+          id: 'deposit_withdrawal',
+          name: 'Deposits & Withdrawals',
+          description: 'Notifications about account funding activities',
+          enabled: true
+        },
+        {
+          id: 'trade_confirmations',
+          name: 'Trade Confirmations',
+          description: 'Confirmations when your trades are executed',
+          enabled: true
+        },
+        {
+          id: 'dividend_payments',
+          name: 'Dividend Payments',
+          description: 'Notifications about dividend payments',
+          enabled: true
+        },
+        {
+          id: 'account_statements',
+          name: 'Account Statements',
+          description: 'Notifications when new statements are available',
+          enabled: false
+        },
+        {
+          id: 'tax_documents',
+          name: 'Tax Documents',
+          description: 'Notifications when tax documents are ready',
+          enabled: true
+        }
+      ];
+    }
+    
+    throw new Error(error.message || 'Failed to fetch alert settings. Please try again later.');
+  }
+}
+
+/**
+ * Update an alert setting
+ */
+export async function updateAlertSetting(userId: number, settingId: string, enabled: boolean): Promise<AlertSetting> {
+  try {
+    const response = await apiRequest('PATCH', `/api/users/${userId}/alert-settings/${settingId}`, {
+      enabled
+    });
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error updating alert setting:', error);
+    
+    if (error.status === 401) {
+      throw new Error('You must be logged in to update alert settings.');
+    } else if (error.status === 404) {
+      throw new Error('Setting not found.');
+    } else if (error.status === 403) {
+      throw new Error('You do not have permission to update this setting.');
+    } else if (error.isOffline || error.isNetworkError) {
+      throw new Error('You are currently offline. Please try again when you have an internet connection.');
+    }
+    
+    throw new Error(error.message || 'Failed to update alert setting. Please try again later.');
+  }
 }

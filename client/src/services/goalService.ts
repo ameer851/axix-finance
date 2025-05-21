@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
-import type { Goal } from '@/shared/schema';
+import type { Goal } from '@shared/schema';
 
 /**
  * Get goals for a user

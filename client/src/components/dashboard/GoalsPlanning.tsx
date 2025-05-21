@@ -20,7 +20,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Goal } from '@/shared/schema';
+import type { Goal } from '@shared/schema';
 import { getGoals, createGoal, updateGoal, deleteGoal } from '@/services/goalService';
 
 interface GoalFormData {
