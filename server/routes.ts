@@ -44,19 +44,7 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// Admin middleware to check if user is admin
-const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized: Login required" });
-  }
-  
-  const user = req.user as Express.User;
-  if (user.role !== 'admin') {
-    return res.status(403).json({ message: "Forbidden: Admin access required" });
-  }
-  
-  next();
-};
+
 
 // Email verification routes
 router.post('/verify-email', async (req, res) => {
@@ -295,76 +283,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply notification routes
   app.use('/api/notifications', notificationRoutes);
 
-  // Existing endpoint
-  app.get("/api/admin/stats", isAdmin, async (req: Request, res: Response) => {
-    try {
-      const allUsers = await storage.getAllUsers();
-      const totalUsers = allUsers.length;
-      const activeUsers = allUsers.filter(user => user.isActive).length;
 
-      const pendingTransactions = await storage.getPendingTransactions();
-      
-      const allTransactions = await storage.getAllTransactions();
-      const transactionVolume = allTransactions
-        .filter(t => t.status === 'completed')
-        .reduce((sum, t) => sum + parseFloat(t.amount as string), 0)
-        .toString();
 
-      res.status(200).json({
-        totalUsers,
-        activeUsers,
-        pendingTransactions: pendingTransactions.length,
-        transactionVolume
-      });
-    } catch (error) {
-      console.error('Error fetching admin stats:', error);
-      res.status(500).json({ message: 'Failed to fetch admin dashboard statistics' });
-    }
-  });
 
-  // Admin Analytics endpoint
-  app.get("/api/admin/analytics", isAdmin, async (req: Request, res: Response) => {
-    try {
-      // Generate sample analytics data for the last 6 months
-      const analyticsData = [];
-      const today = new Date();
-      
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        analyticsData.push({
-          date: `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`,
-          users: Math.floor(Math.random() * 100) + 50,
-          transactions: Math.floor(Math.random() * 200) + 100,
-        });
-      }
-      
-      res.status(200).json(analyticsData);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      res.status(500).json({ message: 'Failed to fetch analytics data' });
-    }
-  });
 
-  // Users endpoints
-  app.get("/api/users", isAdmin, async (req: Request, res: Response) => {
-    try {
-      const users = await storage.getAllUsers();
-      // Filter out sensitive information
-      const safeUsers = users.map(user => {
-        const { password, ...safeUser } = user;
-        return safeUser;
-      });
-      res.status(200).json(safeUsers);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      res.status(500).json({ message: 'Failed to fetch users' });
-    }
-  });
+
+
+
+
+
+
+
+
+
+
+
 
   // Transactions endpoints
-  app.get("/api/transactions", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const transactions = await storage.getAllTransactions();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Only allow users to see their own transactions
+      const transactions = await storage.getUserTransactions(userId);
       res.status(200).json(transactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -372,10 +316,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/transactions/pending", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/transactions/pending", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const transactions = await storage.getPendingTransactions();
-      res.status(200).json(transactions);
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Only allow users to see their own pending transactions
+      const transactions = await storage.getUserTransactions(userId);
+      const pendingTransactions = transactions.filter(t => t.status === 'pending');
+      res.status(200).json(pendingTransactions);
     } catch (error) {
       console.error('Error fetching pending transactions:', error);
       res.status(500).json({ message: 'Failed to fetch pending transactions' });
@@ -387,8 +338,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.userId);
       
-      // Check if the user is authorized to access these transactions
-      if (req.user?.id !== userId && req.user?.role !== 'admin') {
+      // Only allow users to access their own transactions
+      if (req.user?.id !== userId) {
         return res.status(403).json({ message: 'You do not have permission to view these transactions' });
       }
       
@@ -400,16 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Logs endpoints
-  app.get("/api/logs", isAdmin, async (req: Request, res: Response) => {
-    try {
-      const logs = await storage.getAllLogs();
-      res.status(200).json(logs);
-    } catch (error) {
-      console.error('Error fetching logs:', error);
-      res.status(500).json({ message: 'Failed to fetch logs' });
-    }
-  });
+
   
   // Settings endpoints
   app.get("/api/settings", async (req: Request, res: Response) => {
@@ -438,48 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Admin logs endpoint with pagination
-  app.get("/api/admin/logs", isAdmin, async (req: Request, res: Response) => {
-    try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const adminId = req.query.adminId as string;
-      const action = req.query.action as string;
-      const targetType = req.query.targetType as string;
-      const startDate = req.query.startDate as string;
-      const endDate = req.query.endDate as string;
-      
-      const logs = await storage.getAdminLogs({
-        page,
-        limit,
-        adminId,
-        action,
-        targetType,
-        startDate,
-        endDate
-      });
-      
-      const total = await storage.getAdminLogsCount({
-        adminId,
-        action,
-        targetType,
-        startDate,
-        endDate
-      });
-      
-      const totalPages = Math.ceil(total / limit);
-      
-      res.status(200).json({
-        logs,
-        total,
-        page,
-        totalPages
-      });
-    } catch (error) {
-      console.error('Error fetching admin logs:', error);
-      res.status(500).json({ message: 'Failed to fetch admin logs' });
-    }
-  });
+
   
   // Existing endpoints
   app.get("/api/health", async (req: Request, res: Response) => {

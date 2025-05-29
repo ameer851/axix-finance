@@ -7,7 +7,6 @@ A modern financial management platform built with React, TypeScript, and Node.js
 - **Secure Authentication**: Email verification, password reset, and 2FA
 - **User Dashboard**: View account balances, transaction history, and financial analytics
 - **Transaction Management**: Deposit, withdraw, transfer, and invest funds
-- **Admin Dashboard**: Manage users, approve transactions, and track system activity
 - **Real-time Notifications**: Stay updated on account activity and important alerts
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 
@@ -144,16 +143,13 @@ Documentation:
 - `POST /api/transactions`: Create a new transaction
 - `GET /api/transactions`: Get transactions with optional filtering
 - `GET /api/transactions/:id`: Get a single transaction
-- `PATCH /api/transactions/:id`: Update a transaction (admin only)
-- `PATCH /api/transactions/:id/status`: Update transaction status (admin only)
-- `DELETE /api/transactions/:id`: Delete a transaction (admin only)
+- `PATCH /api/transactions/:id/status`: Update transaction status
 
 ### Messages
 - `POST /api/messages`: Create a new support message
 - `GET /api/messages`: Get messages with optional filtering
 - `GET /api/messages/:id`: Get a single message
 - `PATCH /api/messages/:id/status`: Update message status
-- `PATCH /api/messages/:id/reply`: Reply to a message (admin only)
 - `DELETE /api/messages/:id`: Delete a message
 
 ### Notifications
@@ -164,14 +160,6 @@ Documentation:
 - `DELETE /api/notifications/:id`: Delete a notification
 - `GET /api/notifications/preferences`: Get notification preferences
 - `PATCH /api/notifications/preferences`: Update notification preferences
-
-### Admin
-- `GET /api/admin/stats`: Get admin dashboard statistics
-- `GET /api/admin/analytics`: Get detailed analytics data
-- `GET /api/users`: Get all users (admin only)
-- `PATCH /api/users/:id/status`: Update user status (admin only)
-- `PATCH /api/users/:id/role`: Update user role (admin only)
-- `GET /api/logs`: Get system logs (admin only)
 
 ## Docker Deployment
 

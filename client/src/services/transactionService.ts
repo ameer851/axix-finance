@@ -1,64 +1,56 @@
-import { Transaction } from '@shared/schema';
-
-// Define missing types
-type TransactionType = 'deposit' | 'withdrawal' | 'investment' | 'transfer' | 'fee' | 'dividend';
-type TransactionStatus = 'pending' | 'completed' | 'failed' | 'canceled' | 'rejected';
-
-// Define InsertTransaction type
-type InsertTransaction = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & {
-  id?: string;
-};
+import { Transaction, InsertTransaction, TransactionType, TransactionStatus } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { triggerTransactionNotification } from '@/lib/notificationTriggers';
 
 // Mock data for development
 const MOCK_TRANSACTIONS: Transaction[] = [
   {
-    id: '1',
-    userId: '1',
+    id: 1,
+    userId: 1,
     type: 'deposit',
     amount: '1000',
     status: 'completed',
-    currency: 'USD',
     description: 'Initial deposit',
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    completedAt: new Date(Date.now() - 86400000 * 2).toISOString()
+    createdAt: new Date(Date.now() - 86400000 * 2),
+    updatedAt: new Date(Date.now() - 86400000 * 2),
+    processedBy: null,
+    rejectionReason: null
   },
   {
-    id: '2',
-    userId: '1',
+    id: 2,
+    userId: 1,
     type: 'withdrawal',
     amount: '500',
     status: 'completed',
-    currency: 'USD',
     description: 'Withdrawal to bank account',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    completedAt: new Date(Date.now() - 86400000).toISOString()
+    createdAt: new Date(Date.now() - 86400000),
+    updatedAt: new Date(Date.now() - 86400000),
+    processedBy: null,
+    rejectionReason: null
   },
   {
-    id: '3',
-    userId: '1',
+    id: 3,
+    userId: 1,
     type: 'transfer',
     amount: '100',
     status: 'completed',
-    currency: 'USD',
     description: 'Transfer to savings',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString()
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    processedBy: null,
+    rejectionReason: null
   },
   {
-    id: '4',
-    userId: '1',
+    id: 4,
+    userId: 1,
     type: 'withdrawal',
     amount: '1000',
     status: 'pending',
-    currency: 'USD',
     description: 'Withdrawal request',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    processedBy: null,
+    rejectionReason: null
   }
 ];
 
@@ -182,26 +174,19 @@ export async function getPendingTransactions(filters: Omit<TransactionFilters, '
  */
 export async function updateTransactionStatus(
   transactionId: number, 
-  status: TransactionStatus,
-  adminNote?: string
+  status: TransactionStatus
 ): Promise<Transaction> {
   try {
-    const payload: { status: TransactionStatus; adminNote?: string } = { status };
-    if (adminNote) {
-      payload.adminNote = adminNote;
-    }
+    const payload: { status: TransactionStatus } = { status };
     
     const response = await apiRequest('PATCH', `/api/transactions/${transactionId}/status`, payload);
     const updatedTransaction = await response.json();
     
     // Trigger notification for transaction status update
-    // Convert status to the expected type if needed
-    const notificationStatus = status === 'failed' || status === 'canceled' ? 'rejected' : status;
-    
     triggerTransactionNotification(
       updatedTransaction.userId,
       transactionId,
-      notificationStatus as 'pending' | 'completed' | 'rejected',
+      status,
       updatedTransaction.amount,
       updatedTransaction.type
     );
@@ -221,55 +206,6 @@ export async function updateTransactionStatus(
     }
     
     throw new Error(error.message || `Failed to update transaction status to ${status}. Please try again later.`);
-  }
-}
-
-/**
- * Update transaction details (admin only)
- */
-export async function updateTransaction(
-  transactionId: number,
-  updateData: Partial<Transaction>
-): Promise<Transaction> {
-  try {
-    const response = await apiRequest('PATCH', `/api/transactions/${transactionId}`, updateData);
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error updating transaction:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to update this transaction.');
-    } else if (error.status === 404) {
-      throw new Error('Transaction not found. It may have been deleted.');
-    } else if (error.status === 400) {
-      throw new Error(error.message || 'Invalid transaction data. Please check your inputs.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to update transaction. Please try again later.');
-  }
-}
-
-/**
- * Delete a transaction (admin only)
- */
-export async function deleteTransaction(transactionId: number): Promise<boolean> {
-  try {
-    const response = await apiRequest('DELETE', `/api/transactions/${transactionId}`);
-    return true;
-  } catch (error: any) {
-    console.error('Error deleting transaction:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to delete this transaction.');
-    } else if (error.status === 404) {
-      throw new Error('Transaction not found. It may have been already deleted.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to delete transaction. Please try again later.');
   }
 }
 
@@ -502,66 +438,6 @@ export async function getTransactionStats(): Promise<{
 }
 
 /**
- * Approve multiple transactions at once (admin only)
- */
-export async function bulkApproveTransactions(transactionIds: number[]): Promise<{
-  success: boolean;
-  processed: number;
-  failed: number;
-  message: string;
-}> {
-  try {
-    const response = await apiRequest('POST', '/api/transactions/bulk-approve', { transactionIds });
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error bulk approving transactions:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to approve these transactions.');
-    } else if (error.status === 400) {
-      throw new Error(error.message || 'Invalid transaction IDs. Please check your selection.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to approve transactions. Please try again later.');
-  }
-}
-
-/**
- * Reject multiple transactions at once (admin only)
- */
-export async function bulkRejectTransactions(
-  transactionIds: number[],
-  reason: string
-): Promise<{
-  success: boolean;
-  processed: number;
-  failed: number;
-  message: string;
-}> {
-  try {
-    const response = await apiRequest('POST', '/api/transactions/bulk-reject', { 
-      transactionIds,
-      reason 
-    });
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error bulk rejecting transactions:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to reject these transactions.');
-    } else if (error.status === 400) {
-      throw new Error(error.message || 'Invalid transaction IDs or missing reason. Please check your inputs.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to reject transactions. Please try again later.');
-  }
-}
-
-/**
  * Get transaction type label
  */
 export function getTransactionTypeLabel(type: TransactionType): string {
@@ -569,9 +445,7 @@ export function getTransactionTypeLabel(type: TransactionType): string {
     deposit: 'Deposit',
     withdrawal: 'Withdrawal',
     transfer: 'Transfer',
-    investment: 'Investment',
-    fee: 'Fee',
-    dividend: 'Dividend'
+    investment: 'Investment'
   };
   return labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
 }
@@ -583,9 +457,7 @@ export function getTransactionStatusLabel(status: TransactionStatus): string {
   const labels: Record<TransactionStatus, string> = {
     pending: 'Pending',
     completed: 'Completed',
-    rejected: 'Rejected',
-    failed: 'Failed',
-    canceled: 'Canceled'
+    rejected: 'Rejected'
   };
   return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -598,9 +470,7 @@ export function getTransactionDescription(type: TransactionType): string {
     deposit: 'Bank transfer',
     withdrawal: 'To external wallet',
     transfer: 'To savings account',
-    investment: 'Stock purchase',
-    fee: 'Service fee',
-    dividend: 'Dividend payment'
+    investment: 'Stock purchase'
   };
   return descriptions[type] || `${type} transaction`;
 }

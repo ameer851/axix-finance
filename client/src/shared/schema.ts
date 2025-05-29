@@ -308,17 +308,6 @@ export interface AdvisorMeeting {
   meetingUrl?: string;
 }
 
-// Admin dashboard related types
-export interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: string[];
-  userCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface SystemSettings {
   maintenance: {
     enabled: boolean;

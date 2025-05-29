@@ -28,7 +28,7 @@ const formSchema = z.object({
 
 const Login: React.FC = () => {
   const [, navigate] = useLocation();
-  const { login, isAdmin, isLoading: authLoading } = useAuth();
+  const { login, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -82,14 +82,8 @@ const Login: React.FC = () => {
         description: "Welcome back to Carax Finance!",
       });
       
-      // Check the user role from the response and redirect accordingly
-      // Handle case where role might be undefined by providing a default 'user' role
-      const userRole = userData?.role || 'user';
-      if (userRole === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      // Navigate to dashboard
+      navigate('/dashboard');
       
     } catch (error: any) {
       console.error("Login submission error:", error);

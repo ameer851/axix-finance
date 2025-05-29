@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const roleEnum = pgEnum("role", ["user", "admin"]);
+export const roleEnum = pgEnum("role", ["user"]);
 export const transactionTypeEnum = pgEnum("transaction_type", ["deposit", "withdrawal", "transfer", "investment"]);
 export const transactionStatusEnum = pgEnum("transaction_status", ["pending", "completed", "rejected"]);
 export const logTypeEnum = pgEnum("log_type", ["info", "warning", "error", "audit"]);
@@ -23,7 +23,7 @@ export const users = pgTable("users", {
   balance: numeric("balance").notNull().default("0"),
   isVerified: boolean("is_verified").default(false),
   isActive: boolean("is_active").default(true),
-  referredBy: integer("referred_by").references(() => users.id),
+  referredBy: integer("referred_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
@@ -178,6 +178,22 @@ export type TransactionType = "deposit" | "withdrawal" | "transfer" | "investmen
 export type TransactionStatus = "pending" | "completed" | "rejected";
 export type LogType = "info" | "warning" | "error" | "audit";
 export type MessageStatus = "unread" | "read" | "replied";
-export type Role = "user" | "admin";
+export type Role = "user";
 export type NotificationType = "transaction" | "account" | "security" | "marketing" | "system" | "verification";
 export type NotificationPriority = "low" | "medium" | "high";
+
+// Goal type for financial goals planning
+export type Goal = {
+  id: number;
+  userId: number;
+  title: string;
+  description?: string;
+  targetAmount: string;
+  currentAmount: string;
+  targetDate: Date;
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'active' | 'completed' | 'paused' | 'cancelled';
+  createdAt: Date;
+  updatedAt: Date;
+};

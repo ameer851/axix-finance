@@ -3,7 +3,7 @@
  * Centralizes all API calls to the backend
  */
 
-import { User, Transaction, Investment, Goal, Portfolio, Notification, MarketData } from '@shared/schema';
+import { User, Transaction, Notification } from '@shared/schema';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? 'https://api.caraxfinance.com' 
@@ -158,14 +158,14 @@ export const investmentAPI = {
     return fetchWithAuth(`/investments/${investmentId}`);
   },
   
-  createInvestment: async (data: Partial<Investment>) => {
+  createInvestment: async (data: Record<string, any>) => {
     return fetchWithAuth('/investments', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
   
-  updateInvestment: async (investmentId: string, data: Partial<Investment>) => {
+  updateInvestment: async (investmentId: string, data: Record<string, any>) => {
     return fetchWithAuth(`/investments/${investmentId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -211,14 +211,14 @@ export const goalAPI = {
     return fetchWithAuth(`/goals/${goalId}`);
   },
   
-  createGoal: async (data: Partial<Goal>) => {
+  createGoal: async (data: Record<string, any>) => {
     return fetchWithAuth('/goals', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
   
-  updateGoal: async (goalId: string, data: Partial<Goal>) => {
+  updateGoal: async (goalId: string, data: Record<string, any>) => {
     return fetchWithAuth(`/goals/${goalId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -381,173 +381,6 @@ export const supportAPI = {
   },
 };
 
-// Admin API for admin dashboard
-export const adminAPI = {
-  // User management
-  getAllUsers: async (params?: Record<string, any>) => {
-    const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
-    return fetchWithAuth(`/admin/users${queryParams}`);
-  },
-  
-  updateUserStatus: async (userId: string, status: string) => {
-    return fetchWithAuth(`/admin/users/${userId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  },
-  
-  // Roles management
-  getRoles: async () => {
-    return fetchWithAuth('/admin/roles');
-  },
-  
-  getRole: async (roleId: string) => {
-    return fetchWithAuth(`/admin/roles/${roleId}`);
-  },
-  
-  createRole: async (data: { name: string, description: string, permissions: string[] }) => {
-    return fetchWithAuth('/admin/roles', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-  
-  updateRole: async (roleId: string, data: { name?: string, description?: string, permissions?: string[] }) => {
-    return fetchWithAuth(`/admin/roles/${roleId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  },
-  
-  deleteRole: async (roleId: string) => {
-    return fetchWithAuth(`/admin/roles/${roleId}`, {
-      method: 'DELETE',
-    });
-  },
-  
-  // System configuration
-  getSystemSettings: async () => {
-    return fetchWithAuth('/admin/settings');
-  },
-  
-  updateSystemSettings: async (settings: Record<string, any>) => {
-    return fetchWithAuth('/admin/settings', {
-      method: 'PATCH',
-      body: JSON.stringify(settings),
-    });
-  },
-  
-  // Data management
-  createBackup: async () => {
-    return fetchWithAuth('/admin/backups', {
-      method: 'POST',
-    });
-  },
-  
-  getBackups: async () => {
-    return fetchWithAuth('/admin/backups');
-  },
-  
-  restoreBackup: async (backupId: string) => {
-    return fetchWithAuth(`/admin/backups/${backupId}/restore`, {
-      method: 'POST',
-    });
-  },
-  
-  exportData: async (options: Record<string, any>) => {
-    return fetchWithAuth('/admin/export', {
-      method: 'POST',
-      body: JSON.stringify(options),
-    });
-  },
-  
-  // Cache management
-  clearCache: async (cacheType?: string) => {
-    const queryParams = cacheType ? `?type=${cacheType}` : '';
-    return fetchWithAuth(`/admin/cache${queryParams}`, {
-      method: 'DELETE',
-    });
-  },
-  
-  // Security settings
-  getSecuritySettings: async () => {
-    return fetchWithAuth('/admin/security');
-  },
-  
-  updateSecuritySettings: async (settings: Record<string, any>) => {
-    return fetchWithAuth('/admin/security', {
-      method: 'PATCH',
-      body: JSON.stringify(settings),
-    });
-  },
-  
-  // Notifications
-  sendBroadcastNotification: async (data: { title: string, message: string, recipients: string[] }) => {
-    return fetchWithAuth('/admin/notifications/broadcast', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-  
-  getNotificationTemplates: async () => {
-    return fetchWithAuth('/admin/notification-templates');
-  },
-  
-  createNotificationTemplate: async (data: { name: string, subject: string, content: string }) => {
-    return fetchWithAuth('/admin/notification-templates', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-  
-  updateNotificationTemplate: async (templateId: string, data: { name?: string, subject?: string, content?: string }) => {
-    return fetchWithAuth(`/admin/notification-templates/${templateId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  },
-  
-  deleteNotificationTemplate: async (templateId: string) => {
-    return fetchWithAuth(`/admin/notification-templates/${templateId}`, {
-      method: 'DELETE',
-    });
-  },
-  
-  // Logs
-  getSystemLogs: async (params?: Record<string, any>) => {
-    const queryParams = params ? `?${new URLSearchParams(params).toString()}` : '';
-    return fetchWithAuth(`/admin/logs${queryParams}`);
-  },
-  
-  // Analytics
-  getAnalytics: async (metric: string, period: string = 'month') => {
-    return fetchWithAuth(`/admin/analytics/${metric}?period=${period}`);
-  },
-  
-  getDashboardStats: async () => {
-    return fetchWithAuth('/admin/dashboard-stats');
-  },
-  
-  // Integrations
-  getIntegrations: async () => {
-    return fetchWithAuth('/admin/integrations');
-  },
-  
-  toggleIntegration: async (integrationId: string, enabled: boolean) => {
-    return fetchWithAuth(`/admin/integrations/${integrationId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled }),
-    });
-  },
-  
-  updateIntegrationSettings: async (integrationId: string, settings: Record<string, any>) => {
-    return fetchWithAuth(`/admin/integrations/${integrationId}/settings`, {
-      method: 'PATCH',
-      body: JSON.stringify(settings),
-    });
-  },
-};
-
 // Export all APIs
 export default {
   auth: authAPI,
@@ -560,5 +393,4 @@ export default {
   notification: notificationAPI,
   report: reportAPI,
   support: supportAPI,
-  admin: adminAPI,
 };

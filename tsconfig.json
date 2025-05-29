@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es2016",
-    "module": "CommonJS",
+    "target": "ES2022",
+    "module": "ESNext",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -12,8 +12,13 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "lib": ["esnext", "dom", "dom.iterable"],
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "moduleResolution": "node",
+    "allowImportingTsExtensions": false,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
     "types": ["node"],
     "paths": {
       "@/*": ["./client/src/*"],

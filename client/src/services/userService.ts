@@ -1,7 +1,7 @@
 import { User, Transaction } from '@shared/schema';
 
 // Define UserRole type since it's not in the schema
-type UserRole = 'admin' | 'user' | 'manager' | 'support';
+type UserRole = 'user' | 'manager' | 'support';
 
 import { apiRequest } from '@/lib/queryClient';
 import { triggerSecurityNotification, triggerAccountNotification } from '@/lib/notificationTriggers';
@@ -354,86 +354,6 @@ export async function updateUserProfileDetails(userId: number, profileData: Part
       throw new Error('Cannot connect to server. Please check your internet connection and try again.');
     }
     throw new Error(error.message || 'Failed to update user profile. Please try again later.');
-  }
-}
-
-/**
- * Delete a user account (admin only)
- */
-export async function deleteUser(userId: number): Promise<boolean> {
-  try {
-    const response = await apiRequest('DELETE', `/api/users/${userId}`);
-    return true;
-  } catch (error: any) {
-    console.error('Error deleting user:', error);
-    if (error.status === 403) {
-      throw new Error('You do not have permission to delete this user account.');
-    } else if (error.status === 404) {
-      throw new Error('User not found. The user may have already been deleted.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    throw new Error(error.message || 'Failed to delete user. Please try again later.');
-  }
-}
-
-/**
- * Change user account status (admin only)
- */
-export async function changeUserStatus(
-  userId: number,
-  status: 'active' | 'inactive' | 'suspended'
-): Promise<User> {
-  try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/status`, { status });
-    const updatedUser = await response.json();
-
-    let message = '';
-    switch (status) {
-      case 'active':
-        message = 'Your account has been activated.';
-        break;
-      case 'inactive':
-        message = 'Your account has been deactivated.';
-        break;
-      case 'suspended':
-        message = 'Your account has been suspended. Please contact support for more information.';
-        break;
-    }
-
-    triggerAccountNotification(userId, 'account_update', message);
-
-    return updatedUser;
-  } catch (error: any) {
-    console.error('Error changing user status:', error);
-    if (error.status === 403) {
-      throw new Error('You do not have permission to change user status.');
-    } else if (error.status === 404) {
-      throw new Error('User not found. The user may have been deleted.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    throw new Error(error.message || 'Failed to change user status. Please try again later.');
-  }
-}
-
-/**
- * Change user role (admin only)
- */
-export async function changeUserRole(userId: number, role: UserRole): Promise<User> {
-  try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/role`, { role });
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error changing user role:', error);
-    if (error.status === 403) {
-      throw new Error('You do not have permission to change user roles.');
-    } else if (error.status === 404) {
-      throw new Error('User not found. The user may have been deleted.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    throw new Error(error.message || 'Failed to change user role. Please try again later.');
   }
 }
 

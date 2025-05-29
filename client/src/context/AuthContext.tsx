@@ -13,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  isAdmin: boolean;
   isLoading: boolean;
   isVerified: boolean;
   login: (username: string, password: string) => Promise<User>;
@@ -230,8 +229,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isAuthenticated: !!user,
-        // Safe check for role property, provide a default 'user' role if undefined
-        isAdmin: !!user && ((user.role || 'user') === 'admin'),
         isVerified: !!user && !!user.isVerified,
         isLoading,
         login,

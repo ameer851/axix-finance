@@ -25,7 +25,7 @@ interface BaseUser {
   lastName: string;
   isVerified: boolean | null;
   isActive: boolean | null;
-  role: "user" | "admin";
+  role: "user";
   balance: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -179,11 +179,6 @@ export function requireEmailVerification(req: Request, res: Response, next: Func
 
   const user = req.user as BaseUser;
   
-  // Skip verification requirement for admin users
-  if (user.role === 'admin') {
-    return next();
-  }
-  
   if (!user.isVerified) {
     return res.status(403).json({
       message: "Email verification required",
@@ -194,23 +189,7 @@ export function requireEmailVerification(req: Request, res: Response, next: Func
   next();
 }
 
-// Check if current user is an admin
-export function isAdmin(req: Request, res: Response, next: Function) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "You must be logged in" });
-  }
 
-  const user = req.user as BaseUser;
-  
-  if (user.role !== 'admin') {
-    return res.status(403).json({
-      message: "Admin access required",
-      forbidden: true
-    });
-  }
-  
-  next();
-}
 
 export function setupAuth(app: Express) {
   // Use memory store for development and PostgreSQL for production

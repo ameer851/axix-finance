@@ -409,77 +409,7 @@ export async function sendNotificationEmail(
   }
 }
 
-/**
- * Send a notification to all admin users about a new user registration
- * @param newUser The newly registered user
- * @param userLocation The location information of the user (IP, country, etc.)
- * @returns A promise that resolves when all admin emails are sent
- */
-export async function notifyAdminsOfNewUser(
-  newUser: User,
-  userLocation: { ip?: string; country?: string; city?: string; }
-): Promise<void> {
-  try {
-    // Get all admin users
-    const admins = await storage.getAdminUsers();
-    
-    if (!admins || admins.length === 0) {
-      console.log("No admin users found to notify about new registration");
-      return;
-    }
-    
-    const locationInfo = [
-      userLocation.ip ? `IP: ${userLocation.ip}` : null,
-      userLocation.country ? `Country: ${userLocation.country}` : null,
-      userLocation.city ? `City: ${userLocation.city}` : null
-    ].filter(Boolean).join(', ');
-    
-    // Create email content for admins
-    const subject = "New User Registration Alert";
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">New User Registration</h2>
-        <p>A new user has registered on Carax Finance.</p>
-        
-        <h3 style="margin-top: 20px;">User Details:</h3>
-        <ul style="list-style-type: none; padding-left: 0;">
-          <li><strong>Username:</strong> ${newUser.username}</li>
-          <li><strong>Email:</strong> ${newUser.email}</li>
-          <li><strong>Full Name:</strong> ${newUser.firstName} ${newUser.lastName}</li>
-          <li><strong>Registration Time:</strong> ${new Date().toLocaleString()}</li>
-          ${locationInfo ? `<li><strong>Location:</strong> ${locationInfo}</li>` : ''}
-        </ul>
-        
-        <div style="margin: 30px 0;">
-          <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/admin/users" 
-             style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">
-            View User in Admin Panel
-          </a>
-        </div>
-        
-        <hr style="border: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #777; font-size: 12px;">Carax Finance - Secure Financial Services</p>
-      </div>
-    `;
-    
-    // Send notification to each admin
-    const emailTransporter = await getEmailTransporter();
-    for (const admin of admins) {
-      const message = {
-        from: process.env.EMAIL_FROM || "noreply@caraxfinance.com",
-        to: admin.email,
-        subject,
-        html: htmlContent
-      };
-      
-      await emailTransporter.sendMail(message);
-    }
-    
-    console.log(`Admin notifications sent about new user: ${newUser.username}`);
-  } catch (error) {
-    console.error("Failed to send admin notifications:", error);
-  }
-}
+
 
 /**
  * Verify a user's email using their verification token

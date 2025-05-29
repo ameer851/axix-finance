@@ -40,7 +40,7 @@ const Certificates: React.FC = () => {
                 <span className="font-semibold">Regulated By:</span> CB Payments Ltd
               </p>
               <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Email Address:</span> admin@carax-finance.co
+                <span className="font-semibold">Email Address:</span> support@carax-finance.co
               </p>
               <p className="text-gray-700 dark:text-gray-300">
                 <span className="font-semibold">Website:</span> Anniss.co

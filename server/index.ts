@@ -87,7 +87,7 @@ app.use((req, res, next) => {
           log(logLine);
         } else {
           // Log to database in production for important events
-          if (res.statusCode >= 400 || path.includes('/auth/') || path.includes('/admin/')) {
+          if (res.statusCode >= 400 || path.includes('/auth/')) {
             storage.createLog({
               type: res.statusCode >= 400 ? "error" : "info",
               message: `${req.method} ${path} ${res.statusCode}`,
@@ -229,7 +229,7 @@ app.use((req, res, next) => {
       if (dbConnected) {
         console.log('📊 Database connection established');
         
-        // Initialize database with admin user and required settings
+        // Initialize database with required settings
         if (process.env.NODE_ENV === 'production') {
           storage.initializeDatabase().catch(err => {
             console.error('Failed to initialize database:', err);

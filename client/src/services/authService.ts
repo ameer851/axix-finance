@@ -148,12 +148,6 @@ export function getCurrentUser(): User | null {
   return null;
 }
 
-export function isAdmin(): boolean {
-  const user = getCurrentUser();
-  // Safely check for admin role, handle case where role might be undefined
-  return !!user && (user.role || 'user') === 'admin';
-}
-
 export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
   try {
     const response = await apiRequest('GET', `/api/auth/verify-email?token=${encodeURIComponent(token)}`);
@@ -232,7 +226,7 @@ export async function changePassword(userId: number, currentPassword: string, ne
     const result = await response.json();
     
     // Trigger security notification for password change
-    triggerSecurityNotification(userId, 'password_change');
+    triggerSecurityNotification(userId, 'password_change', 'Your password has been successfully changed');
     
     return result;
   } catch (error: any) {

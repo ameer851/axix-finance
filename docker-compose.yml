@@ -41,8 +41,6 @@ services:
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@caraxfinance.com}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
-      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@caraxfinance.com}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-Admin@123!}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-support@caraxfinance.com}
       SITE_URL: ${SITE_URL:-http://localhost:4000}
 

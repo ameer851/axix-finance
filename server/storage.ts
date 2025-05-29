@@ -30,9 +30,6 @@ export interface IStorage {
   // Add missing verification functions
   updateUserVerificationToken(userId: number, token: string): Promise<User | undefined>;
   getUserByVerificationToken(token: string): Promise<User | undefined>;
-  updateUser(userId: number, data: Partial<User>): Promise<User | undefined>;
-  getAdminUsers(): Promise<User[]>;
-  
   // Transaction methods
   getTransaction(id: number): Promise<Transaction | undefined>;
   getUserTransactions(userId: number): Promise<Transaction[]>;
@@ -43,7 +40,7 @@ export interface IStorage {
   getTransactionsByType(type: TransactionType): Promise<Transaction[]>;
   searchTransactions(query: string): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
-  updateTransactionStatus(id: number, status: TransactionStatus, adminId?: number, rejectionReason?: string): Promise<Transaction | undefined>;
+  updateTransactionStatus(id: number, status: TransactionStatus, rejectionReason?: string): Promise<Transaction | undefined>;
   
   // Database management
   checkDatabaseConnection(): Promise<boolean>;
@@ -58,24 +55,6 @@ export interface IStorage {
   getLogsByDateRange(startDate: Date, endDate: Date): Promise<Log[]>;
   searchLogs(query: string): Promise<Log[]>;
   
-  // Admin logs methods
-  getAdminLogs(options: {
-    page?: number;
-    limit?: number;
-    adminId?: string;
-    action?: string;
-    targetType?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<any[]>;
-  getAdminLogsCount(options: {
-    adminId?: string;
-    action?: string;
-    targetType?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<number>;
-  
   // Message methods
   createMessage(message: InsertMessage): Promise<Message>;
   getMessage(id: number): Promise<Message | undefined>;
@@ -83,7 +62,6 @@ export interface IStorage {
   getAllMessages(): Promise<Message[]>;
   getUnreadMessages(): Promise<Message[]>;
   updateMessageStatus(id: number, status: MessageStatus): Promise<Message | undefined>;
-  respondToMessage(id: number, adminId: number, response: string): Promise<Message | undefined>;
   
   // Notification methods
   getUserNotifications(userId: number, options?: {
@@ -106,7 +84,7 @@ export interface IStorage {
   // Settings methods
   getSetting(name: string): Promise<Setting | undefined>;
   getAllSettings(): Promise<Setting[]>;
-  createOrUpdateSetting(name: string, value: string, description?: string, adminId?: number): Promise<Setting>;
+  createOrUpdateSetting(name: string, value: string, description?: string): Promise<Setting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -124,25 +102,6 @@ export class DatabaseStorage implements IStorage {
 
   async initializeDatabase(): Promise<void> {
     try {
-      // Check if admin user exists
-      const adminUsers = await this.getAdminUsers();
-      
-      // Create default admin if none exists
-      if (!adminUsers || adminUsers.length === 0) {
-        console.log('Creating default admin user...');
-        // Only provide fields allowed by InsertUser (omit id, createdAt, updatedAt, etc.)
-        const defaultAdmin: InsertUser = {
-          username: "admin",
-          password: process.env.DEFAULT_ADMIN_PASSWORD || "Admin@123!",
-          email: process.env.DEFAULT_ADMIN_EMAIL || "admin@caraxfinance.com",
-          firstName: "Admin",
-          lastName: "User",
-          role: "admin",
-        };
-        await this.createUser(defaultAdmin);
-        console.log('Default admin user created successfully');
-      }
-      
       // Initialize required settings
       const requiredSettings = [
         { name: 'minimumWithdrawal', value: '50', description: 'Minimum withdrawal amount in USD' },
@@ -181,36 +140,6 @@ export class DatabaseStorage implements IStorage {
       return result.length > 0 ? mapUserResult(result[0]) : undefined;
     } catch (error) {
       console.error('Database error in getUserByUsername:', error);
-      // Creating a default admin user if database queries are failing during development
-      if (process.env.NODE_ENV === 'development' && username === 'admin') {
-        console.log('Returning fallback admin user for development');
-        return {
-          id: 1,
-          username: 'admin',
-          password: 'admin123',
-          email: 'admin@caraxfinance.com',
-          firstName: 'Admin',
-          lastName: 'User',
-          role: 'admin',
-          balance: '0',
-          isVerified: true,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          referredBy: null,
-          twoFactorEnabled: false,
-          twoFactorSecret: null,
-          verificationToken: null,
-          verificationTokenExpiry: null,
-          passwordResetToken: null,
-          passwordResetTokenExpiry: null,
-          bitcoinAddress: null,
-          bitcoinCashAddress: null,
-          ethereumAddress: null,
-          bnbAddress: null,
-          usdtTrc20Address: null
-        };
-      }
       return undefined;
     }
   }
@@ -226,7 +155,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User | undefined> {
-    const result = await db.insert(users).values(user).returning({
+    // Convert InsertUser to a compatible object for drizzle
+    // This bypasses the drizzle-zod type inference issues
+    const userToInsert = {
+      username: user.username,
+      password: user.password,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      balance: user.balance ?? "0",
+      isVerified: user.isVerified ?? false,
+      isActive: user.isActive ?? true,
+      referredBy: user.referredBy ?? null,
+      twoFactorEnabled: user.twoFactorEnabled ?? false,
+      twoFactorSecret: user.twoFactorSecret ?? null,
+      verificationToken: user.verificationToken ?? null,
+      verificationTokenExpiry: user.verificationTokenExpiry ?? null,
+      passwordResetToken: user.passwordResetToken ?? null,
+      passwordResetTokenExpiry: user.passwordResetTokenExpiry ?? null,
+      bitcoinAddress: user.bitcoinAddress ?? null,
+      bitcoinCashAddress: user.bitcoinCashAddress ?? null,
+      ethereumAddress: user.ethereumAddress ?? null,
+      bnbAddress: user.bnbAddress ?? null,
+      usdtTrc20Address: user.usdtTrc20Address ?? null
+    };
+
+    // @ts-ignore - Bypass drizzle-zod type inference issues
+    const result = await db.insert(users).values(userToInsert).returning({
       id: users.id,
       username: users.username,
       password: users.password,
@@ -374,11 +330,6 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0 ? mapUserResult(result[0]) : undefined;
   }
   
-  async getAdminUsers(): Promise<User[]> {
-    const result = await db.select().from(users).where(eq(users.role, 'admin'));
-    return result.map(mapUserResult);
-  }
-  
   async getUserReferrals(referrerId: number): Promise<User[]> {
     const result = await db.select().from(users).where(eq(users.referredBy, referrerId));
     return result.map(mapUserResult);
@@ -472,7 +423,6 @@ export class DatabaseStorage implements IStorage {
   async updateTransactionStatus(
     id: number, 
     status: TransactionStatus, 
-    adminId?: number, 
     rejectionReason?: string
   ): Promise<Transaction | undefined> {
     const transaction = await this.getTransaction(id);
@@ -480,8 +430,7 @@ export class DatabaseStorage implements IStorage {
 
     const updateData: Record<string, any> = { 
       status, 
-      updatedAt: new Date(),
-      processedBy: adminId
+      updatedAt: new Date()
     };
     
     if (status === "rejected" && rejectionReason) {
@@ -505,8 +454,8 @@ export class DatabaseStorage implements IStorage {
       // Create log entry for completed transaction
       await this.createLog({
         type: "audit",
-        message: `Transaction #${id} (${transaction.type}) was approved`,
-        userId: adminId,
+        message: `Transaction #${id} (${transaction.type}) was completed`,
+        userId: transaction.userId,
         details: { transactionId: id, amount: transaction.amount }
       });
     } else if (status === "rejected") {
@@ -514,7 +463,7 @@ export class DatabaseStorage implements IStorage {
       await this.createLog({
         type: "audit",
         message: `Transaction #${id} (${transaction.type}) was rejected`,
-        userId: adminId,
+        userId: transaction.userId,
         details: { 
           transactionId: id, 
           amount: transaction.amount,
@@ -572,127 +521,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(logs)
       .where(like(logs.message, searchPattern))
       .orderBy(desc(logs.createdAt));
-  }
-  
-  // Admin logs methods
-  async getAdminLogs(options: {
-    page?: number;
-    limit?: number;
-    adminId?: string;
-    action?: string;
-    targetType?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<any[]> {
-    try {
-      const {
-        page = 1,
-        limit = 50,
-        adminId,
-        action,
-        targetType,
-        startDate,
-        endDate
-      } = options;
-      
-      const offset = (page - 1) * limit;
-      
-      let query = db.select().from(logs);
-      
-      // Apply filters
-      if (adminId) {
-        query = query.where(eq(logs.userId, parseInt(adminId)));
-      }
-      
-      if (action) {
-        query = query.where(like(logs.message, `%${action}%`));
-      }
-      
-      if (targetType) {
-        query = query.where(like(logs.details, `%${targetType}%`));
-      }
-      
-      if (startDate && endDate) {
-        query = query.where(
-          between(
-            logs.timestamp,
-            new Date(startDate),
-            new Date(endDate)
-          )
-        );
-      } else if (startDate) {
-        query = query.where(sql`${logs.timestamp} >= ${new Date(startDate)}`);
-      } else if (endDate) {
-        query = query.where(sql`${logs.timestamp} <= ${new Date(endDate)}`);
-      }
-      
-      // Add pagination
-      query = query.limit(limit).offset(offset);
-      
-      // Order by newest first
-      query = query.orderBy(desc(logs.timestamp));
-      
-      const result = await query;
-      return result;
-    } catch (error) {
-      console.error('Error getting admin logs:', error);
-      return [];
-    }
-  }
-  
-  async getAdminLogsCount(options: {
-    adminId?: string;
-    action?: string;
-    targetType?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<number> {
-    try {
-      const {
-        adminId,
-        action,
-        targetType,
-        startDate,
-        endDate
-      } = options;
-      
-      let query = db.select({ count: sql`count(*)` }).from(logs);
-      
-      // Apply filters
-      if (adminId) {
-        query = query.where(eq(logs.userId, parseInt(adminId)));
-      }
-      
-      if (action) {
-        query = query.where(like(logs.message, `%${action}%`));
-      }
-      
-      if (targetType) {
-        query = query.where(like(logs.details, `%${targetType}%`));
-      }
-      
-      if (startDate && endDate) {
-        query = query.where(
-          between(
-            logs.timestamp,
-            new Date(startDate),
-            new Date(endDate)
-          )
-        );
-      } else if (startDate) {
-        query = query.where(sql`${logs.timestamp} >= ${new Date(startDate)}`);
-      } else if (endDate) {
-        query = query.where(sql`${logs.timestamp} <= ${new Date(endDate)}`);
-      }
-      
-      const result = await query;
-      return parseInt(result[0]?.count?.toString() || '0');
-    } catch (error) {
-      console.error('Error counting admin logs:', error);
-      return 0;
-    }
-  }
-  
+  }  
   // Message methods
   async createMessage(message: InsertMessage): Promise<Message> {
     const result = await db.insert(messages).values(message).returning();
@@ -735,24 +564,7 @@ export class DatabaseStorage implements IStorage {
     
     return result.length > 0 ? result[0] : undefined;
   }
-  
-  async respondToMessage(id: number, adminId: number, response: string): Promise<Message | undefined> {
-    const message = await this.getMessage(id);
-    if (!message) return undefined;
 
-    const result = await db.update(messages)
-      .set({ 
-        status: "replied",
-        respondedBy: adminId,
-        response,
-        updatedAt: new Date()
-      })
-      .where(eq(messages.id, id))
-      .returning();
-    
-    return result.length > 0 ? result[0] : undefined;
-  }
-  
   // Notification methods
   async getUserNotifications(
     userId: number, 
@@ -949,8 +761,7 @@ export class DatabaseStorage implements IStorage {
       const setting = await this.createOrUpdateSetting(
         prefsSettingName,
         JSON.stringify(preferences),
-        `Notification preferences for user ${userId}`,
-        userId
+        `Notification preferences for user ${userId}`
       );
       
       return preferences;
@@ -973,8 +784,7 @@ export class DatabaseStorage implements IStorage {
   async createOrUpdateSetting(
     name: string, 
     value: string, 
-    description?: string, 
-    adminId?: number
+    description?: string
   ): Promise<Setting> {
     // Check if setting exists
     const existingSetting = await this.getSetting(name);
@@ -985,8 +795,7 @@ export class DatabaseStorage implements IStorage {
         .set({ 
           value,
           description: description || existingSetting.description,
-          updatedAt: new Date(),
-          updatedBy: adminId
+          updatedAt: new Date()
         })
         .where(eq(settings.name, name))
         .returning();
@@ -998,8 +807,7 @@ export class DatabaseStorage implements IStorage {
         .values({
           name,
           value,
-          description,
-          updatedBy: adminId
+          description
         })
         .returning();
       

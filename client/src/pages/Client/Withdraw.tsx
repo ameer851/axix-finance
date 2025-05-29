@@ -11,7 +11,6 @@ import { DollarSign, CreditCard, Wallet, AlertCircle } from 'lucide-react';
 import { withdrawFunds, getUserBalance } from '@/services/transactionService';
 import { handleError, ErrorCategory } from '@/services/errorService';
 import { debounce, optimizeObject } from '@/lib/dataOptimization';
-import { logAuditEvent } from '@/services/auditService';
 
 // Define the type for the balance data
 interface BalanceData {
@@ -83,28 +82,9 @@ const Withdraw: React.FC = () => {
       setIsProcessing(true);
     },
     onSuccess: (data) => {
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });
+      // Invalidate all relevant queries      queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['transactions', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['balance', user?.id] });
-      
-      // Log successful withdrawal to audit logs
-      logAuditEvent({
-        userId: user?.id || 0,
-        action: 'withdrawal_submitted',
-        category: 'transaction',
-        targetId: data.transactionId,
-        targetType: 'withdrawal',
-        metadata: {
-          amount: data.amount,
-          method: withdrawMethod,
-          currency: 'USD',
-          status: 'pending',
-          timestamp: new Date().toISOString()
-        }
-      }).catch(err => {
-        console.error('Failed to log successful withdrawal audit event:', err);
-      });
       
       toast({
         title: 'Withdrawal Request Submitted',
@@ -132,25 +112,10 @@ const Withdraw: React.FC = () => {
         context: { 
           userId: user?.id,
           amount: parseFloat(amount),
-          method: withdrawMethod,
-          action: 'withdrawFunds'
+          method: withdrawMethod,        action: 'withdrawFunds'
         },
         onError: (appError) => {
-          // Log failed withdrawal to audit logs
-          logAuditEvent({
-            userId: user?.id || 0,
-            action: 'withdrawal_failed',
-            category: 'transaction',
-            metadata: {
-              amount: parseFloat(amount),
-              method: withdrawMethod,
-              error: appError.message,
-              errorCategory: appError.category,
-              timestamp: new Date().toISOString()
-            }
-          }).catch(err => {
-            console.error('Failed to log failed withdrawal audit event:', err);
-          });
+          // Error is handled by the main onError handler
         }
       });
       
@@ -252,45 +217,17 @@ const Withdraw: React.FC = () => {
         });
         return;
       }
-      
-      withdrawalDetails = { cryptoAddress };
+        withdrawalDetails = { cryptoAddress };
     }
     
-    try {
-      // Create audit log entry before submitting withdrawal
-      await logAuditEvent({
-        userId: user?.id || 0,
-        action: 'withdrawal_requested',
-        category: 'transaction',
-        metadata: {
-          amount: parseFloat(amount),
-          method: withdrawMethod,
-          currency: 'USD',
-          timestamp: new Date().toISOString()
-        }
-      });
-      
-      // Submit withdrawal request
-      withdrawMutation.mutate({
-        userId: user?.id,
-        amount: parseFloat(amount),
-        method: withdrawMethod,
-        currency: 'USD',
-        details: withdrawalDetails
-      });
-    } catch (error) {
-      // Handle audit logging error but still proceed with withdrawal
-      console.error('Failed to log withdrawal audit event:', error);
-      
-      // Submit withdrawal anyway
-      withdrawMutation.mutate({
-        userId: user?.id,
-        amount: parseFloat(amount),
-        method: withdrawMethod,
-        currency: 'USD',
-        details: withdrawalDetails
-      });
-    }
+    // Submit withdrawal request
+    withdrawMutation.mutate({
+      userId: user?.id,
+      amount: parseFloat(amount),
+      method: withdrawMethod,
+      currency: 'USD',
+      details: withdrawalDetails
+    });
   };
 
   const handleQuickAmount = (percentage: number) => {

@@ -3,7 +3,7 @@ import { DatabaseStorage } from './storage';
 
 // Create a storage instance
 const storage = new DatabaseStorage();
-import { requireEmailVerification, isAdmin } from './auth';
+import { requireEmailVerification } from './auth';
 import { z } from 'zod';
 import { InsertNotification, NotificationType, NotificationPriority } from '@shared/schema';
 import { sendNotification } from './websocketServer';
@@ -137,9 +137,8 @@ router.delete('/:id', requireEmailVerification, async (req, res) => {
     if (!notification) {
       return res.status(404).json({ message: 'Notification not found' });
     }
-    
-    // Only allow the user to delete their own notifications or admins to delete any
-    if (notification.userId !== userId && req.user.role !== 'admin') {
+      // Only allow the user to delete their own notifications
+    if (notification.userId !== userId) {
       return res.status(403).json({ message: 'You do not have permission to delete this notification' });
     }
     
@@ -149,89 +148,6 @@ router.delete('/:id', requireEmailVerification, async (req, res) => {
   } catch (error) {
     console.error('Error deleting notification:', error);
     return res.status(500).json({ message: 'Failed to delete notification' });
-  }
-});
-
-// Create a notification (admin only)
-router.post('/', isAdmin, async (req, res) => {
-  try {
-    const schema = z.object({
-      userId: z.number(),
-      type: z.enum(['transaction', 'account', 'security', 'marketing', 'system', 'verification']),
-      title: z.string().min(1).max(100),
-      message: z.string().min(1).max(500),
-      priority: z.enum(['low', 'medium', 'high']).optional().default('medium'),
-      relatedEntityType: z.string().optional(),
-      relatedEntityId: z.number().optional(),
-      expiresAt: z.string().optional()
-    });
-    
-    const validationResult = schema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        message: 'Invalid notification data', 
-        errors: validationResult.error.errors 
-      });
-    }
-    
-    const notificationData = validationResult.data;
-    
-    // Check if the user exists
-    const user = await storage.getUser(notificationData.userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const notification = await storage.createNotification(notificationData as InsertNotification);
-    
-    return res.status(201).json(notification);
-  } catch (error) {
-    console.error('Error creating notification:', error);
-    return res.status(500).json({ message: 'Failed to create notification' });
-  }
-});
-
-// Create bulk notifications (admin only)
-router.post('/bulk', isAdmin, async (req, res) => {
-  try {
-    const schema = z.object({
-      notifications: z.array(
-        z.object({
-          userId: z.number(),
-          type: z.enum(['transaction', 'account', 'security', 'marketing', 'system', 'verification']),
-          title: z.string().min(1).max(100),
-          message: z.string().min(1).max(500),
-          priority: z.enum(['low', 'medium', 'high']).optional().default('medium'),
-          relatedEntityType: z.string().optional(),
-          relatedEntityId: z.number().optional(),
-          expiresAt: z.string().optional()
-        })
-      )
-    });
-    
-    const validationResult = schema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        message: 'Invalid notification data', 
-        errors: validationResult.error.errors 
-      });
-    }
-    
-    const { notifications } = validationResult.data;
-    
-    if (notifications.length === 0) {
-      return res.status(400).json({ message: 'No notifications provided' });
-    }
-    
-    const count = await storage.createBulkNotifications(notifications as InsertNotification[]);
-    
-    return res.status(201).json({ count, success: true });
-  } catch (error) {
-    console.error('Error creating bulk notifications:', error);
-    return res.status(500).json({ message: 'Failed to create bulk notifications' });
   }
 });
 

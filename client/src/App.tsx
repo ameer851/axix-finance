@@ -29,14 +29,7 @@ import Referrals from "@/pages/Client/Referrals";
 import Marketing from "@/pages/Client/Marketing";
 import EditAccount from "@/pages/Client/EditAccount";
 import ClientSettings from "@/pages/Client/Settings";
-// Import new admin components
-import AdminDashboard from "@/pages/Admin/Dashboard";
-import TransactionsManager from "@/pages/Admin/TransactionsManager";
-import UserManagement from "@/pages/Admin/UserManagement";
-import MaintenanceMode from "@/pages/Admin/MaintenanceMode";
-import AdminLogs from "@/pages/Admin/AdminLogs";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import AdminLayout from "@/layouts/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { Suspense, lazy } from "react";
@@ -54,14 +47,12 @@ function LoadingSpinner() {
 
 function ProtectedRoute({ 
   children, 
-  requireAdmin = false,
   requireVerified = false
 }: { 
   children: React.ReactNode, 
-  requireAdmin?: boolean,
   requireVerified?: boolean
 }) {
-  const { user, isAuthenticated, isAdmin, isVerified, isLoading } = useAuth();
+  const { user, isAuthenticated, isVerified, isLoading } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
@@ -78,17 +69,6 @@ function ProtectedRoute({
         return;
       }
       
-      // Handle admin requirements
-      if (requireAdmin && !isAdmin) {
-        toast({
-          title: "Access denied",
-          description: "You don't have permission to access this page",
-          variant: "destructive",
-        });
-        setLocation("/dashboard");
-        return;
-      }
-      
       // Handle verification requirements
       if (requireVerified && !isVerified) {
         toast({
@@ -99,7 +79,7 @@ function ProtectedRoute({
         // Still allow access but will show verification banner
       }
     }
-  }, [isLoading, isAuthenticated, isAdmin, requireAdmin, requireVerified, isVerified]);
+  }, [isLoading, isAuthenticated, requireVerified, isVerified]);
   
   // Show loading state while authentication is being checked
   if (isLoading) {
@@ -107,7 +87,7 @@ function ProtectedRoute({
   }
   
   // Redirect cases are handled in the useEffect hook
-  if (!isAuthenticated || (requireAdmin && !isAdmin)) {
+  if (!isAuthenticated) {
     return null;
   }
   
@@ -238,53 +218,6 @@ function Router() {
         )}
       </Route>
       
-      {/* New Admin Routes */}
-      <Route path="/admin">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/transactions">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <TransactionsManager />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/users">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <UserManagement />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/maintenance">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <MaintenanceMode />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/logs">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminLogs />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
@@ -293,14 +226,13 @@ function Router() {
 
 function AppContent() {
   const [location] = useLocation();
-  const isAdminPage = location.startsWith('/admin');
   const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].includes(location);
   
   return (
     <>
       <Router />
-      {/* Only show CustomerSupport component when not on admin or auth pages */}
-      {!isAdminPage && !isAuthPage && <CustomerSupport whatsappNumber="+1234567890" />}
+      {/* Only show CustomerSupport component when not on auth pages */}
+      {!isAuthPage && <CustomerSupport whatsappNumber="+1234567890" />}
     </>
   );
 }

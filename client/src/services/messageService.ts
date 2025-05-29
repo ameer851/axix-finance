@@ -139,39 +139,11 @@ export async function markMessageAsRead(messageId: number): Promise<Message> {
       throw new Error('Cannot connect to server. Please check your internet connection and try again.');
     }
     
-    throw new Error(error.message || 'Failed to mark message as read. Please try again later.');
-  }
+    throw new Error(error.message || 'Failed to mark message as read. Please try again later.');  }
 }
 
 /**
- * Reply to a message (admin only)
- */
-export async function replyToMessage(
-  messageId: number, 
-  response: string
-): Promise<Message> {
-  try {
-    const response = await apiRequest('PATCH', `/api/messages/${messageId}/reply`, { response });
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error replying to message:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to reply to this message.');
-    } else if (error.status === 404) {
-      throw new Error('Message not found. It may have been deleted.');
-    } else if (error.status === 400) {
-      throw new Error(error.message || 'Invalid response. Please provide a valid reply.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to send reply. Please try again later.');
-  }
-}
-
-/**
- * Delete a message (admin or user who created it)
+ * Delete a message (user who created it)
  */
 export async function deleteMessage(messageId: number): Promise<boolean> {
   try {

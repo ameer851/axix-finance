@@ -230,54 +230,7 @@ export async function getNotificationPreferences(): Promise<{
       throw new Error('Cannot connect to server. Please check your internet connection and try again.');
     }
     
-    throw new Error(error.message || 'Failed to fetch notification preferences. Please try again later.');
-  }
-}
-
-/**
- * Create a notification (admin only)
- */
-export async function createNotification(notificationData: InsertNotification): Promise<Notification> {
-  try {
-    const response = await apiRequest('POST', '/api/notifications', notificationData);
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error creating notification:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to create notifications.');
-    } else if (error.status === 400) {
-      throw new Error(error.message || 'Invalid notification data. Please check your inputs.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to create notification. Please try again later.');
-  }
-}
-
-/**
- * Create bulk notifications (admin only)
- */
-export async function createBulkNotifications(
-  notifications: InsertNotification[]
-): Promise<{ count: number; success: boolean }> {
-  try {
-    const response = await apiRequest('POST', '/api/notifications/bulk', { notifications });
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error creating bulk notifications:', error);
-    
-    if (error.status === 403) {
-      throw new Error('You do not have permission to create notifications.');
-    } else if (error.status === 400) {
-      throw new Error(error.message || 'Invalid notification data. Please check your inputs.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to create notifications. Please try again later.');
-  }
+    throw new Error(error.message || 'Failed to fetch notification preferences. Please try again later.');  }
 }
 
 /**
