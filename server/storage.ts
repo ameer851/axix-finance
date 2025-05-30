@@ -16,17 +16,20 @@ import { eq, and, or, between, like, sql, desc, asc, isNull, isNotNull } from "d
 export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;  getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+  getUsers(options: { limit: number; offset: number; search?: string; status?: string }): Promise<User[]>;
+  getUserCount(): Promise<number>;
   createUser(user: InsertUser): Promise<User | undefined>;
   updateUserBalance(userId: number, amount: number): Promise<User | undefined>;
   updateUserProfile(userId: number, data: Partial<User>): Promise<User | undefined>;
   updateUserVerificationStatus(userId: number, isVerified: boolean): Promise<User | undefined>;
   updateUserActiveStatus(userId: number, isActive: boolean): Promise<User | undefined>;
-  updateUser2FAStatus(userId: number, enabled: boolean, secret?: string): Promise<User | undefined>;
-  getUserReferrals(referrerId: number): Promise<User[]>;
+  updateUser2FAStatus(userId: number, enabled: boolean, secret?: string): Promise<User | undefined>;  getUserReferrals(referrerId: number): Promise<User[]>;
   searchUsers(query: string): Promise<User[]>;
+  updateUser(userId: number, data: Partial<User>): Promise<User | undefined>;
+  deleteUser(userId: number): Promise<boolean>;
+  getActiveUserCount(): Promise<number>;
   // Add missing verification functions
   updateUserVerificationToken(userId: number, token: string): Promise<User | undefined>;
   getUserByVerificationToken(token: string): Promise<User | undefined>;
@@ -80,11 +83,28 @@ export interface IStorage {
   getUnreadNotificationCount(userId: number): Promise<number>;
   getNotificationPreferences(userId: number): Promise<any | undefined>;
   updateNotificationPreferences(userId: number, preferences: any): Promise<any>;
-  
-  // Settings methods
+    // Settings methods
   getSetting(name: string): Promise<Setting | undefined>;
   getAllSettings(): Promise<Setting[]>;
   createOrUpdateSetting(name: string, value: string, description?: string): Promise<Setting>;
+  
+  // Additional admin methods needed by routes
+  getRecentTransactions(limit?: number): Promise<Transaction[]>;
+  getPendingTransactionCount(): Promise<number>;
+  getTransactions(options: { limit: number; offset: number; search?: string; status?: string; type?: string; dateFrom?: string; dateTo?: string }): Promise<Transaction[]>;
+  getTransactionCount(): Promise<number>;
+  getDeposits(options: { limit: number; offset: number; search?: string; status?: string; dateFrom?: string; dateTo?: string; method?: string; amountMin?: number; amountMax?: number }): Promise<Transaction[]>;
+  getDepositCount(): Promise<number>;
+  updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;
+  getWithdrawals(options: { limit: number; offset: number; search?: string; status?: string; dateFrom?: string; dateTo?: string; method?: string; amountMin?: number; amountMax?: number }): Promise<Transaction[]>;
+  getWithdrawalCount(): Promise<number>;
+  updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;
+  getAuditLogs(options: { limit: number; offset: number; search?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<Log[]>;
+  getAuditLogCount(): Promise<number>;
+  getAllUsersForExport(): Promise<User[]>;
+  getAllTransactionsForExport(): Promise<Transaction[]>;
+  getMaintenanceSettings(): Promise<Setting | undefined>;
+  updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -152,64 +172,14 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     const result = await db.select().from(users);
     return result.map(mapUserResult);
-  }
-
-  async createUser(user: InsertUser): Promise<User | undefined> {
-    // Convert InsertUser to a compatible object for drizzle
-    // This bypasses the drizzle-zod type inference issues
-    const userToInsert = {
-      username: user.username,
-      password: user.password,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      balance: user.balance ?? "0",
-      isVerified: user.isVerified ?? false,
-      isActive: user.isActive ?? true,
-      referredBy: user.referredBy ?? null,
-      twoFactorEnabled: user.twoFactorEnabled ?? false,
-      twoFactorSecret: user.twoFactorSecret ?? null,
-      verificationToken: user.verificationToken ?? null,
-      verificationTokenExpiry: user.verificationTokenExpiry ?? null,
-      passwordResetToken: user.passwordResetToken ?? null,
-      passwordResetTokenExpiry: user.passwordResetTokenExpiry ?? null,
-      bitcoinAddress: user.bitcoinAddress ?? null,
-      bitcoinCashAddress: user.bitcoinCashAddress ?? null,
-      ethereumAddress: user.ethereumAddress ?? null,
-      bnbAddress: user.bnbAddress ?? null,
-      usdtTrc20Address: user.usdtTrc20Address ?? null
-    };
-
-    // @ts-ignore - Bypass drizzle-zod type inference issues
-    const result = await db.insert(users).values(userToInsert).returning({
-      id: users.id,
-      username: users.username,
-      password: users.password,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      role: users.role,
-      balance: users.balance ?? "0",
-      isVerified: users.isVerified ?? false,
-      isActive: users.isActive ?? true,
-      referredBy: users.referredBy ?? null,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-      twoFactorEnabled: users.twoFactorEnabled ?? false,
-      twoFactorSecret: users.twoFactorSecret ?? null,
-      verificationToken: users.verificationToken ?? null,
-      verificationTokenExpiry: users.verificationTokenExpiry ?? null,
-      passwordResetToken: users.passwordResetToken ?? null,
-      passwordResetTokenExpiry: users.passwordResetTokenExpiry ?? null,
-      bitcoinAddress: users.bitcoinAddress ?? null,
-      bitcoinCashAddress: users.bitcoinCashAddress ?? null,
-      ethereumAddress: users.ethereumAddress ?? null,
-      bnbAddress: users.bnbAddress ?? null,
-      usdtTrc20Address: users.usdtTrc20Address ?? null
-    });
-
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
+  }  async createUser(user: InsertUser): Promise<User | undefined> {
+    try {
+      const result = await db.insert(users).values(user).returning();
+      return result.length > 0 ? mapUserResult(result[0]) : undefined;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      return undefined;
+    }
   }
 
   async updateUserBalance(userId: number, amount: number): Promise<User | undefined> {
@@ -309,25 +279,9 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await db.select().from(users).where(eq(users.verificationToken, token));
       return result.length > 0 ? mapUserResult(result[0]) : undefined;
-    } catch (error) {
-      console.error('Database error in getUserByVerificationToken:', error);
+    } catch (error) {    console.error('Database error in getUserByVerificationToken:', error);
       return undefined;
     }
-  }
-  
-  async updateUser(userId: number, data: Partial<User>): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-    
-    const result = await db.update(users)
-      .set({ 
-        ...data,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
   }
   
   async getUserReferrals(referrerId: number): Promise<User[]> {
@@ -347,6 +301,115 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return result.map(mapUserResult);
+  }  async getUsers(options: { limit: number; offset: number; search?: string; status?: string }): Promise<User[]> {
+    try {
+      let conditions: any[] = [];
+      
+      // Add search filter
+      if (options.search) {
+        conditions.push(
+          or(
+            like(users.username, `%${options.search}%`),
+            like(users.email, `%${options.search}%`),
+            like(users.firstName, `%${options.search}%`),
+            like(users.lastName, `%${options.search}%`)
+          )
+        );
+      }
+      
+      // Add status filter
+      if (options.status === 'active') {
+        conditions.push(eq(users.isActive, true));
+      } else if (options.status === 'inactive') {
+        conditions.push(eq(users.isActive, false));
+      } else if (options.status === 'verified') {
+        conditions.push(eq(users.isVerified, true));
+      } else if (options.status === 'unverified') {
+        conditions.push(eq(users.isVerified, false));
+      }
+      
+      let result;
+      // Build query based on whether we have conditions
+      if (conditions.length > 0) {
+        result = await db.select()
+          .from(users)
+          .where(and(...conditions))
+          .limit(options.limit)
+          .offset(options.offset)
+          .orderBy(desc(users.createdAt));
+      } else {
+        result = await db.select()
+          .from(users)
+          .limit(options.limit)
+          .offset(options.offset)
+          .orderBy(desc(users.createdAt));
+      }
+      
+      return result.map(mapUserResult);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
+  }
+
+  async getUserCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+      return result[0].count;
+    } catch (error) {
+      console.error('Error getting user count:', error);
+      return 0;
+    }
+  }
+
+  async updateUser(userId: number, data: Partial<User>): Promise<User | undefined> {
+    try {
+      const updateData: any = {};
+      
+      // Only include fields that exist in the users table
+      if (data.username !== undefined) updateData.username = data.username;
+      if (data.email !== undefined) updateData.email = data.email;
+      if (data.firstName !== undefined) updateData.firstName = data.firstName;
+      if (data.lastName !== undefined) updateData.lastName = data.lastName;
+      if (data.role !== undefined) updateData.role = data.role;
+      if (data.balance !== undefined) updateData.balance = data.balance;
+      if (data.isVerified !== undefined) updateData.isVerified = data.isVerified;
+      if (data.isActive !== undefined) updateData.isActive = data.isActive;
+      if (data.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = data.twoFactorEnabled;
+      if (data.twoFactorSecret !== undefined) updateData.twoFactorSecret = data.twoFactorSecret;
+      
+      const result = await db.update(users)
+        .set(updateData)
+        .where(eq(users.id, userId))
+        .returning();
+      
+      return result.length > 0 ? mapUserResult(result[0]) : undefined;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return undefined;
+    }
+  }
+
+  async deleteUser(userId: number): Promise<boolean> {
+    try {
+      await db.delete(users).where(eq(users.id, userId));
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
+  }
+
+  async getActiveUserCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.isActive, true));
+      return result[0].count;
+    } catch (error) {
+      console.error('Error getting active user count:', error);
+      return 0;
+    }
   }
 
   // Transaction methods
@@ -813,6 +876,259 @@ export class DatabaseStorage implements IStorage {
       
       return result[0];
     }
+  }
+
+  // Additional admin methods implementation
+  async getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
+    const result = await db.select()
+      .from(transactions)
+      .orderBy(desc(transactions.createdAt))
+      .limit(limit);
+    return result;
+  }
+
+  async getPendingTransactionCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(eq(transactions.status, 'pending'));
+    return result[0]?.count || 0;
+  }  async getTransactions(options: { 
+    limit: number; 
+    offset: number; 
+    search?: string; 
+    status?: string; 
+    type?: string; 
+    dateFrom?: string; 
+    dateTo?: string 
+  }): Promise<Transaction[]> {
+    let baseQuery = db.select().from(transactions);
+    const conditions = [];
+
+    if (options.search) {
+      conditions.push(like(transactions.description, `%${options.search}%`));
+    }
+
+    if (options.status) {
+      conditions.push(eq(transactions.status, options.status as TransactionStatus));
+    }
+
+    if (options.type) {
+      conditions.push(eq(transactions.type, options.type as TransactionType));
+    }
+
+    if (options.dateFrom && options.dateTo) {
+      conditions.push(
+        between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
+      );
+    }
+
+    const query = conditions.length > 0 
+      ? baseQuery.where(and(...conditions))
+      : baseQuery;
+
+    const result = await query
+      .orderBy(desc(transactions.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    return result;
+  }
+
+  async getTransactionCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(transactions);
+    return result[0]?.count || 0;
+  }
+  async getDeposits(options: { 
+    limit: number; 
+    offset: number; 
+    search?: string; 
+    status?: string; 
+    dateFrom?: string; 
+    dateTo?: string; 
+    method?: string; 
+    amountMin?: number; 
+    amountMax?: number 
+  }): Promise<Transaction[]> {
+    let baseQuery = db.select().from(transactions);
+    const conditions = [eq(transactions.type, 'deposit')];
+
+    if (options.search) {
+      conditions.push(like(transactions.description, `%${options.search}%`));
+    }
+
+    if (options.status) {
+      conditions.push(eq(transactions.status, options.status as TransactionStatus));
+    }
+
+    if (options.method) {
+      conditions.push(like(transactions.description, `%${options.method}%`));
+    }
+
+    if (options.amountMin) {
+      conditions.push(sql`${transactions.amount} >= ${options.amountMin}`);
+    }
+
+    if (options.amountMax) {
+      conditions.push(sql`${transactions.amount} <= ${options.amountMax}`);
+    }
+
+    if (options.dateFrom && options.dateTo) {
+      conditions.push(
+        between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
+      );
+    }
+
+    const query = baseQuery.where(and(...conditions));
+
+    const result = await query
+      .orderBy(desc(transactions.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    return result;
+  }
+
+  async getDepositCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(eq(transactions.type, 'deposit'));
+    return result[0]?.count || 0;
+  }
+
+  async updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
+    return this.updateTransactionStatus(id, status);
+  }
+  async getWithdrawals(options: { 
+    limit: number; 
+    offset: number; 
+    search?: string; 
+    status?: string; 
+    dateFrom?: string; 
+    dateTo?: string; 
+    method?: string; 
+    amountMin?: number; 
+    amountMax?: number 
+  }): Promise<Transaction[]> {
+    let baseQuery = db.select().from(transactions);
+    const conditions = [eq(transactions.type, 'withdrawal')];
+
+    if (options.search) {
+      conditions.push(like(transactions.description, `%${options.search}%`));
+    }
+
+    if (options.status) {
+      conditions.push(eq(transactions.status, options.status as TransactionStatus));
+    }
+
+    if (options.method) {
+      conditions.push(like(transactions.description, `%${options.method}%`));
+    }
+
+    if (options.amountMin) {
+      conditions.push(sql`${transactions.amount} >= ${options.amountMin}`);
+    }
+
+    if (options.amountMax) {
+      conditions.push(sql`${transactions.amount} <= ${options.amountMax}`);
+    }
+
+    if (options.dateFrom && options.dateTo) {
+      conditions.push(
+        between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
+      );
+    }
+
+    const query = baseQuery.where(and(...conditions));
+
+    const result = await query
+      .orderBy(desc(transactions.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    return result;
+  }
+
+  async getWithdrawalCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(eq(transactions.type, 'withdrawal'));
+    return result[0]?.count || 0;
+  }
+
+  async updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
+    return this.updateTransactionStatus(id, status);
+  }  async getAuditLogs(options: { 
+    limit: number; 
+    offset: number; 
+    search?: string; 
+    action?: string; 
+    dateFrom?: string; 
+    dateTo?: string 
+  }): Promise<Log[]> {
+    let baseQuery = db.select().from(logs);
+    const conditions = [];
+
+    if (options.search) {
+      conditions.push(like(logs.message, `%${options.search}%`));
+    }
+
+    if (options.action) {
+      conditions.push(eq(logs.type, options.action as LogType));
+    }
+
+    if (options.dateFrom && options.dateTo) {
+      conditions.push(
+        between(logs.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
+      );
+    }
+
+    const query = conditions.length > 0 
+      ? baseQuery.where(and(...conditions))
+      : baseQuery;
+
+    const result = await query
+      .orderBy(desc(logs.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    return result;
+  }
+
+  async getAuditLogCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(logs);
+    return result[0]?.count || 0;
+  }
+
+  async getAllUsersForExport(): Promise<User[]> {
+    const result = await db.select().from(users);
+    return result.map(mapUserResult);
+  }
+
+  async getAllTransactionsForExport(): Promise<Transaction[]> {
+    const result = await db.select().from(transactions);
+    return result;
+  }
+
+  async getMaintenanceSettings(): Promise<Setting | undefined> {
+    const result = await db.select()
+      .from(settings)
+      .where(eq(settings.name, 'maintenance'));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting> {
+    const maintenanceData = {
+      enabled,
+      message: message || 'The system is currently under maintenance. Please try again later.'
+    };
+
+    return this.createOrUpdateSetting(
+      'maintenance', 
+      JSON.stringify(maintenanceData), 
+      'System maintenance settings'
+    );
   }
 }
 

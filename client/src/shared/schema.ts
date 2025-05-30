@@ -9,7 +9,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: "user" | "admin";
   isVerified: boolean;
   isActive: boolean;
   createdAt: string;

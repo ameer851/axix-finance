@@ -82,8 +82,12 @@ const Login: React.FC = () => {
         description: "Welcome back to Carax Finance!",
       });
       
-      // Navigate to dashboard
-      navigate('/dashboard');
+      // Navigate based on user role
+      if (userData.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
       
     } catch (error: any) {
       console.error("Login submission error:", error);

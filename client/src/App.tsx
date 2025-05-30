@@ -29,10 +29,21 @@ import Referrals from "@/pages/Client/Referrals";
 import Marketing from "@/pages/Client/Marketing";
 import EditAccount from "@/pages/Client/EditAccount";
 import ClientSettings from "@/pages/Client/Settings";
+
+// Admin pages
+import AdminLayout from "@/pages/admin/AdminLayout";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminUsers from "@/pages/admin/AdminUsers";
+import MaintenancePage from "@/pages/admin/MaintenancePage";
+import DepositsPage from "@/pages/admin/DepositsPage";
+import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { Suspense, lazy } from "react";
+import React from "react";
 
 // Lazy load some less critical components
 const VerificationBanner = lazy(() => import('@/components/VerificationBanner'));
@@ -47,25 +58,43 @@ function LoadingSpinner() {
 
 function ProtectedRoute({ 
   children, 
-  requireVerified = false
+  requireVerified = false,
+  requireAdmin = false
 }: { 
   children: React.ReactNode, 
-  requireVerified?: boolean
+  requireVerified?: boolean,
+  requireAdmin?: boolean
 }) {
   const { user, isAuthenticated, isVerified, isLoading } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
+  // State to track if redirecting to prevent component unmounting during redirect
+  const [isRedirecting, setIsRedirecting] = React.useState(false);
+  
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !isRedirecting) {
       // Handle authentication requirements
       if (!isAuthenticated) {
+        setIsRedirecting(true);
         toast({
           title: "Authentication required",
           description: "Please log in to access this page",
           variant: "destructive",
         });
         setLocation("/login");
+        return;
+      }
+      
+      // Handle admin role requirements
+      if (requireAdmin && user?.role !== "admin") {
+        setIsRedirecting(true);
+        toast({
+          title: "Access denied",
+          description: "Admin access required to view this page",
+          variant: "destructive",
+        });
+        setLocation("/dashboard");
         return;
       }
       
@@ -79,16 +108,21 @@ function ProtectedRoute({
         // Still allow access but will show verification banner
       }
     }
-  }, [isLoading, isAuthenticated, requireVerified, isVerified]);
+  }, [isLoading, isAuthenticated, requireVerified, isVerified, requireAdmin, user?.role, isRedirecting, toast, setLocation]);
   
-  // Show loading state while authentication is being checked
-  if (isLoading) {
+  // Show loading state while authentication is being checked or redirecting
+  if (isLoading || isRedirecting) {
     return <LoadingSpinner />;
   }
   
-  // Redirect cases are handled in the useEffect hook
+  // Block access for unauthenticated users
   if (!isAuthenticated) {
-    return null;
+    return <LoadingSpinner />;
+  }
+  
+  // Block access for non-admin users trying to access admin routes
+  if (requireAdmin && user?.role !== "admin") {
+    return <LoadingSpinner />;
   }
   
   // When verification is required but not done yet, show banner but still allow access
@@ -104,18 +138,33 @@ function ProtectedRoute({
   );
 }
 
+function AdminRedirect() {
+  const [, setLocation] = useLocation();
+  
+  useEffect(() => {
+    setLocation('/admin/dashboard');
+  }, [setLocation]);
+  
+  return <LoadingSpinner />;
+}
+
 function Router() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [location, setLocation] = useLocation();
 
   // Redirect authenticated users away from auth pages
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       if (['/login', '/register', '/forgot-password', '/reset-password'].includes(location)) {
-        setLocation('/dashboard');
+        // Redirect based on user role
+        if (user.role === 'admin') {
+          setLocation('/admin');
+        } else {
+          setLocation('/dashboard');
+        }
       }
     }
-  }, [isAuthenticated, location, setLocation]);
+  }, [isAuthenticated, user, location, setLocation]);
 
   return (
     <Switch>
@@ -218,6 +267,63 @@ function Router() {
         )}
       </Route>
       
+      {/* Admin Routes */}
+      <Route path="/admin" component={AdminRedirect} />
+      <Route path="/admin/dashboard">
+        {() => (
+          <ProtectedRoute requireVerified requireAdmin>
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/users">
+        {() => (
+          <ProtectedRoute requireVerified requireAdmin>
+            <AdminLayout>
+              <AdminUsers />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/maintenance">
+        {() => (
+          <ProtectedRoute requireVerified requireAdmin>
+            <AdminLayout>
+              <MaintenancePage />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/deposits">
+        {() => (
+          <ProtectedRoute requireVerified requireAdmin>
+            <AdminLayout>
+              <DepositsPage />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/withdrawals">
+        {() => (
+          <ProtectedRoute requireVerified requireAdmin>
+            <AdminLayout>
+              <WithdrawalsPage />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/audit-logs">
+        {() => (
+          <ProtectedRoute requireVerified requireAdmin>
+            <AdminLayout>
+              <AuditLogsPage />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
@@ -227,12 +333,13 @@ function Router() {
 function AppContent() {
   const [location] = useLocation();
   const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].includes(location);
+  const isAdminPage = location.startsWith('/admin');
   
   return (
     <>
       <Router />
-      {/* Only show CustomerSupport component when not on auth pages */}
-      {!isAuthPage && <CustomerSupport whatsappNumber="+1234567890" />}
+      {/* Only show CustomerSupport component when not on auth pages or admin pages */}
+      {!isAuthPage && !isAdminPage && <CustomerSupport whatsappNumber="+1234567890" />}
     </>
   );
 }

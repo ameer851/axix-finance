@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const roleEnum = pgEnum("role", ["user"]);
+export const roleEnum = pgEnum("role", ["user", "admin"]);
 export const transactionTypeEnum = pgEnum("transaction_type", ["deposit", "withdrawal", "transfer", "investment"]);
 export const transactionStatusEnum = pgEnum("transaction_status", ["pending", "completed", "rejected"]);
 export const logTypeEnum = pgEnum("log_type", ["info", "warning", "error", "audit"]);
@@ -178,7 +178,7 @@ export type TransactionType = "deposit" | "withdrawal" | "transfer" | "investmen
 export type TransactionStatus = "pending" | "completed" | "rejected";
 export type LogType = "info" | "warning" | "error" | "audit";
 export type MessageStatus = "unread" | "read" | "replied";
-export type Role = "user";
+export type Role = "user" | "admin";
 export type NotificationType = "transaction" | "account" | "security" | "marketing" | "system" | "verification";
 export type NotificationPriority = "low" | "medium" | "high";
 

@@ -1,10 +1,10 @@
 // Application configuration
 const config = {
-  // API base URL - explicitly set based on environment
-  apiUrl: 'http://localhost:5000',
+  // API base URL - in development, API is served on the same port via Vite proxy
+  apiUrl: '',  // Empty string means same origin
   
   // Set with protocol to avoid CORS issues
-  frontendUrl: 'http://localhost:5000',
+  frontendUrl: 'http://localhost:4000',
   
   // Health check endpoint
   healthCheckEndpoint: '/api/health',

@@ -25,7 +25,7 @@ interface BaseUser {
   lastName: string;
   isVerified: boolean | null;
   isActive: boolean | null;
-  role: "user";
+  role: "user" | "admin";
   balance: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -183,6 +183,32 @@ export function requireEmailVerification(req: Request, res: Response, next: Func
     return res.status(403).json({
       message: "Email verification required",
       verificationRequired: true
+    });
+  }
+  
+  next();
+}
+
+// Check if a user has admin role
+export function requireAdminRole(req: Request, res: Response, next: Function) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "You must be logged in" });
+  }
+
+  const user = req.user as BaseUser;
+  
+  if (!user.isVerified) {
+    return res.status(403).json({
+      message: "Email verification required",
+      verificationRequired: true
+    });
+  }
+  
+  if (user.role !== "admin") {
+    return res.status(403).json({
+      message: "Admin access required",
+      requiredRole: "admin",
+      currentRole: user.role
     });
   }
   

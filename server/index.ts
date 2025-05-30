@@ -29,7 +29,7 @@ app.use(helmet({
 // For all environments, use the standard cors middleware with appropriate settings
 app.use(cors({
   origin: process.env.NODE_ENV !== 'production' 
-    ? 'http://localhost:5000' 
+    ? 'http://localhost:4000' 
     : (process.env.CORS_ORIGIN || 'https://your-production-domain.com'),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
