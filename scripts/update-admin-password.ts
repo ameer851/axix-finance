@@ -11,9 +11,8 @@ async function updateAdminPassword() {
       console.log('❌ Admin user not found');
       return;
     }
-    
-    // Hash the password
-    const hashedPassword = await hashPassword('admin123');
+      // Hash the password
+    const hashedPassword = await hashPassword('Carax@admin123!');
     
     // Update admin user password and verification status
     const updatedUser = await storage.updateUser(user.id, {
@@ -25,7 +24,7 @@ async function updateAdminPassword() {
       console.log('✅ Admin password updated successfully!');
       console.log('📧 Email: admin@caraxfinance.com');
       console.log('👤 Username: admin');
-      console.log('🔑 Password: admin123');
+      console.log('🔑 Password: Carax@admin123!');
       console.log('🛡️  Role:', updatedUser.role);
       console.log('✨ Verified:', updatedUser.isVerified);
       console.log('\n🎯 You can now log in to the admin panel at /admin');

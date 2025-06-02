@@ -136,11 +136,11 @@ export class DatabaseStorage implements IStorage {
         const existingSetting = await this.getSetting(setting.name);
         if (!existingSetting) {
           await this.createOrUpdateSetting(setting.name, setting.value, setting.description);
-          console.log(`Setting '${setting.name}' initialized`);
+          if (process.env.NODE_ENV !== "production") console.log(`Setting '${setting.name}' initialized`);
         }
       }
       
-      console.log('Database initialization completed successfully');
+      if (process.env.NODE_ENV !== "production") console.log('Database initialization completed successfully');
     } catch (error) {
       console.error('Database initialization failed:', error);
       throw error;
@@ -155,7 +155,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      console.log(`Looking up user by username: ${username}`);
+      if (process.env.NODE_ENV !== "production") console.log(`Looking up user by username: ${username}`);
       const result = await db.select().from(users).where(eq(users.username, username));
       return result.length > 0 ? mapUserResult(result[0]) : undefined;
     } catch (error) {

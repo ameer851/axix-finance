@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { User } from '@shared/schema';
 import { 
   login as loginService, 
@@ -19,6 +20,7 @@ interface AuthContextType {
   register: (userData: any) => Promise<User>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
+  updateUserBalance: (newBalance: number) => void;
   error: string | null;
 }
 
@@ -31,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Verify authentication on mount and periodically
   useEffect(() => {
@@ -206,6 +209,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "You have been successfully logged out.",
         variant: "default",
       });
+      
+      // Navigate to home page after successful logout
+      setLocation('/');
     } catch (err: any) {
       console.error("Logout error:", err);
       // Even if there's an error, we still want to log out locally
@@ -219,8 +225,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           variant: "default",
         });
       }
+      
+      // Navigate to home page even if there was an error
+      setLocation('/');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateUserBalance = (newBalance: number) => {
+    if (user) {
+      const updatedUser = { ...user, balance: newBalance.toString() };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
     }
   };
 
@@ -235,6 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         refreshUserData,
+        updateUserBalance,
         error,
       }}
     >

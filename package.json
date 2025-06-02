@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
+    "dev:tunnel": "echo Starting application for ngrok tunnel... && cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
@@ -12,7 +13,10 @@
     "db:clean": "cross-env NODE_ENV=development node scripts/clean-database.js",
     "db:reset": "npm run db:clean && npm run db:push",
     "email:diagnose": "node scripts/email-diagnostic.js",
-    "email:diagnose:prod": "node scripts/email-diagnostic.js --prod"
+    "email:diagnose:prod": "node scripts/email-diagnostic.js --prod",
+    "build:prod": "NODE_ENV=production npm run build",
+    "start:prod": "NODE_ENV=production node dist/index.js",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -98,8 +102,6 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
-    "@replit/vite-plugin-cartographer": "^0.1.2",
-    "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cors": "^2.8.18",

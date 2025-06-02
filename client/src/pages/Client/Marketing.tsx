@@ -1,388 +1,95 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  TrendingUp, 
-  Download, 
-  Share2, 
-  Copy, 
-  ExternalLink, 
-  Image as ImageIcon,
-  FileText,
-  Mail,
-  MessageSquare
-} from 'lucide-react';
-import { getMarketingMaterials, getMarketingStats } from '@/services/marketingService';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Clock, Share2, Image as ImageIcon, FileText, Mail, MessageSquare, TrendingUp } from 'lucide-react';
 
 const Marketing: React.FC = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [currentTab, setCurrentTab] = useState('overview');
-  const [copiedItem, setCopiedItem] = useState<string | null>(null);
-
-  // Fetch marketing materials
-  const { data: marketingMaterials = [], isLoading: materialsLoading } = useQuery({
-    queryKey: ['marketing-materials', user?.id],
-    queryFn: () => getMarketingMaterials(),
-    staleTime: 600000 // 10 minutes
-  });
-
-  // Fetch marketing stats
-  const { data: marketingStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['marketing-stats', user?.id],
-    queryFn: () => getMarketingStats(user?.id),
-    enabled: !!user?.id,
-    staleTime: 300000 // 5 minutes
-  });
-
-  const copyToClipboard = (text: string, itemId: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedItem(itemId);
-      toast({
-        title: 'Copied!',
-        description: 'Content copied to clipboard',
-      });
-      
-      // Reset copied state after 2 seconds
-      setTimeout(() => setCopiedItem(null), 2000);
-    }).catch(err => {
-      toast({
-        title: 'Copy failed',
-        description: 'Could not copy to clipboard',
-        variant: 'destructive'
-      });
-    });
-  };
-
-  const downloadMaterial = (url: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: 'Download Started',
-      description: `Downloading ${filename}`,
-    });
-  };
-
-  const shareContent = async (title: string, text: string, url: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text,
-          url,
-        });
-        
-        toast({
-          title: 'Shared!',
-          description: 'Content shared successfully',
-        });
-      } catch (err) {
-        console.error('Share failed:', err);
-      }
-    } else {
-      copyToClipboard(url, 'share-url');
-    }
-  };
-
-  const renderMaterialItem = (material: any) => {
-    const materialId = `material-${material.id}`;
-    
-    return (
-      <Card key={material.id} className="overflow-hidden">
-        {material.thumbnailUrl && (
-          <div className="relative h-48 bg-gray-100 dark:bg-gray-800">
-            <img 
-              src={material.thumbnailUrl} 
-              alt={material.title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-        <CardHeader className="pb-2">
-          <CardTitle>{material.title}</CardTitle>
-          <CardDescription>{material.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <Badge variant="outline">{material.type}</Badge>
-            <Badge variant="outline">{material.format}</Badge>
-            {material.tags.map((tag: string) => (
-              <Badge key={tag} variant="secondary">{tag}</Badge>
-            ))}
-          </div>
-          
-          {material.embedCode && (
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Embed Code</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => copyToClipboard(material.embedCode, `${materialId}-embed`)}
-                >
-                  {copiedItem === `${materialId}-embed` ? 'Copied!' : 'Copy'}
-                </Button>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded-md overflow-x-auto">
-                <pre className="text-xs">{material.embedCode}</pre>
-              </div>
-            </div>
-          )}
-          
-          {material.trackingLink && (
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Tracking Link</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => copyToClipboard(material.trackingLink, `${materialId}-link`)}
-                >
-                  {copiedItem === `${materialId}-link` ? 'Copied!' : 'Copy'}
-                </Button>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded-md overflow-x-auto">
-                <code className="text-xs break-all">{material.trackingLink}</code>
-              </div>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => downloadMaterial(material.downloadUrl, material.filename)}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => shareContent(
-              material.title,
-              material.description,
-              material.shareUrl || material.downloadUrl
-            )}
-          >
-            <Share2 className="h-4 w-4 mr-2" />
-            Share
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  };
-
   return (
     <div className="container mx-auto py-6 max-w-6xl">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Marketing Center</CardTitle>
-          <CardDescription>Access marketing materials and track your performance</CardDescription>
+      <Card className="w-full">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-blue-100 rounded-full">
+              <Share2 className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold">Marketing Materials</CardTitle>
+          <CardDescription className="text-lg">
+            Access professional marketing content to promote CaraxFinance
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="overview" onValueChange={setCurrentTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="overview">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="banners">
-                <ImageIcon className="h-4 w-4 mr-2" />
-                Banners & Images
-              </TabsTrigger>
-              <TabsTrigger value="content">
-                <FileText className="h-4 w-4 mr-2" />
-                Text & Email Templates
-              </TabsTrigger>
-            </TabsList>
+        <CardContent className="space-y-8">
+          <div className="text-center">
+            <div className="flex justify-center mb-6">
+              <div className="p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 max-w-md">
+                <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-2xl font-semibold text-gray-700 mb-3">Coming Soon</h3>
+                <p className="text-gray-500">
+                  Our marketing materials library is currently being developed. Soon you'll have access to 
+                  professional banners, images, and content to help you promote CaraxFinance effectively.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg text-center border border-purple-200">
+              <ImageIcon className="h-10 w-10 text-purple-600 mx-auto mb-3" />
+              <h4 className="font-semibold text-purple-800 mb-2">Banner Images</h4>
+              <p className="text-sm text-purple-600">Professional banners in various sizes for websites and social media</p>
+            </div>
             
-            <TabsContent value="overview" className="space-y-6">
-              {/* Marketing Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col items-center text-center">
-                      <MessageSquare className="h-8 w-8 text-primary mb-2" />
-                      <h3 className="text-lg font-medium">Total Clicks</h3>
-                      <p className="text-3xl font-bold">
-                        {statsLoading ? (
-                          <span className="animate-pulse">...</span>
-                        ) : (
-                          marketingStats?.totalClicks || 0
-                        )}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col items-center text-center">
-                      <Mail className="h-8 w-8 text-primary mb-2" />
-                      <h3 className="text-lg font-medium">Conversions</h3>
-                      <p className="text-3xl font-bold">
-                        {statsLoading ? (
-                          <span className="animate-pulse">...</span>
-                        ) : (
-                          marketingStats?.conversions || 0
-                        )}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col items-center text-center">
-                      <TrendingUp className="h-8 w-8 text-primary mb-2" />
-                      <h3 className="text-lg font-medium">Conversion Rate</h3>
-                      <p className="text-3xl font-bold">
-                        {statsLoading ? (
-                          <span className="animate-pulse">...</span>
-                        ) : (
-                          `${marketingStats?.conversionRate || 0}%`
-                        )}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {/* Marketing Tips */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Marketing Tips</CardTitle>
-                  <CardDescription>Best practices to maximize your marketing efforts</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                      <span className="font-bold text-primary">1</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Use Your Unique Tracking Links</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Always use the provided tracking links to ensure your referrals are properly attributed to your account.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                      <span className="font-bold text-primary">2</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Target the Right Audience</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Focus on promoting to people who are interested in finance, investing, or cryptocurrency.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                      <span className="font-bold text-primary">3</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Be Transparent</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Always be honest about the platform and avoid making unrealistic promises about returns.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                      <span className="font-bold text-primary">4</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Use Multiple Channels</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Promote across different platforms like social media, email, blogs, and forums for maximum reach.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Featured Materials */}
-              <div>
-                <h3 className="text-lg font-medium mb-4">Featured Materials</h3>
-                {materialsLoading ? (
-                  <div className="flex justify-center items-center h-40">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {marketingMaterials
-                      .filter((material: any) => material.featured)
-                      .slice(0, 4)
-                      .map((material: any) => renderMaterialItem(material))}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+            <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg text-center border border-green-200">
+              <FileText className="h-10 w-10 text-green-600 mx-auto mb-3" />
+              <h4 className="font-semibold text-green-800 mb-2">Content Templates</h4>
+              <p className="text-sm text-green-600">Ready-to-use content templates for blogs and articles</p>
+            </div>
             
-            <TabsContent value="banners" className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Banner Images</h3>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All
-                </Button>
-              </div>
-              
-              {materialsLoading ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {marketingMaterials
-                    .filter((material: any) => material.type === 'banner' || material.type === 'image')
-                    .map((material: any) => renderMaterialItem(material))}
-                </div>
-              )}
-            </TabsContent>
+            <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg text-center border border-blue-200">
+              <Mail className="h-10 w-10 text-blue-600 mx-auto mb-3" />
+              <h4 className="font-semibold text-blue-800 mb-2">Email Templates</h4>
+              <p className="text-sm text-blue-600">Professional email templates for outreach campaigns</p>
+            </div>
             
-            <TabsContent value="content" className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Text & Email Templates</h3>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All
-                </Button>
+            <div className="p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg text-center border border-orange-200">
+              <MessageSquare className="h-10 w-10 text-orange-600 mx-auto mb-3" />
+              <h4 className="font-semibold text-orange-800 mb-2">Social Media Kit</h4>
+              <p className="text-sm text-orange-600">Complete social media package with posts and stories</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <div className="p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">
+              <TrendingUp className="h-8 w-8 text-indigo-600 mb-3" />
+              <h4 className="font-semibold text-indigo-800 mb-2">Performance Analytics</h4>
+              <p className="text-indigo-600">Track the performance of your marketing campaigns with detailed analytics</p>
+            </div>
+            
+            <div className="p-6 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-200">
+              <Share2 className="h-8 w-8 text-pink-600 mb-3" />
+              <h4 className="font-semibold text-pink-800 mb-2">Easy Sharing Tools</h4>
+              <p className="text-pink-600">One-click sharing tools for all major social media platforms</p>
+            </div>
+          </div>
+          
+          <div className="mt-8 p-6 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg border border-amber-200">
+            <div className="text-center">
+              <h4 className="text-xl font-semibold text-amber-800 mb-2">🎨 What's Coming</h4>
+              <p className="text-amber-700 mb-4">
+                We're creating a comprehensive marketing toolkit that will include:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="bg-white bg-opacity-60 p-3 rounded border border-amber-200">
+                  <strong>Visual Assets:</strong> High-quality banners, logos, and infographics
+                </div>
+                <div className="bg-white bg-opacity-60 p-3 rounded border border-amber-200">
+                  <strong>Content Library:</strong> Pre-written articles, social media posts, and email campaigns
+                </div>
+                <div className="bg-white bg-opacity-60 p-3 rounded border border-amber-200">
+                  <strong>Analytics Dashboard:</strong> Real-time tracking of your marketing performance
+                </div>
               </div>
-              
-              {materialsLoading ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {marketingMaterials
-                    .filter((material: any) => 
-                      material.type === 'email' || 
-                      material.type === 'text' || 
-                      material.type === 'social'
-                    )
-                    .map((material: any) => renderMaterialItem(material))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./storage";
-import { setupWebSocketServer } from "./websocketServer";
+import { setupWebSocketServer, sendNotification } from "./websocketServer";
 
 // Create a storage instance
 const storage = new DatabaseStorage();
@@ -153,7 +153,7 @@ if (process.env.NODE_ENV !== 'production') {
         return res.status(500).json({ message: 'Failed to update user verification status' });
       }
       
-      console.log(`🔧 Development mode: User ${email} has been manually verified`);
+      if (process.env.NODE_ENV !== "production") console.log(`🔧 Development mode: User ${email} has been manually verified`);
       
       return res.status(200).json({
         message: 'User verified successfully (DEVELOPMENT MODE ONLY)',
@@ -246,6 +246,42 @@ router.put('/profile', requireEmailVerification, async (req: Request, res: Respo
   } catch (error) {
     console.error('Update profile error:', error);
     return res.status(500).json({ message: 'Failed to update user profile' });
+  }
+});
+
+// Get user balance route
+router.get('/users/:userId/balance', requireEmailVerification, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const userId = parseInt(req.params.userId, 10);
+    
+    // Users can only access their own balance unless they're admin
+    if (req.user.role !== 'admin' && req.user.id !== userId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const user = await storage.getUser(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const balance = parseFloat(user.balance);
+    
+    // For now, return user's balance as availableBalance
+    // In a real system, you might calculate pending balance from transactions
+    return res.status(200).json({
+      availableBalance: balance,
+      pendingBalance: 0, // TODO: Calculate from pending transactions
+      totalBalance: balance,
+      lastUpdated: user.updatedAt || new Date()
+    });
+  } catch (error) {
+    console.error('Get balance error:', error);
+    return res.status(500).json({ message: 'Failed to get user balance' });
   }
 });
 
@@ -442,6 +478,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting user:', error);
       res.status(500).json({ message: 'Failed to delete user' });
+    }
+  });
+
+  // Fund user account endpoint
+  app.post('/api/admin/users/:id/fund', isAuthenticated, requireAdminRole, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { amount, description } = req.body;
+
+      // Validate input
+      if (!amount || isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ message: 'Valid positive amount is required' });
+      }
+
+      if (amount > 1000000) {
+        return res.status(400).json({ message: 'Amount cannot exceed $1,000,000' });
+      }
+
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Update user balance
+      const updatedUser = await storage.updateUserBalance(userId, amount);
+      if (!updatedUser) {
+        return res.status(500).json({ message: 'Failed to update user balance' });
+      }
+
+      // Create transaction record
+      await storage.createTransaction({
+        userId: userId,
+        type: 'deposit',
+        amount: amount.toString(),
+        status: 'completed',
+        description: description || `Admin funding by ${req.user!.firstName} ${req.user!.lastName}`
+      });
+
+      // Log admin action
+      await storage.createLog({
+        type: "info",
+        userId: req.user!.id,
+        message: `Admin funded user account: $${amount} added to user ${userId}`,
+        details: { 
+          targetUserId: userId, 
+          amount: amount,
+          description: description,
+          previousBalance: parseFloat(user.balance),
+          newBalance: parseFloat(user.balance) + amount
+        }
+      });
+
+      // Create notification for the user
+      await storage.createNotification({
+        userId: userId,
+        type: 'account',
+        title: 'Account Funded',
+        message: `Your account has been funded with $${amount.toLocaleString()} by administration.`,
+        relatedEntityType: 'transaction',
+        relatedEntityId: userId
+      });
+
+      // Send real-time balance update via WebSocket
+      sendNotification(userId, {
+        type: 'balance_update',
+        title: 'Account Funded',
+        message: `Your account has been funded with $${amount.toLocaleString()}`,
+        newBalance: parseFloat(user.balance) + amount,
+        amount: amount,
+        priority: 'high'
+      });
+
+      res.json({ 
+        message: 'User account funded successfully',
+        newBalance: parseFloat(user.balance) + amount,
+        amount: amount
+      });
+    } catch (error) {
+      console.error('Error funding user account:', error);
+      res.status(500).json({ message: 'Failed to fund user account' });
     }
   });
 
@@ -991,7 +1108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserByEmail(email);
       
       if (user) {
-        console.log(`Password reset requested for ${email}`);
+        if (process.env.NODE_ENV !== "production") console.log(`Password reset requested for ${email}`);
       }
       
       return res.status(200).json({ message: "If this email is associated with an account, you will receive password reset instructions." });
@@ -1009,7 +1126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Token and password are required" });
       }
       
-      console.log(`Password reset with token: ${token}`);
+      if (process.env.NODE_ENV !== "production") console.log(`Password reset with token: ${token}`);
       
       return res.status(200).json({ message: "Password has been reset successfully" });
     } catch (error) {

@@ -159,6 +159,7 @@ const Deposit: React.FC = () => {
                       checked={selectedPlan === plan.id}
                       onChange={() => setSelectedPlan(plan.id)}
                       className="accent-amber-700 mr-2"
+                      aria-label={plan.name}
                     />
                     <div className="flex flex-col w-full">
                       <Label htmlFor={plan.id} className="font-semibold text-amber-800">{plan.name}</Label>
@@ -194,6 +195,17 @@ const Deposit: React.FC = () => {
               <div className="mb-6">
                 <Label className="mb-2 block font-semibold text-amber-900">Select Funding Source:</Label>
                 <div className="flex flex-wrap gap-2 mb-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundingSource"
+                      value="balance"
+                      checked={selectedCrypto === 'balance'}
+                      onChange={() => setSelectedCrypto('balance')}
+                      className="accent-amber-700 mr-2"
+                    />
+                    <span>Spend from account balance</span>
+                  </label>
                   <label className="flex items-center">
                     <input
                       type="radio"
@@ -251,44 +263,67 @@ const Deposit: React.FC = () => {
                   </label>
                 </div>
               </div>
-              {/* Crypto Address and Copy Button */}
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-md my-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium text-amber-900">
-                    {selectedCrypto === 'bitcoin' ? 'Bitcoin' : 
-                     selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash' : 
-                     selectedCrypto === 'ethereum' ? 'Ethereum' : selectedCrypto === 'bnb' ? 'BNB' : 'USDT'} Deposit Address
-                  </h3>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => copyToClipboard(starterPlan?.walletAddresses[selectedCrypto as keyof typeof starterPlan.walletAddresses] || '')}
-                    className="h-8 px-2 text-amber-700 hover:text-amber-900 hover:bg-amber-100"
-                  >
-                    {copiedAddress ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+              {/* Crypto Address and Copy Button - Only show for crypto options */}
+              {selectedCrypto !== 'balance' && (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-md my-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-medium text-amber-900">
+                        {selectedCrypto === 'bitcoin' ? 'Bitcoin' : 
+                         selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash' : 
+                         selectedCrypto === 'ethereum' ? 'Ethereum' : selectedCrypto === 'bnb' ? 'BNB' : 'USDT'} Deposit Address
+                      </h3>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => copyToClipboard(starterPlan?.walletAddresses[selectedCrypto as keyof typeof starterPlan.walletAddresses] || '')}
+                        className="h-8 px-2 text-amber-700 hover:text-amber-900 hover:bg-amber-100"
+                      >
+                        {copiedAddress ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-amber-700 mb-4">
+                      Please send your deposit in 
+                      {selectedCrypto === 'bitcoin' ? 'Bitcoin (BTC)' : 
+                       selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash (BCH)' : 
+                       selectedCrypto === 'ethereum' ? 'Ethereum (ETH)' : selectedCrypto === 'bnb' ? 'BNB (BSC)' : 'USDT (TRC20)'} 
+                      to Carax Finance's official wallet address below:
+                    </p>
+                    <div className="bg-white p-3 rounded border border-amber-300 break-all font-mono text-xs text-amber-900">
+                      {starterPlan?.walletAddresses[selectedCrypto as keyof typeof starterPlan.walletAddresses]}
+                    </div>
+                  </div>
+                  {/* Important Note */}
+                  <div className="mt-2 text-xs text-amber-700 bg-amber-100 p-2 rounded-md">
+                    <strong>Important:</strong> After sending your deposit, please click the confirmation button below and provide your transaction ID when prompted by our team. Your account will be credited once the transaction is confirmed on the blockchain.
+                  </div>
+                </>
+              )}
+              
+              {/* Account Balance Option Info */}
+              {selectedCrypto === 'balance' && (
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-md my-4">
+                  <h3 className="font-medium text-blue-900 mb-2">Using Account Balance</h3>
+                  <p className="text-sm text-blue-700 mb-2">
+                    You are about to invest from your current account balance.
+                  </p>
+                  <p className="text-sm text-blue-900 font-medium">
+                    Available Balance: ${user?.balance ?? 0}
+                  </p>
+                  {parseFloat(amount) > parseFloat(user?.balance ?? '0') && (
+                    <p className="text-sm text-red-600 mt-2">
+                      <strong>Note:</strong> Insufficient balance. Please reduce the amount or choose a crypto funding option.
+                    </p>
+                  )}
                 </div>
-                <p className="text-sm text-amber-700 mb-4">
-                  Please send your deposit in 
-                  {selectedCrypto === 'bitcoin' ? 'Bitcoin (BTC)' : 
-                   selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash (BCH)' : 
-                   selectedCrypto === 'ethereum' ? 'Ethereum (ETH)' : selectedCrypto === 'bnb' ? 'BNB (BSC)' : 'USDT (TRC20)'} 
-                  to Carax Finance's official wallet address below:
-                </p>
-                <div className="bg-white p-3 rounded border border-amber-300 break-all font-mono text-xs text-amber-900">
-                  {starterPlan?.walletAddresses[selectedCrypto as keyof typeof starterPlan.walletAddresses]}
-                </div>
-              </div>
-              {/* Important Note */}
-              <div className="mt-2 text-xs text-amber-700 bg-amber-100 p-2 rounded-md">
-                <strong>Important:</strong> After sending your deposit, please click the confirmation button below and provide your transaction ID when prompted by our team. Your account will be credited once the transaction is confirmed on the blockchain.
-              </div>
-              {/* Exchange Rate and Amount to Send */}
-              {!ratesLoading && exchangeRates && (
+              )}
+              
+              {/* Exchange Rate and Amount to Send - Only for crypto */}
+              {selectedCrypto !== 'balance' && !ratesLoading && exchangeRates && (
                 <p className="text-sm text-amber-700 mt-4">
                   Current Exchange Rate: 1 
                   {selectedCrypto === 'bitcoin' ? 'BTC' : 
@@ -307,7 +342,7 @@ const Deposit: React.FC = () => {
                   } USD
                 </p>
               )}
-              {amount && !ratesLoading && exchangeRates && (
+              {amount && selectedCrypto !== 'balance' && !ratesLoading && exchangeRates && (
                 <p className="text-sm text-amber-900 font-medium mt-2">
                   You need to send: {(parseFloat(amount) / (selectedCrypto === 'bitcoin' 
                     ? exchangeRates.bitcoin
@@ -329,10 +364,12 @@ const Deposit: React.FC = () => {
               <Button 
                 onClick={handleDeposit} 
                 className="w-full bg-amber-800 hover:bg-amber-700 text-white mt-6" 
-                disabled={isProcessing}
+                disabled={isProcessing || (selectedCrypto === 'balance' && parseFloat(amount) > parseFloat(user?.balance ?? '0'))}
                 type="submit"
               >
-                {isProcessing ? 'Processing...' : `I've Sent ${selectedCrypto === 'bitcoin' ? 'Bitcoin' : selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash' : selectedCrypto === 'ethereum' ? 'Ethereum' : selectedCrypto === 'bnb' ? 'BNB' : 'USDT'} to Carax Finance`}
+                {isProcessing ? 'Processing...' : 
+                 selectedCrypto === 'balance' ? 'Invest from Balance' :
+                 `I've Sent ${selectedCrypto === 'bitcoin' ? 'Bitcoin' : selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash' : selectedCrypto === 'ethereum' ? 'Ethereum' : selectedCrypto === 'bnb' ? 'BNB' : 'USDT'} to Carax Finance`}
               </Button>
             </form>
           </CardContent>

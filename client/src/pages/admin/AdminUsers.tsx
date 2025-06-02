@@ -29,6 +29,11 @@ interface UserFormData {
   isVerified: boolean;
 }
 
+interface FundingFormData {
+  amount: number;
+  description: string;
+}
+
 interface UsersResponse {
   users: User[];
   totalPages: number;
@@ -40,14 +45,15 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [fundingUser, setFundingUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterState>({});
   const { toast } = useToast();
-
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UserFormData>();
+  const { register: registerFunding, handleSubmit: handleFundingSubmit, reset: resetFunding, formState: { errors: fundingErrors } } = useForm<FundingFormData>();
   // Fetch users from API with advanced filtering
   const fetchUsers = async (page = 1, appliedFilters: FilterState = {}) => {
     try {
@@ -237,12 +243,54 @@ export default function AdminUsers() {
       toast({
         title: "Success",
         description: "User updated successfully"
-      });
-    } catch (error) {
+      });    } catch (error) {
       console.error("Failed to update user:", error);
       toast({
         title: "Error",
         description: "Failed to update user. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Funding functionality
+  const handleFundUser = (user: User) => {
+    setFundingUser(user);
+    resetFunding();
+  };
+
+  const onFundingSubmit = async (data: FundingFormData) => {
+    if (!fundingUser) return;
+    
+    try {
+      const response = await apiRequest("POST", `/api/admin/users/${fundingUser.id}/fund`, {
+        amount: data.amount,
+        description: data.description
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update the user's balance in the local state
+        setUsers(prev => prev.map(user => 
+          user.id === fundingUser.id 
+            ? { ...user, balance: result.newBalance.toString() }
+            : user
+        ));
+        
+        setFundingUser(null);
+        resetFunding();
+        
+        toast({
+          title: "Success",
+          description: `Successfully funded $${data.amount.toLocaleString()} to ${fundingUser.firstName} ${fundingUser.lastName}`
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fund user account:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fund user account",
         variant: "destructive"
       });
     }
@@ -405,13 +453,18 @@ export default function AdminUsers() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(user.createdAt).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                </td>                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                   <button
                     onClick={() => handleEditUser(user)}
                     className="text-indigo-600 hover:text-indigo-900"
                   >
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleFundUser(user)}
+                    className="text-green-600 hover:text-green-900"
+                  >
+                    Fund Account
                   </button>
                   <button
                     onClick={() => handleDeleteUser(user.id)}
@@ -558,6 +611,92 @@ export default function AdminUsers() {
                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                   >
                     Update User
+                  </button>
+                </div>
+              </form>
+            </div>          </div>
+        </div>
+      )}
+
+      {/* Fund User Modal */}
+      {fundingUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Fund Account - {fundingUser.firstName} {fundingUser.lastName}
+              </h3>
+              <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                <p className="text-sm text-gray-600">
+                  Current Balance: <span className="font-semibold">${parseFloat(fundingUser.balance).toLocaleString()}</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Email: <span className="font-semibold">{fundingUser.email}</span>
+                </p>
+              </div>
+              <form onSubmit={handleFundingSubmit(onFundingSubmit)} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Amount to Fund ($)</label>
+                  <input
+                    {...registerFunding("amount", { 
+                      required: "Amount is required",
+                      min: { value: 1, message: "Amount must be at least $1" },
+                      max: { value: 1000000, message: "Amount cannot exceed $1,000,000" }
+                    })}
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    max="1000000"
+                    placeholder="Enter amount"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                  {fundingErrors.amount && <p className="text-red-500 text-xs mt-1">{fundingErrors.amount.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description (Optional)</label>
+                  <textarea
+                    {...registerFunding("description")}
+                    rows={3}
+                    placeholder="Reason for funding (e.g., bonus, correction, etc.)"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">
+                        Admin Action Required
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <p>This action will immediately add funds to the user's account and create a transaction record. This action cannot be undone.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFundingUser(null);
+                      resetFunding();
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                  >
+                    Fund Account
                   </button>
                 </div>
               </form>

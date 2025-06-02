@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Menu, X } from "lucide-react";
 import AdminNotifications from "@/components/AdminNotifications";
+import { useState } from "react";
 
 interface AdminLayoutProps {
   children?: React.ReactNode;
@@ -10,8 +11,13 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const isActive = (path: string) => location === path;
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
 
   const handleLogout = async () => {
     try {
@@ -20,10 +26,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
-  return (
+  };  return (
     <div className="flex min-h-screen">
-      <aside className="w-64 bg-gray-800 text-white p-4 flex flex-col">
+      <aside className={`${sidebarCollapsed ? 'w-0 -ml-64' : 'w-64'} bg-gray-800 text-white p-4 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold mb-2">Admin Panel</h2>
@@ -31,7 +36,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               Welcome, {user?.firstName || user?.username}
             </div>
           </div>
-          <AdminNotifications />
+          {/* Toggle Button in sidebar */}
+          <button
+            onClick={toggleSidebar}
+            className="bg-gray-700 text-white p-2 rounded-md hover:bg-gray-600 transition-colors"
+            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+          >
+            {sidebarCollapsed ? <Menu size={20} /> : <X size={20} />}
+          </button>
         </div>
         
         <nav className="flex flex-col gap-2 flex-1">
@@ -105,11 +117,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           >
             <LogOut size={16} />
             Logout
+          </button>        </div>
+      </aside>      <main className={`flex-1 p-6 bg-gray-100 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'ml-0' : 'ml-0'}`}>
+        {/* Fallback toggle button when sidebar is collapsed */}
+        {sidebarCollapsed && (
+          <button
+            onClick={toggleSidebar}
+            className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-md hover:bg-gray-700 transition-colors"
+            title="Show sidebar"
+          >
+            <Menu size={20} />
           </button>
+        )}
+        
+        {/* Notifications moved to top-right */}
+        <div className="fixed top-4 right-4 z-50">
+          <AdminNotifications />
         </div>
-      </aside>
-      <main className="flex-1 p-6 bg-gray-100">
-        {children}
+        <div className={`${sidebarCollapsed ? 'ml-0' : 'ml-0'} pt-12`}>
+          {children}
+        </div>
       </main>
     </div>
   );

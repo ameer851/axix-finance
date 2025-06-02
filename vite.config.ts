@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(async () => {
   const plugins = [
     react(),
-    runtimeErrorOverlay(),
+    process.env.NODE_ENV !== "production" && runtimeErrorOverlay(),
   ];
 
   // Conditionally add cartographer plugin in development
@@ -18,7 +18,7 @@ export default defineConfig(async () => {
       const cartographerModule = await import("@replit/vite-plugin-cartographer");
       plugins.push(cartographerModule.cartographer());
     } catch (error) {
-      console.warn("Could not load cartographer plugin:", error);
+      // Cartographer plugin not available - continue without it
     }
   }
 

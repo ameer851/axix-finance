@@ -11,9 +11,8 @@ import { depositFunds, withdrawFunds, investInSecurity } from '@/services/portfo
 // Import dashboard components
 import PortfolioOverview from '@/components/dashboard/PortfolioOverview';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
-import MarketWatch from '@/components/dashboard/MarketWatch';
+import Widget360 from '@/components/dashboard/Widget360';
 import GoalsPlanning from '@/components/dashboard/GoalsPlanning';
-import ReportsStatements from '@/components/dashboard/ReportsStatements';
 import NotificationsAlerts from '@/components/dashboard/NotificationsAlerts';
 
 const Dashboard: React.FC = () => {
@@ -183,23 +182,13 @@ const Dashboard: React.FC = () => {
     }
   };
   
-  // Handle market actions
-  const handleMarketAction = {
-    addToWatchlist: (symbol: string) => {
+  // Handle 360 widget actions
+  const handle360Action = {
+    refresh: () => {
       toast({
-        title: 'Added to Watchlist',
-        description: `${symbol} has been added to your watchlist.`,
+        title: 'Market Data Refreshed',
+        description: 'Latest market data has been updated.',
       });
-    },
-    removeFromWatchlist: (symbol: string) => {
-      toast({
-        title: 'Removed from Watchlist',
-        description: `${symbol} has been removed from your watchlist.`,
-      });
-    },
-    buy: (symbol: string) => {
-      setInvestSymbol(symbol);
-      setShowInvestDialog(true);
     }
   };
   
@@ -268,25 +257,20 @@ const Dashboard: React.FC = () => {
             onCreateAlert={handleNotificationAction.createAlert}
           />
           
-          {/* Market Watch */}
-          <MarketWatch 
-            onAddToWatchlist={handleMarketAction.addToWatchlist}
-            onRemoveFromWatchlist={handleMarketAction.removeFromWatchlist}
-            onBuy={handleMarketAction.buy}
+          {/* 360 Widget */}
+          <Widget360 
+            onRefresh={handle360Action.refresh}
           />
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Goals & Planning */}
         <GoalsPlanning 
           onCreateGoal={handleGoalAction.createGoal}
           onEditGoal={handleGoalAction.editGoal}
           onDeleteGoal={handleGoalAction.deleteGoal}
         />
-        
-        {/* Reports & Statements */}
-        <ReportsStatements />
       </div>
       
       {/* Deposit Dialog */}

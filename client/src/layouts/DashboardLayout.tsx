@@ -36,14 +36,19 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserBalance } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [greeting, setGreeting] = useState('Good day');
   const { toast } = useToast();
   
-  // Initialize WebSocket connection for real-time notifications
-  const { isConnected: wsConnected } = useNotificationWebSocket(user?.id);
+  // Initialize WebSocket connection for real-time notifications and balance updates
+  const { isConnected: wsConnected } = useNotificationWebSocket(user?.id, {
+    onBalanceUpdate: (newBalance: number, amount: number) => {
+      updateUserBalance(newBalance);
+      console.log(`Balance updated: $${amount} added, new balance: $${newBalance}`);
+    }
+  });
 
   // Search functionality
   const [searchValue, setSearchValue] = useState("");
@@ -63,9 +68,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   }, []);
 
   const handleLogout = async () => {
-    await logout();
-    localStorage.removeItem('user');
-    window.location.href = '/';
+    try {
+      await logout();
+      // The AuthContext will handle navigation and cleanup
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, show a toast
+      toast({
+        title: "Logout completed",
+        description: "You have been logged out.",
+        variant: "default",
+      });
+    }
   };
 
   const navItems = [
@@ -165,6 +179,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               <nav className="mt-5 flex-1 px-2 bg-primary space-y-1">
                 {navItems.map((item) => {
                   const isActive = location === item.path;
+                  
+                  // Handle logout button differently
+                  if (item.onClick) {
+                    return (
+                      <div
+                        key={item.label}
+                        onClick={item.onClick}
+                        className={`text-white hover:bg-primary-foreground/10 hover:text-white group flex ${sidebarCollapsed ? 'justify-center' : ''} items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer`}
+                        title={sidebarCollapsed ? item.label : ''}
+                      >
+                        <span className={sidebarCollapsed ? '' : 'mr-3'} >{item.icon}</span>
+                        {!sidebarCollapsed && item.label}
+                      </div>
+                    );
+                  }
+                  
+                  // Regular navigation items
                   return (
                     <Link key={item.path} href={item.path}>
                       <div
@@ -242,6 +273,25 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 <nav className="mt-5 px-2 space-y-1">
                   {navItems.map((item) => {
                     const isActive = location === item.path;
+                    
+                    // Handle logout button differently
+                    if (item.onClick) {
+                      return (
+                        <div
+                          key={item.label}
+                          onClick={() => {
+                            item.onClick();
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`text-primary hover:bg-primary/10 hover:text-primary-foreground group flex items-center px-2 py-2 text-base font-medium rounded-md cursor-pointer`}
+                        >
+                          <span className="mr-4 text-inherit">{item.icon}</span>
+                          {item.label}
+                        </div>
+                      );
+                    }
+                    
+                    // Regular navigation items
                     return (
                       <Link key={item.path} href={item.path}>
                         <a

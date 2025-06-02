@@ -10,11 +10,15 @@ const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || (
 );
 
 interface WebSocketMessage {
-  type: 'notification' | 'system' | 'error';
+  type: 'notification' | 'system' | 'error' | 'balance_update';
   data: any;
 }
 
-const useNotificationWebSocket = (userId?: number) => {
+interface BalanceUpdateHandler {
+  onBalanceUpdate?: (newBalance: number, amount: number) => void;
+}
+
+const useNotificationWebSocket = (userId?: number, handlers?: BalanceUpdateHandler) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
@@ -53,6 +57,25 @@ const useNotificationWebSocket = (userId?: number) => {
                 variant: 'default',
               });
             }
+          } else if (message.type === 'balance_update') {
+            // Handle balance updates
+            console.log('Balance update received:', message.data);
+            
+            // Call the balance update handler if provided
+            if (handlers?.onBalanceUpdate) {
+              handlers.onBalanceUpdate(message.data.newBalance, message.data.amount);
+            }
+            
+            // Invalidate relevant queries to trigger refetch
+            queryClient.invalidateQueries({ queryKey: ['profile'] });
+            queryClient.invalidateQueries({ queryKey: ['balance'] });
+            
+            // Show toast notification for balance updates
+            toast({
+              title: message.data.title || 'Balance Updated',
+              description: message.data.message,
+              variant: 'default',
+            });
           } else if (message.type === 'system') {
             // Handle system messages
             console.log('System message:', message.data);
@@ -92,7 +115,7 @@ const useNotificationWebSocket = (userId?: number) => {
         socket.close();
       }
     };
-  }, [userId, connectionAttempts, queryClient, toast]);
+  }, [userId, connectionAttempts, queryClient, toast, handlers]);
   
   // Send a message through the WebSocket
   const sendMessage = useCallback((message: any) => {

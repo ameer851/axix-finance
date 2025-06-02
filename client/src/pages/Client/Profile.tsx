@@ -192,7 +192,7 @@ const Profile: React.FC = () => {
                         <h3 className="font-medium">Account Balance</h3>
                       </div>
                       <div className="text-2xl font-bold">
-                        {formatCurrency(balanceData?.availableBalance || 0)}
+                        {formatCurrency(balanceData?.availableBalance || parseFloat(user?.balance || '0'))}
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Pending: {formatCurrency(balanceData?.pendingBalance || 0)}

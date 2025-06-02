@@ -28,9 +28,41 @@ app.use(helmet({
 }));
 // For all environments, use the standard cors middleware with appropriate settings
 app.use(cors({
-  origin: process.env.NODE_ENV !== 'production' 
-    ? 'http://localhost:4000' 
-    : (process.env.CORS_ORIGIN || 'https://your-production-domain.com'),
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Development origins
+    const developmentOrigins = [
+      'http://localhost:4000',
+      'http://localhost:5173',
+      'http://127.0.0.1:4000',
+      'http://127.0.0.1:5173'
+    ];
+    
+    // Production and ngrok origins
+    const allowedOrigins = [
+      ...developmentOrigins,
+      process.env.CORS_ORIGIN || 'https://your-production-domain.com'
+    ];
+    
+    // Allow ngrok tunnels (they follow the pattern *.ngrok.io or *.ngrok-free.app)
+    if (origin.includes('.ngrok.io') || origin.includes('.ngrok-free.app') || origin.includes('.ngrok.app')) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // For development, be more permissive
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
@@ -98,7 +130,7 @@ app.use((req, res, next) => {
           }
           
           // Always console log in production, formatted as JSON for easier parsing
-          console.log(JSON.stringify(logData));
+          if (process.env.NODE_ENV !== "production") console.log(JSON.stringify(logData));
         }
       }
     });
@@ -121,7 +153,7 @@ app.use((req, res, next) => {
           if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
           log(logLine);
         } else {
-          console.log(JSON.stringify({
+          if (process.env.NODE_ENV !== "production") console.log(JSON.stringify({
             timestamp: new Date().toISOString(),
             method: req.method,
             path,
@@ -203,7 +235,7 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on a configurable port
   // this serves both the API and the client
-  const port = process.env.PORT || 5000;
+  const port = process.env.PORT || 4000;
   const host = process.env.HOST || '0.0.0.0'; // Listen on all interfaces in production
   
   // Check database connection before starting the server
@@ -223,11 +255,11 @@ app.use((req, res, next) => {
       host,
       reusePort: true,
     }, () => {
-      console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode`);
-      console.log(`🔗 http://localhost:${port}`);
+      if (process.env.NODE_ENV !== "production") console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode`);
+      if (process.env.NODE_ENV !== "production") console.log(`🔗 http://localhost:${port}`);
       
       if (dbConnected) {
-        console.log('📊 Database connection established');
+        if (process.env.NODE_ENV !== "production") console.log('📊 Database connection established');
         
         // Initialize database with required settings
         if (process.env.NODE_ENV === 'production') {
@@ -236,8 +268,8 @@ app.use((req, res, next) => {
           });
         }
       } else {
-        console.log('⚠️ Running with limited functionality due to database connection issues');
-        console.log('⚠️ The application will automatically retry connecting to the database');
+        if (process.env.NODE_ENV !== "production") console.log('⚠️ Running with limited functionality due to database connection issues');
+        if (process.env.NODE_ENV !== "production") console.log('⚠️ The application will automatically retry connecting to the database');
       }
       
       // Set up periodic database connection check (every 30 seconds)
@@ -245,7 +277,7 @@ app.use((req, res, next) => {
         const reconnected = await checkDatabaseConnection();
         
         if (reconnected && global.dbConnectionIssues) {
-          console.log('✅ Database connection re-established');
+          if (process.env.NODE_ENV !== "production") console.log('✅ Database connection re-established');
           global.dbConnectionIssues = false;
           
           // Initialize database if needed
@@ -281,9 +313,9 @@ app.use((req, res, next) => {
       host,
       reusePort: true,
     }, () => {
-      console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode`);
-      console.log(`🔗 http://localhost:${port}`);
-      console.log('⚠️ Running with limited functionality due to database connection issues');
+      if (process.env.NODE_ENV !== "production") console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode`);
+      if (process.env.NODE_ENV !== "production") console.log(`🔗 http://localhost:${port}`);
+      if (process.env.NODE_ENV !== "production") console.log('⚠️ Running with limited functionality due to database connection issues');
     });
   }
 })().catch((err) => {
