@@ -16,7 +16,6 @@ import Dashboard from "@/pages/Dashboard";
 import Transactions from "@/pages/Dashboard/Transactions";
 import Portfolio from "@/pages/Dashboard/Portfolio";
 import Wallets from "@/pages/Dashboard/Wallets";
-import Notifications from "@/pages/Dashboard/Notifications";
 import Settings from "@/pages/Dashboard/Settings";
 
 // Client pages

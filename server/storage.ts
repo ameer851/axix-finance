@@ -21,7 +21,6 @@ export interface IStorage {
   getUsers(options: { limit: number; offset: number; search?: string; status?: string }): Promise<User[]>;
   getUserCount(): Promise<number>;
   createUser(user: InsertUser): Promise<User | undefined>;
-  updateUserBalance(userId: number, amount: number): Promise<User | undefined>;
   updateUserProfile(userId: number, data: Partial<User>): Promise<User | undefined>;
   updateUserVerificationStatus(userId: number, isVerified: boolean): Promise<User | undefined>;
   updateUserActiveStatus(userId: number, isActive: boolean): Promise<User | undefined>;
@@ -182,26 +181,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateUserBalance(userId: number, amount: number): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-
-    const newBalance = parseFloat(user.balance as string) + amount;
-    
-    const result = await db.update(users)
-      .set({ balance: newBalance.toString() })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-  
   async updateUserProfile(userId: number, data: Partial<User>): Promise<User | undefined> {
     const user = await this.getUser(userId);
     if (!user) return undefined;
     
     // Remove sensitive fields that shouldn't be updated
-    const { id, password, balance, role, createdAt, ...updateData } = data;
+    const { id, password, role, createdAt, ...updateData } = data;
     
     const result = await db.update(users)
       .set({ 
@@ -372,7 +357,6 @@ export class DatabaseStorage implements IStorage {
       if (data.firstName !== undefined) updateData.firstName = data.firstName;
       if (data.lastName !== undefined) updateData.lastName = data.lastName;
       if (data.role !== undefined) updateData.role = data.role;
-      if (data.balance !== undefined) updateData.balance = data.balance;
       if (data.isVerified !== undefined) updateData.isVerified = data.isVerified;
       if (data.isActive !== undefined) updateData.isActive = data.isActive;
       if (data.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = data.twoFactorEnabled;

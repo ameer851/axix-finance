@@ -186,14 +186,16 @@ export type NotificationPriority = "low" | "medium" | "high";
 export type Goal = {
   id: number;
   userId: number;
+  name: string;
   title: string;
   description?: string;
   targetAmount: string;
   currentAmount: string;
-  targetDate: Date;
+  targetDate: string;
   category: string;
   priority: 'low' | 'medium' | 'high';
   status: 'active' | 'completed' | 'paused' | 'cancelled';
+  progress: number;
   createdAt: Date;
   updatedAt: Date;
 };

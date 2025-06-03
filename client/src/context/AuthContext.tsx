@@ -81,20 +81,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => clearInterval(intervalId);
   }, []);
-
   const refreshUserData = async () => {
     try {
-      const response = await apiRequest('GET', '/api/profile', undefined, {
+      // First get the user profile
+      const profileResponse = await apiRequest('GET', '/api/profile', undefined, {
         throwOnError: false // Don't throw on error, handle manually
       });
       
-      if (response.ok) {
-        const userData = await response.json();
+      if (profileResponse.ok) {
+        const userData = await profileResponse.json();
+        
+        // Then try to get the latest balance - important to have real-time balance
+        try {
+          if (userData.id) {
+            const balanceResponse = await apiRequest('GET', `/api/users/${userData.id}/balance`);
+            if (balanceResponse.ok) {
+              const balanceData = await balanceResponse.json();
+              // Update the user data with the latest balance
+              if (balanceData.availableBalance) {
+                userData.balance = balanceData.availableBalance.toString();
+              }
+            }
+          }
+        } catch (balanceErr) {
+          console.warn('Failed to fetch latest balance during user refresh:', balanceErr);
+          // Continue with existing balance - don't fail the whole refresh
+        }
+        
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
       } else {
         // If unauthorized, clear user data
-        if (response.status === 401) {
+        if (profileResponse.status === 401) {
           localStorage.removeItem('user');
           setUser(null);
           // Show notification about expired session

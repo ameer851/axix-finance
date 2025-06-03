@@ -100,10 +100,10 @@ const GoalsPlanning: React.FC<GoalsPlanningProps> = ({
       
       // Call the real API to create a goal
       return await createGoal({
-        userId: String(user.id),
+        userId: user.id,
         name: newGoal.name,
         targetAmount: String(newGoal.targetAmount),
-        targetDate: newGoal.targetDate,
+        targetDate: typeof newGoal.targetDate === 'string' ? newGoal.targetDate : newGoal.targetDate?.toISOString?.() ?? '',
         currentAmount: String(newGoal.currentAmount),
         progress: newGoal.progress,
         status: newGoal.status,

@@ -1,17 +1,15 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./storage";
-import { setupWebSocketServer, sendNotification } from "./websocketServer";
-
-// Create a storage instance
-const storage = new DatabaseStorage();
+import express from 'express';
 import { type User as DbUser, type Transaction, type InsertUser } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, verifyUserEmail, resendVerificationEmail, requireEmailVerification, requireAdminRole, comparePasswords, hashPassword } from "./auth";
-import express from 'express';
 import { sendVerificationEmail } from './emailService';
 import { pool } from './db';
-import notificationRoutes from './notificationRoutes';
+
+// Create a storage instance
+const storage = new DatabaseStorage();
 
 // Define base user interface to avoid recursion
 interface BaseUser {
@@ -23,7 +21,6 @@ interface BaseUser {
   isVerified: boolean;
   isActive: boolean;
   role: "user" | "admin";
-  balance: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -257,27 +254,33 @@ router.get('/users/:userId/balance', requireEmailVerification, async (req: Reque
     }
 
     const userId = parseInt(req.params.userId, 10);
-    
     // Users can only access their own balance unless they're admin
     if (req.user.role !== 'admin' && req.user.id !== userId) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const user = await storage.getUser(userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    // Dynamically calculate balance from completed transactions
+    const transactions = await storage.getUserTransactions(userId);
+    let availableBalance = 0;
+    let pendingBalance = 0;
+    for (const tx of transactions) {
+      if (tx.status === 'completed') {
+        if (tx.type === 'deposit' || tx.type === 'transfer') {
+          availableBalance += parseFloat(tx.amount);
+        } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
+          availableBalance -= parseFloat(tx.amount);
+        }
+      } else if (tx.status === 'pending') {
+        if (tx.type === 'withdrawal' || tx.type === 'investment') {
+          pendingBalance += parseFloat(tx.amount);
+        }
+      }
     }
-    
-    const balance = parseFloat(user.balance);
-    
-    // For now, return user's balance as availableBalance
-    // In a real system, you might calculate pending balance from transactions
     return res.status(200).json({
-      availableBalance: balance,
-      pendingBalance: 0, // TODO: Calculate from pending transactions
-      totalBalance: balance,
-      lastUpdated: user.updatedAt || new Date()
+      availableBalance,
+      pendingBalance,
+      totalBalance: availableBalance,
+      lastUpdated: new Date()
     });
   } catch (error) {
     console.error('Get balance error:', error);
@@ -328,6 +331,43 @@ router.post('/change-password', requireEmailVerification, async (req, res) => {
   }
 });
 
+// Get user crypto balances (per-crypto)
+router.get('/users/:userId/crypto-balances', requireEmailVerification, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const userId = parseInt(req.params.userId, 10);
+    if (req.user.role !== 'admin' && req.user.id !== userId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // For demo, all balances are 0, but you can extend this to use real data
+    const cryptos = [
+      { key: 'bitcoin', label: 'BITCOIN', address: user.bitcoinAddress },
+      { key: 'bitcoinCash', label: 'Bitcoin cash', address: user.bitcoinCashAddress },
+      { key: 'ethereum', label: 'Ethereum', address: user.ethereumAddress },
+      { key: 'usdt', label: 'Usdt trc20', address: user.usdtTrc20Address },
+      { key: 'bnb', label: 'BNB', address: user.bnbAddress },
+    ];
+    const balances = cryptos.map(crypto => ({
+      key: crypto.key,
+      label: crypto.label,
+      processing: 0, // TODO: Replace with real processing amount if available
+      available: 0, // TODO: Replace with real available amount if available
+      pending: 0, // TODO: Replace with real pending amount if available
+      account: crypto.address || 'not set',
+    }));
+    return res.status(200).json(balances);
+  } catch (error) {
+    console.error('Get crypto balances error:', error);
+    return res.status(500).json({ message: 'Failed to get crypto balances' });
+  }
+});
+
 // Export the router
 export default router;
 
@@ -337,9 +377,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply the router to the app
   app.use('/api', router);
   
-  // Apply notification routes
-  app.use('/api/notifications', notificationRoutes);
-
   // Admin routes
   app.get('/api/admin/stats', isAuthenticated, requireAdminRole, async (req: Request, res: Response) => {
     try {
@@ -386,19 +423,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const totalUsers = await storage.getUserCount();
       
+      // For each user, fetch their dynamic balance
+      const usersWithBalance = await Promise.all(users.map(async user => {
+        const transactions = await storage.getUserTransactions(user.id);
+        let availableBalance = 0;
+        for (const tx of transactions) {
+          if (tx.status === 'completed') {
+            if (tx.type === 'deposit' || tx.type === 'transfer') {
+              availableBalance += parseFloat(tx.amount);
+            } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
+              availableBalance -= parseFloat(tx.amount);
+            }
+          }
+        }
+        return {
+          ...user,
+          balance: availableBalance
+        };
+      }));
+
       res.json({
-        users: users.map(user => ({
+        users: usersWithBalance.map(user => ({
           id: user.id,
           username: user.username,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
-          balance: user.balance,
           isVerified: user.isVerified,
           isActive: user.isActive,
           createdAt: user.createdAt,
-          updatedAt: user.updatedAt
+          updatedAt: user.updatedAt,
+          balance: user.balance // Now included and dynamic!
         })),
         totalPages: Math.ceil(totalUsers / Number(limit)),
         currentPage: Number(page),
@@ -439,7 +495,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         role: updatedUser.role,
-        balance: updatedUser.balance,
         isVerified: updatedUser.isVerified,
         isActive: updatedUser.isActive,
         createdAt: updatedUser.createdAt,
@@ -502,13 +557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Update user balance
-      const updatedUser = await storage.updateUserBalance(userId, amount);
-      if (!updatedUser) {
-        return res.status(500).json({ message: 'Failed to update user balance' });
-      }
-
-      // Create transaction record
+      // Do NOT update user.balance directly!
+      // Only create a completed deposit transaction
       await storage.createTransaction({
         userId: userId,
         type: 'deposit',
@@ -526,8 +576,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           targetUserId: userId, 
           amount: amount,
           description: description,
-          previousBalance: parseFloat(user.balance),
-          newBalance: parseFloat(user.balance) + amount
+          previousBalance: 'dynamic', // Now calculated dynamically
+          newBalance: 'dynamic' // Now calculated dynamically
         }
       });
 
@@ -541,19 +591,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         relatedEntityId: userId
       });
 
-      // Send real-time balance update via WebSocket
-      sendNotification(userId, {
-        type: 'balance_update',
-        title: 'Account Funded',
-        message: `Your account has been funded with $${amount.toLocaleString()}`,
-        newBalance: parseFloat(user.balance) + amount,
-        amount: amount,
-        priority: 'high'
-      });
-
       res.json({ 
         message: 'User account funded successfully',
-        newBalance: parseFloat(user.balance) + amount,
         amount: amount
       });
     } catch (error) {
@@ -650,11 +689,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!updatedDeposit) {
         return res.status(404).json({ message: 'Deposit not found' });
-      }
-
-      // If deposit is approved, update user balance
-      if (status === 'confirmed') {
-        await storage.updateUserBalance(updatedDeposit.userId, parseFloat(updatedDeposit.amount as string));
       }
 
       // Log admin action
@@ -1136,9 +1170,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   const httpServer = createServer(app);
-  
-  // Set up WebSocket server
-  setupWebSocketServer(httpServer);
   
   return httpServer;
 }

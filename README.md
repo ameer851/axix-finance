@@ -9,7 +9,6 @@ A modern financial management platform built with React, TypeScript, and Node.js
 - **Transaction Management**: Deposit, withdraw, transfer, and invest funds
 - **Real-time Notifications**: Stay updated on account activity and important alerts
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
-
 ## Technology Stack
 
 ### Frontend

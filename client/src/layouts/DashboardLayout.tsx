@@ -7,8 +7,6 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import VerificationBanner from '@/components/VerificationBanner';
 import CustomerSupport from '@/components/CustomerSupport';
-import NotificationDropdown from '@/components/ui/notification-dropdown';
-import useNotificationWebSocket from '@/hooks/useNotificationWebSocket';
 import { 
   Home, 
   LineChart,
@@ -42,14 +40,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [greeting, setGreeting] = useState('Good day');
   const { toast } = useToast();
   
-  // Initialize WebSocket connection for real-time notifications and balance updates
-  const { isConnected: wsConnected } = useNotificationWebSocket(user?.id, {
-    onBalanceUpdate: (newBalance: number, amount: number) => {
-      updateUserBalance(newBalance);
-      console.log(`Balance updated: $${amount} added, new balance: $${newBalance}`);
-    }
-  });
-
   // Search functionality
   const [searchValue, setSearchValue] = useState("");
   const [isSearching, setIsSearching] = useState(false);

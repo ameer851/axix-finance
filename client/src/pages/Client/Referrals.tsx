@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Share2, Copy, Users, DollarSign, Award, ChevronRight } from 'lucide-react';
+import { Check, Copy, Share2, Users, DollarSign, Award, ChevronRight } from 'lucide-react';
 import { getUserReferrals, getUserReferralStats } from '@/services/userService';
 import { formatCurrency, formatDate } from '@/lib/utils';
 

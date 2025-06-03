@@ -290,18 +290,6 @@ const Profile: React.FC = () => {
                         </div>
                         <Button variant="outline" size="sm">Change</Button>
                       </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">Login Notifications</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Get notified when someone logs into your account
-                          </p>
-                        </div>
-                        <Badge className={profileData?.loginNotificationsEnabled ? 'bg-green-500' : 'bg-red-500'}>
-                          {profileData?.loginNotificationsEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </div>
                     </div>
                   </div>
                   
@@ -309,32 +297,6 @@ const Profile: React.FC = () => {
                     <div className="flex items-center mb-2">
                       <Bell className="h-5 w-5 mr-2 text-primary" />
                       <h3 className="font-medium">Notification Preferences</h3>
-                    </div>
-                    
-                    <div className="space-y-4 mt-3">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">Email Notifications</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Receive notifications about account activity
-                          </p>
-                        </div>
-                        <Badge className={profileData?.emailNotificationsEnabled ? 'bg-green-500' : 'bg-red-500'}>
-                          {profileData?.emailNotificationsEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">Transaction Alerts</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Get notified about deposits and withdrawals
-                          </p>
-                        </div>
-                        <Badge className={profileData?.transactionAlertsEnabled ? 'bg-green-500' : 'bg-red-500'}>
-                          {profileData?.transactionAlertsEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </div>
                     </div>
                   </div>
                   

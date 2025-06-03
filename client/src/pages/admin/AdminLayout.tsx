@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { LogOut, User, Menu, X } from "lucide-react";
-import AdminNotifications from "@/components/AdminNotifications";
 import { useState } from "react";
 
 interface AdminLayoutProps {
@@ -130,10 +129,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </button>
         )}
         
-        {/* Notifications moved to top-right */}
-        <div className="fixed top-4 right-4 z-50">
-          <AdminNotifications />
-        </div>
         <div className={`${sidebarCollapsed ? 'ml-0' : 'ml-0'} pt-12`}>
           {children}
         </div>

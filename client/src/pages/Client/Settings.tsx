@@ -295,14 +295,6 @@ const Settings: React.FC = () => {
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-medium">Login Notifications</h4>
-                          <p className="text-sm text-muted-foreground">Get notified when someone logs into your account</p>
-                        </div>
-                        <Button variant="outline">Enable</Button>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div>
                           <h4 className="font-medium">Transaction Confirmations</h4>
                           <p className="text-sm text-muted-foreground">Require email confirmation for all transactions</p>
                         </div>

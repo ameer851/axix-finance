@@ -4,7 +4,6 @@ import { User, Transaction } from '@shared/schema';
 type UserRole = 'user' | 'manager' | 'support';
 
 import { apiRequest } from '@/lib/queryClient';
-import { triggerSecurityNotification, triggerAccountNotification } from '@/lib/notificationTriggers';
 
 export type UserFilters = {
   role?: UserRole;
@@ -338,8 +337,6 @@ export async function updateUserProfileDetails(userId: number, profileData: Part
   try {
     const response = await apiRequest('PATCH', `/api/users/${userId}`, profileData);
     const updatedUser = await response.json();
-
-    triggerAccountNotification(userId, 'account_update', 'Your profile information has been updated.');
 
     return updatedUser;
   } catch (error: any) {

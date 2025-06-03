@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { TransactionStatus, TransactionType } from '@shared/schema';
+import { DateRange } from 'react-day-picker';
 
 interface TransactionFilterProps {
   onFilter: (filters: FilterOptions) => void;
@@ -38,13 +39,7 @@ export interface FilterOptions {
 }
 
 const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
-  const [date, setDate] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
-    from: undefined,
-    to: undefined,
-  });
+  const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [type, setType] = useState<TransactionType | 'all'>('all');
   const [status, setStatus] = useState<TransactionStatus | 'all'>('all');
   const [minAmount, setMinAmount] = useState<string>('');
@@ -52,7 +47,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
   const [search, setSearch] = useState<string>('');
 
   const handleReset = () => {
-    setDate({ from: undefined, to: undefined });
+    setDate(undefined);
     setType('all');
     setStatus('all');
     setMinAmount('');
@@ -70,7 +65,10 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
 
   const handleApplyFilter = () => {
     onFilter({
-      dateRange: date,
+      dateRange: {
+        from: date?.from ? new Date(date.from.getTime()) : undefined,
+        to: date?.to ? new Date(date.to.getTime()) : undefined,
+      },
       type,
       status,
       amount: { min: minAmount, max: maxAmount },
@@ -89,18 +87,16 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
                 variant="outline"
                 className={cn(
                   "w-full justify-start text-left font-normal",
-                  !date.from && "text-muted-foreground"
+                  !date?.from && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {date.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "MMM d, yyyy")} - {format(date.to, "MMM d, yyyy")}
-                    </>
-                  ) : (
-                    format(date.from, "MMM d, yyyy")
-                  )
+                {date?.from && date?.to ? (
+                  <>
+                    {format(date.from, "MMM d, yyyy")} - {format(date.to, "MMM d, yyyy")}
+                  </>
+                ) : date?.from ? (
+                  format(date.from, "MMM d, yyyy")
                 ) : (
                   "Date Range"
                 )}
@@ -110,7 +106,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
               <Calendar
                 initialFocus
                 mode="range"
-                defaultMonth={date.from}
+                defaultMonth={date?.from}
                 selected={date}
                 onSelect={setDate}
                 numberOfMonths={2}
@@ -204,12 +200,13 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
 
       {/* Active Filters Display */}
       <div className="flex flex-wrap gap-2">
-        {date.from && (
+        {date?.from && (
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-neutral-800">
             Date: {format(date.from, "MMM d")} {date.to && `- ${format(date.to, "MMM d")}`}
             <button
+              type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              onClick={() => setDate({ from: undefined, to: undefined })}
+              onClick={() => setDate(undefined)}
             >
               <X className="h-3 w-3" />
             </button>
@@ -219,6 +216,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-neutral-800">
             Type: {type.charAt(0).toUpperCase() + type.slice(1)}
             <button
+              type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setType('all')}
             >
@@ -230,6 +228,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-neutral-800">
             Status: {status.charAt(0).toUpperCase() + status.slice(1)}
             <button
+              type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setStatus('all')}
             >
@@ -241,6 +240,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-neutral-800">
             Amount: {minAmount ? `$${minAmount}` : '$0'} - {maxAmount ? `$${maxAmount}` : 'Any'}
             <button
+              type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => {
                 setMinAmount('');
@@ -255,6 +255,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-neutral-800">
             Search: {search}
             <button
+              type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setSearch('')}
             >

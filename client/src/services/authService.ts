@@ -1,6 +1,5 @@
 import { User, InsertUser } from '@shared/schema';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { triggerSecurityNotification } from '@/lib/notificationTriggers';
 
 // Check if the server is available
 export async function checkServerConnection(): Promise<boolean> {
@@ -61,10 +60,6 @@ export async function login(username: string, password: string): Promise<User> {
     
     // Store the user in localStorage for persistent login
     localStorage.setItem('user', JSON.stringify(data));
-    
-    // Trigger login notification with device information
-    const deviceInfo = `${navigator.platform} - ${navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'}`;
-    triggerSecurityNotification(data.id, 'login', `Device: ${deviceInfo}`);
     
     // Login successful
     return data;
@@ -224,9 +219,6 @@ export async function changePassword(userId: number, currentPassword: string, ne
     });
     
     const result = await response.json();
-    
-    // Trigger security notification for password change
-    triggerSecurityNotification(userId, 'password_change', 'Your password has been successfully changed');
     
     return result;
   } catch (error: any) {

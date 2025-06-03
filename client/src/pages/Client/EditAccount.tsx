@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { getUserProfile, updateUserProfile, updateUserSecurity, updateUserNotifications } from '@/services/userService';
-import { User, Lock, Bell, Shield, Eye, EyeOff } from 'lucide-react';
+import { getUserProfile, updateUserProfile, updateUserSecurity } from '@/services/userService';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const EditAccount: React.FC = () => {
   const { user } = useAuth();
@@ -38,14 +38,6 @@ const EditAccount: React.FC = () => {
     newPassword: '',
     confirmPassword: '',
     twoFactorEnabled: false
-  });
-  
-  const [notificationForm, setNotificationForm] = useState({
-    emailNotifications: false,
-    smsNotifications: false,
-    marketingEmails: false,
-    loginAlerts: false,
-    transactionAlerts: false
   });
 
   // Fetch user profile data
@@ -76,14 +68,6 @@ const EditAccount: React.FC = () => {
         ...prev,
         twoFactorEnabled: profileData.twoFactorEnabled || false
       }));
-      
-      setNotificationForm({
-        emailNotifications: profileData.emailNotificationsEnabled || false,
-        smsNotifications: profileData.smsNotificationsEnabled || false,
-        marketingEmails: profileData.marketingEmailsEnabled || false,
-        loginAlerts: profileData.loginNotificationsEnabled || false,
-        transactionAlerts: profileData.transactionAlertsEnabled || false
-      });
     }
   }, [profileData, user]);
 
@@ -131,25 +115,6 @@ const EditAccount: React.FC = () => {
     }
   });
 
-  // Update notification settings mutation
-  const updateNotificationsMutation = useMutation({
-    mutationFn: (data: any) => updateUserNotifications(user?.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-      toast({
-        title: 'Notification Settings Updated',
-        description: 'Your notification preferences have been updated successfully.',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Update Failed',
-        description: error.message || 'There was an error updating your notification settings. Please try again.',
-        variant: 'destructive'
-      });
-    }
-  });
-
   // Handle profile form changes
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -165,14 +130,6 @@ const EditAccount: React.FC = () => {
     setSecurityForm(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
-
-  // Handle notification form changes
-  const handleNotificationChange = (name: string, checked: boolean) => {
-    setNotificationForm(prev => ({
-      ...prev,
-      [name]: checked
     }));
   };
 
@@ -213,12 +170,6 @@ const EditAccount: React.FC = () => {
     });
   };
 
-  // Handle notification form submission
-  const handleNotificationSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateNotificationsMutation.mutate(notificationForm);
-  };
-
   if (profileLoading) {
     return (
       <div className="container mx-auto py-6 max-w-4xl">
@@ -246,10 +197,6 @@ const EditAccount: React.FC = () => {
               <TabsTrigger value="security">
                 <Lock className="h-4 w-4 mr-2" />
                 Security
-              </TabsTrigger>
-              <TabsTrigger value="notifications">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
               </TabsTrigger>
             </TabsList>
             
@@ -461,95 +408,6 @@ const EditAccount: React.FC = () => {
                   <div className="flex justify-end">
                     <Button type="submit" disabled={updateSecurityMutation.isPending}>
                       {updateSecurityMutation.isPending ? 'Saving...' : 'Update Security Settings'}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="notifications">
-              <form onSubmit={handleNotificationSubmit}>
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="font-medium">Email Notifications</h3>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Account Updates</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Receive emails about your account activity and security
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationForm.emailNotifications}
-                        onCheckedChange={(checked) => handleNotificationChange('emailNotifications', checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Marketing Emails</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Receive promotional offers and updates about our services
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationForm.marketingEmails}
-                        onCheckedChange={(checked) => handleNotificationChange('marketingEmails', checked)}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <h3 className="font-medium">SMS Notifications</h3>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Text Message Alerts</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Receive SMS notifications for important account activities
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationForm.smsNotifications}
-                        onCheckedChange={(checked) => handleNotificationChange('smsNotifications', checked)}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <h3 className="font-medium">Security Alerts</h3>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Login Alerts</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Get notified when someone logs into your account
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationForm.loginAlerts}
-                        onCheckedChange={(checked) => handleNotificationChange('loginAlerts', checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Transaction Alerts</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Get notified about deposits and withdrawals
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationForm.transactionAlerts}
-                        onCheckedChange={(checked) => handleNotificationChange('transactionAlerts', checked)}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={updateNotificationsMutation.isPending}>
-                      {updateNotificationsMutation.isPending ? 'Saving...' : 'Save Notification Settings'}
                     </Button>
                   </div>
                 </div>

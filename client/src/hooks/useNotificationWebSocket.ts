@@ -19,6 +19,12 @@ interface BalanceUpdateHandler {
 }
 
 const useNotificationWebSocket = (userId?: number, handlers?: BalanceUpdateHandler) => {
+  // WebSocket disabled: return early to prevent connection attempts
+  return {
+    isConnected: false,
+    sendMessage: () => false,
+    connectionAttempts: 0,
+  };
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);

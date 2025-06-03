@@ -1,6 +1,5 @@
 import { Transaction, InsertTransaction, TransactionType, TransactionStatus } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
-import { triggerTransactionNotification } from '@/lib/notificationTriggers';
 
 // Mock data for development
 const MOCK_TRANSACTIONS: Transaction[] = [
@@ -182,15 +181,6 @@ export async function updateTransactionStatus(
     const response = await apiRequest('PATCH', `/api/transactions/${transactionId}/status`, payload);
     const updatedTransaction = await response.json();
     
-    // Trigger notification for transaction status update
-    triggerTransactionNotification(
-      updatedTransaction.userId,
-      transactionId,
-      status,
-      updatedTransaction.amount,
-      updatedTransaction.type
-    );
-    
     return updatedTransaction;
   } catch (error: any) {
     console.error('Error updating transaction status:', error);
@@ -210,30 +200,17 @@ export async function updateTransactionStatus(
 }
 
 /**
- * Get transaction statistics
- */
-/**
  * Get user transactions by user ID
  */
 export async function getUserTransactions(userId?: number | string): Promise<Transaction[]> {
   if (!userId) {
     throw new Error('User ID is required');
   }
-  
   try {
-    // In a real app, this would make an API call
-    // const response = await apiRequest('GET', `/api/transactions/${userId}`);
-    // return await response.json();
-    
-    // For development, return mock data
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(MOCK_TRANSACTIONS);
-      }, 500);
-    });
+    const response = await apiRequest('GET', `/api/transactions/${userId}`);
+    return await response.json();
   } catch (error: any) {
     console.error('Error fetching user transactions:', error);
-    
     if (error.status === 403) {
       throw new Error('You do not have permission to view these transactions.');
     } else if (error.status === 404) {
@@ -241,7 +218,6 @@ export async function getUserTransactions(userId?: number | string): Promise<Tra
     } else if (error.isOffline || error.isNetworkError) {
       throw new Error('Cannot connect to server. Please check your internet connection and try again.');
     }
-    
     throw new Error(error.message || 'Failed to fetch user transactions. Please try again later.');
   }
 }
@@ -281,25 +257,66 @@ export async function getUserBalance(userId?: number | string): Promise<{
   if (!userId) {
     throw new Error('User ID is required');
   }
-  
-  try {
-    // In a real app, this would make an API call
-    // const response = await apiRequest('GET', `/api/balance/${userId}`);
-    // return await response.json();
+    try {
+    // Use the actual API endpoint to get real balance data
+    const response = await apiRequest('GET', `/api/users/${userId}/balance`);
     
-    // For development, return mock data
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          availableBalance: 12000,
-          pendingBalance: 1000,
-          totalBalance: 13000,
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Error fetching balance:', errorData);
+      
+      // Try to get user from localStorage as a fallback
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const userBalance = parseFloat(user.balance || '0');
+        
+        console.log('Using fallback balance from stored user:', userBalance);
+        
+        return {
+          availableBalance: userBalance,
+          pendingBalance: 0,
+          totalBalance: userBalance,
           lastUpdated: new Date().toISOString()
-        });
-      }, 300);
-    });
-  } catch (error: any) {
+        };
+      }
+      
+      throw new Error(errorData.message || 'Failed to fetch balance data');
+    }
+    
+    const balanceData = await response.json();
+    console.log('Fetched real balance data:', balanceData);
+    
+    // Ensure all values are properly parsed numbers
+    return {
+      availableBalance: parseFloat(balanceData.availableBalance) || 0,
+      pendingBalance: parseFloat(balanceData.pendingBalance) || 0,
+      totalBalance: parseFloat(balanceData.totalBalance) || 
+                   (parseFloat(balanceData.availableBalance) + parseFloat(balanceData.pendingBalance)) || 0,
+      lastUpdated: balanceData.lastUpdated || new Date().toISOString()
+    };  } catch (error: any) {
     console.error('Error fetching user balance:', error);
+    
+    // Try to get user from localStorage as a fallback for any error case
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const userBalance = parseFloat(user.balance || '0');
+        
+        console.log('Using fallback balance from stored user after error:', userBalance);
+        
+        return {
+          availableBalance: userBalance,
+          pendingBalance: 0,
+          totalBalance: userBalance,
+          lastUpdated: new Date().toISOString()
+        };
+      }
+    } catch (fallbackError) {
+      console.error('Error using fallback balance:', fallbackError);
+      // Continue to the error handling below if fallback fails
+    }
     
     if (error.status === 403) {
       throw new Error('You do not have permission to view this balance.');

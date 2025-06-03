@@ -32,6 +32,9 @@ const Withdraw: React.FC = () => {
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState('');  const [cryptoAddress, setCryptoAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cryptoBalances, setCryptoBalances] = useState<any[]>([]);
+  const [cryptoLoading, setCryptoLoading] = useState(false);
+  const [cryptoError, setCryptoError] = useState<string | null>(null);
 
   // Fetch user balance with retry for better reliability
   const { data: balanceData, isLoading: balanceLoading, error: balanceError } = useQuery<BalanceData, Error>({
@@ -44,13 +47,20 @@ const Withdraw: React.FC = () => {
   
   // Optimize balance data in a separate effect if needed
   const [optimizedBalanceData, setOptimizedBalanceData] = React.useState<BalanceData | null>(null);
+    // Get access to updateUserBalance from Auth context
+  const { updateUserBalance: updateGlobalUserBalance } = useAuth();
   
   React.useEffect(() => {
     if (balanceData) {
       // Store only what we need from the balance data
       setOptimizedBalanceData(balanceData as BalanceData);
+      
+      // Update the global user balance in the auth context
+      if (balanceData.availableBalance) {
+        updateGlobalUserBalance(balanceData.availableBalance);
+      }
     }
-  }, [balanceData]);
+  }, [balanceData, updateGlobalUserBalance]);
   
   // Handle balance fetch errors
   React.useEffect(() => {
@@ -60,10 +70,18 @@ const Withdraw: React.FC = () => {
         context: { userId: user?.id, action: 'getUserBalance' }
       });
     }
-  }, [balanceError, user?.id]);
-
-  // Make sure availableBalance is a number
+  }, [balanceError, user?.id]);  // Make sure availableBalance is a proper number and log for debugging
   const availableBalance = balanceData?.availableBalance ? Number(balanceData.availableBalance) : 0;
+  console.log('Current available balance:', availableBalance, 'from data:', balanceData);
+  
+  // Helper function to format currency consistently
+  const formatCurrency = (value: number | string): string => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numValue);
+  };
 
   // Enhanced withdraw mutation with proper error handling and retry logic
   const withdrawMutation = useMutation<WithdrawalResponse, Error, any>({
@@ -109,10 +127,8 @@ const Withdraw: React.FC = () => {
   const validateAmount = useCallback((inputAmount: string): string | null => {
     if (!inputAmount || isNaN(parseFloat(inputAmount)) || parseFloat(inputAmount) <= 0) {
       return 'Please enter a valid withdrawal amount';
-    }
-    
-    if (parseFloat(inputAmount) > availableBalance) {
-      return `Amount exceeds available balance of $${Number(availableBalance).toFixed(2)}`;
+    }    if (parseFloat(inputAmount) > availableBalance) {
+      return `Amount exceeds available balance of $${formatCurrency(availableBalance)}`;
     }
     
     return null;
@@ -146,16 +162,14 @@ const Withdraw: React.FC = () => {
         variant: 'destructive'
       });
       return;
-    }
-    
-    if (parseFloat(amount) > availableBalance) {
+    }    if (parseFloat(amount) > availableBalance) {
       toast({
         title: 'Insufficient Balance',
-        description: `Your available balance is $${Number(availableBalance).toFixed(2)}.`,
+        description: `Your available balance is $${formatCurrency(availableBalance)}.`,
         variant: 'destructive'
       });
       return;
-    }    
+    }
     let withdrawalDetails = {};
     
     // Enhanced crypto address validation
@@ -206,15 +220,27 @@ const Withdraw: React.FC = () => {
     { key: 'bnb', label: 'BNB' },
   ];
 
-  // Simulated structure for demo; replace with real user data if available
-  const withdrawalData = cryptos.map(crypto => ({
+  React.useEffect(() => {
+    if (!user?.id) return;
+    setCryptoLoading(true);
+    setCryptoError(null);
+    fetch(`/api/users/${user.id}/crypto-balances`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch crypto balances');
+        return res.json();
+      })
+      .then(data => setCryptoBalances(data))
+      .catch(err => setCryptoError(err.message))
+      .finally(() => setCryptoLoading(false));
+  }, [user?.id]);
+
+  const withdrawalData = (cryptoBalances.length > 0 ? cryptoBalances : cryptos.map(crypto => ({
     ...crypto,
     processing: 0,
     available: 0,
     pending: 0,
     account: 'not set',
-    // TODO: Replace above with real user data if available
-  }));
+  }))); // fallback if no backend data
 
   return (
     <div className="container mx-auto py-6 max-w-6xl">
@@ -223,10 +249,13 @@ const Withdraw: React.FC = () => {
           <CardTitle className="text-base md:text-lg font-bold text-amber-900">Ask for withdrawal</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Account Balance and Pending Withdrawals */}
-          <div className="mb-4 flex flex-wrap justify-between items-center text-sm">
-            <div>Account Balance:</div>
-            <div className="font-bold">${balanceLoading ? <span className="animate-pulse">Loading...</span> : Number(availableBalance).toFixed(2)}</div>
+          {/* Account Balance and Pending Withdrawals */}          <div className="mb-4 flex flex-wrap justify-between items-center text-sm">
+            <div>Account Balance:</div>            <div className="font-bold">
+              {balanceLoading ? 
+                <span className="animate-pulse">Loading...</span> : 
+                `$${formatCurrency(availableBalance)}`
+              }
+            </div>
           </div>
           <div className="mb-2 flex flex-wrap justify-between items-center text-sm">
             <div>Pending Withdrawals:</div>
