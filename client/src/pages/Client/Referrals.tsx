@@ -56,10 +56,9 @@ const Referrals: React.FC = () => {
 
   const shareReferral = async () => {
     if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Join Carax Finance',
-          text: 'Sign up for Carax Finance using my referral link and get a bonus!',
+      try {        await navigator.share({
+          title: 'Join Axix Finance',
+          text: 'Sign up for Axix Finance using my referral link and get a bonus!',
           url: referralLink,
         });
         

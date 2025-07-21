@@ -65,18 +65,16 @@ const Footer: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-300 text-sm md:text-base">
               Empowering investors worldwide with premium investment opportunities and consistent returns.
             </p>
-            <div className="space-y-3">
-              <div className="flex items-center">
+            <div className="space-y-3">              <div className="flex items-center">
                 <PhoneCall className="h-5 w-5 text-primary mr-2 flex-shrink-0" />
-                <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">+1 (555) 123-4567</span>
+                <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">+12709703891</span>
               </div>
               <div className="flex items-center">
                 <Mail className="h-5 w-5 text-primary mr-2 flex-shrink-0" />
                 <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">support@axix-finance.co</span>
-              </div>
-              <div className="flex items-start">
+              </div>              <div className="flex items-start">
                 <MapPin className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
-                <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">11 Rue d'Aguesseau<br />75008 Paris, France</span>
+                <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">Bastrop, Texas 78602, USA</span>
               </div>
             </div>
             <div className="flex space-x-6">

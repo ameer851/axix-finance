@@ -14,7 +14,7 @@ const Team: React.FC = () => {
     {
       name: "Elon Musk",
       role: "Chief Executive Officer",
-      bio: "Alex has over 15 years of experience in financial technology and investment management, leading Axix Finance to become a premier digital investment platform.",
+      bio: "Elon has over 15 years of experience in financial technology and investment management, leading Axix Finance to become a premier digital investment platform.",
       initials: "AJ",
       image: ceoImage,
       socialLinks: {

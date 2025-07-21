@@ -25,9 +25,9 @@ export let etherealAccount: {user: string, pass: string} | null = null;
 // Initialize the email transporter
 async function initializeEmailTransporter() {
   try {
-    // In production, use configured SMTP settings (Brevo)
+    // In production, use configured SMTP settings (Gmail SMTP)
     if (process.env.NODE_ENV === 'production' && process.env.SMTP_HOST) {
-      console.log('Initializing email service with Brevo SMTP...');
+      console.log('Initializing email service with Gmail SMTP...');
       transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 587,

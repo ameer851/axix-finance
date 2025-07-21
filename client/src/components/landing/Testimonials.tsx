@@ -47,9 +47,8 @@ const Testimonials: React.FC = () => {
           <h2 className="text-base text-primary font-semibold tracking-wide uppercase">Success Stories</h2>
           <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-secondary dark:text-white sm:text-4xl">
             Our Investors Share Their Experience
-          </p>
-          <p className="mt-4 max-w-2xl text-xl text-gray-600 dark:text-gray-300 lg:mx-auto">
-            Join thousands of satisfied investors who are growing their wealth with Carax Finance.
+          </p>          <p className="mt-4 max-w-2xl text-xl text-gray-600 dark:text-gray-300 lg:mx-auto">
+            Join thousands of satisfied investors who are growing their wealth with Axix Finance.
           </p>
         </div>
         <div className="mt-12">

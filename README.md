@@ -114,14 +114,14 @@ See `.env.example` for a complete list of environment variables. Critical variab
 ## Documentation
 
 ### Email Service
-The project uses a dual email service configuration:
-- **Production**: Brevo SMTP for reliable delivery in production environments
-- **Development**: Ethereal for testing without sending real emails
+The project uses Gmail SMTP for reliable email delivery in production:
+- **Production**: Gmail SMTP with App Password authentication
+- **Simple Setup**: Easy configuration with standard Gmail credentials
+- **High Deliverability**: Reliable email delivery backed by Google
 
 Documentation:
-- [Email Service Guide](docs/email-service-guide.md): Comprehensive guide to the email system
-- [Brevo Setup Guide](docs/brevo-setup-guide.md): How to configure Brevo SMTP
-- [Email Setup Summary](docs/email-setup-summary.md): Current status of email configuration
+- [Email Service Documentation](docs/email-service-documentation.md): Comprehensive guide to the Gmail SMTP setup
+- [Gmail SMTP Setup](docs/gmail-smtp-setup.md): Step-by-step Gmail configuration guide
 
 ### API Documentation
 
@@ -178,6 +178,31 @@ For production deployment, use Docker Compose:
 # Start the application stack
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+## Production Deployment
+
+### Quick Deployment Guide
+
+1. **Prepare for deployment:**
+   ```bash
+   npm run deploy:prepare
+   npm run deploy:secrets
+   ```
+
+2. **Deploy to Render (Backend) and Vercel (Frontend):**
+   - Follow the detailed guide in `docs/deployment-guide.md`
+   - Use the checklist in `DEPLOYMENT-CHECKLIST.md`
+
+### Deployment Architecture
+- **Backend**: Render (Node.js + PostgreSQL)
+- **Frontend**: Vercel (Static hosting)
+- **Email**: Gmail SMTP
+- **Domain**: Custom domain with SSL
+
+### Cost: ~$180/year
+- Render: $14/month (backend + database)
+- Vercel: Free (frontend)
+- Domain: ~$12/year
 
 ## Troubleshooting
 

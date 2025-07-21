@@ -1,10 +1,18 @@
 // Application configuration
 const config = {
-  // API base URL - in development, API is served on the same port via Vite proxy
-  apiUrl: '',  // Empty string means same origin
+  // API base URL - Supabase Edge Functions
+  apiUrl: import.meta.env.VITE_SUPABASE_URL 
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
+    : (import.meta.env.DEV ? '' : 'https://your-project.supabase.co/functions/v1'),
   
-  // Set with protocol to avoid CORS issues
-  frontendUrl: 'http://localhost:4000',
+  // Frontend URL - environment dependent
+  frontendUrl: import.meta.env.VITE_FRONTEND_URL || (import.meta.env.DEV ? 'http://localhost:4000' : 'https://your-domain.vercel.app'),
+  
+  // Supabase configuration
+  supabase: {
+    url: import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co',
+    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
+  },
   
   // Health check endpoint
   healthCheckEndpoint: '/api/health',
@@ -14,7 +22,7 @@ const config = {
   version: '1.0.0',
   
   // For development debugging
-  debug: true
+  debug: import.meta.env.DEV
 };
 
 // Config loaded

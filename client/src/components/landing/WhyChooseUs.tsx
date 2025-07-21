@@ -74,14 +74,13 @@ const WhyChooseUs: React.FC = () => {
             </div>
           ))}
         </div>
-        
-        <div className="mt-10 md:mt-12 text-center">
+          <div className="mt-10 md:mt-12 text-center">
           <p className="text-gray-700 dark:text-gray-200 text-sm md:text-base font-medium mb-5 md:mb-6 max-w-3xl mx-auto px-4">
-            Join thousands of successful investors who have already discovered the Carax Finance advantage. Start your investment journey today.
+            Join thousands of successful investors who have already discovered the Axix Finance advantage. Start your investment journey today.
           </p>
           <a 
-            href="/auth" 
-            className="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-5 md:py-3 md:px-6 rounded-md shadow transition-colors text-sm md:text-base"
+            href="/register" 
+            className="inline-block bg-amber-800 hover:bg-amber-900 text-white font-medium py-2.5 px-5 md:py-3 md:px-6 rounded-md shadow transition-colors text-sm md:text-base"
           >
             Start Investing Now
           </a>

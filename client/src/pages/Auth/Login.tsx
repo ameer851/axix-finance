@@ -73,13 +73,12 @@ const Login: React.FC = () => {
       if (typeof login !== 'function') {
         throw new Error('Authentication service is not available. Please try again later.');
       }
-      
-      const userData = await login(values.username, values.password);
+        const userData = await login(values.username, values.password);
 
       // Successfully logged in
       toast({
         title: "Login successful",
-        description: "Welcome back to Carax Finance!",
+        description: "Welcome back to Axix Finance!",
       });
       
       // Navigate based on user role

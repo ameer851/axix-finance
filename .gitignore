@@ -1,1 +1,38 @@
 node_modules
+.env
+.env.local
+.env.production
+.env.supabase
+dist/
+*.log
+.DS_Store
+Thumbs.db
+
+# Deployment secrets (never commit)
+deployment-secrets.txt
+*.secret
+.secrets/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+coverage/
+.nyc_output/
+
+# Database
+*.db
+*.sqlite
+
+# Temporary files
+tmp/
+
+# Supabase local development (don't commit local config)
+supabase/.temp/
+supabase/.branches/
+supabase/.output/
+temp/

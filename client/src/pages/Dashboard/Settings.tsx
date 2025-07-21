@@ -94,7 +94,7 @@ const Settings: React.FC = () => {
       firstName: user?.firstName || '',
       lastName: user?.lastName || '',
       email: user?.email || '',
-      country: 'france', // Default to France for Carax Finance
+      country: 'france', // Default to France for Axix Finance
       phone: '',
     },
   });
@@ -545,9 +545,8 @@ const Settings: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Your Data</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Carax Finance collects and processes your personal data in accordance with our Privacy Policy.
+                  <h3 className="text-lg font-medium">Your Data</h3>                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Axix Finance collects and processes your personal data in accordance with our Privacy Policy.
                     You can download a copy of your data or request data deletion.
                   </p>
                 </div>

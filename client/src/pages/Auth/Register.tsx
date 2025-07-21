@@ -75,11 +75,9 @@ const Register: React.FC = () => {
       await register({
         ...registerData,
         role: 'user'
-      });
-
-      toast({
+      });      toast({
         title: "Registration successful",
-        description: "Welcome to Carax Finance!",
+        description: "Welcome to Axix Finance!",
       });
       
       navigate('/dashboard');

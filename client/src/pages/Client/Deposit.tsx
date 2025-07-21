@@ -307,7 +307,7 @@ const Deposit: React.FC = () => {
                       {selectedCrypto === 'bitcoin' ? 'Bitcoin (BTC)' : 
                        selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash (BCH)' : 
                        selectedCrypto === 'ethereum' ? 'Ethereum (ETH)' : selectedCrypto === 'bnb' ? 'BNB (BSC)' : 'USDT (TRC20)'} 
-                      to Carax Finance's official wallet address below:
+                      to Axix Finance's official wallet address below:
                     </p>
                     <div className="bg-white p-3 rounded border border-amber-300 break-all font-mono text-xs text-amber-900">
                       {starterPlan?.walletAddresses[selectedCrypto as keyof typeof starterPlan.walletAddresses]}
@@ -385,7 +385,7 @@ const Deposit: React.FC = () => {
               >
                 {isProcessing ? 'Processing...' : 
                  selectedCrypto === 'balance' ? 'Invest from Balance' :
-                 `I've Sent ${selectedCrypto === 'bitcoin' ? 'Bitcoin' : selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash' : selectedCrypto === 'ethereum' ? 'Ethereum' : selectedCrypto === 'bnb' ? 'BNB' : 'USDT'} to Carax Finance`}
+                 `I've Sent ${selectedCrypto === 'bitcoin' ? 'Bitcoin' : selectedCrypto === 'bitcoinCash' ? 'Bitcoin Cash' : selectedCrypto === 'ethereum' ? 'Ethereum' : selectedCrypto === 'bnb' ? 'BNB' : 'USDT'} to Axix Finance`}
               </Button>
             </form>
           </CardContent>
