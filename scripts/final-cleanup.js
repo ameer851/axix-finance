@@ -85,4 +85,4 @@ console.log('\n✨ Final cleanup completed!');
 console.log('🔐 Admin credentials:');
 console.log('   Username: admin');
 console.log('   Password: Carax@admin123!');
-console.log('   Email: admin@caraxfinance.com');
+console.log('   Email: admin@axixfinance.com');

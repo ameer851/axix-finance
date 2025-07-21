@@ -33,7 +33,7 @@ const Referrals: React.FC = () => {
     staleTime: 300000 // 5 minutes
   });
 
-  const referralLink = `https://caraxfinance.com/register?ref=${user?.referralCode || user?.id}`;
+  const referralLink = `https://axixfinance.com/register?ref=${user?.referralCode || user?.id}`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralLink).then(() => {

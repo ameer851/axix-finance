@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
+import TradingViewWidget from './TradingViewWidget';
 import { TrendingUp, DollarSign, BarChart2, Users } from 'lucide-react';
 
 const Hero: React.FC = () => {
@@ -22,11 +23,15 @@ const Hero: React.FC = () => {
             <div className="sm:text-center lg:text-left">
               <h1 className="text-4xl tracking-tight font-extrabold text-secondary dark:text-white sm:text-5xl md:text-6xl">
                 <span className="block xl:inline">Invest with </span>{' '}
-                <span className="block text-primary xl:inline bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Carax Finance</span>
+                <span className="block text-primary xl:inline bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Axix Finance</span>
               </h1>
               <p className="mt-3 text-base text-gray-600 dark:text-gray-300 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
                 Secure your financial future with our premium investment platform. Start earning daily returns on your investments with our professionally managed investment plans.
               </p>
+              <div style={{ marginTop: 24, marginBottom: 8 }}>
+                {/* TradingView Widget */}
+                <TradingViewWidget />
+              </div>
               <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                 <div className="rounded-md shadow">
                   <Link href="/register">

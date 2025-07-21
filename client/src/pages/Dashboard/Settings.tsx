@@ -316,7 +316,7 @@ const Settings: React.FC = () => {
                   </p>
                   <div className="bg-gray-100 dark:bg-neutral-800 p-3 rounded-md">
                     <p className="text-sm font-mono break-all">
-                      https://caraxfinance.com/ref/{user?.id || 'xxxxx'}
+                      https://axixfinance.com/ref/{user?.id || 'xxxxx'}
                     </p>
                   </div>
                   <Button variant="outline" className="w-full">

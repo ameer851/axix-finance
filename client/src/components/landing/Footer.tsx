@@ -60,7 +60,7 @@ const Footer: React.FC = () => {
               <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
                 <Landmark className="h-5 w-5" />
               </div>
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Carax Finance</span>
+              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Axix Finance</span>
             </div>
             <p className="text-gray-600 dark:text-gray-300 text-sm md:text-base">
               Empowering investors worldwide with premium investment opportunities and consistent returns.
@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
               </div>
               <div className="flex items-center">
                 <Mail className="h-5 w-5 text-primary mr-2 flex-shrink-0" />
-                <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">support@caraxfinance.com</span>
+                <span className="text-gray-600 dark:text-gray-300 text-sm md:text-base">support@axix-finance.co</span>
               </div>
               <div className="flex items-start">
                 <MapPin className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
@@ -139,7 +139,7 @@ const Footer: React.FC = () => {
         </div>
         <div className="mt-10 border-t border-gray-200 dark:border-gray-700 pt-6 md:pt-8">
           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 text-center">
-            &copy; {new Date().getFullYear()} Carax Finance. All rights reserved. Investment involves risk. Past performance is not a guarantee of future returns.
+            &copy; {new Date().getFullYear()} Axix Finance. All rights reserved. Investment involves risk. Past performance is not a guarantee of future returns.
           </p>
         </div>
       </div>

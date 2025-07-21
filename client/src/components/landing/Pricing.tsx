@@ -86,35 +86,36 @@ const Pricing: React.FC = () => {
         </div>
       </div>
       <div className="mt-8 pb-16 sm:mt-12 sm:pb-20 lg:pb-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-4">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+          {/* Mobile: horizontal scroll, Desktop: grid */}
+          <div className="mt-8 flex space-x-4 overflow-x-auto sm:mt-16 sm:space-x-0 sm:grid sm:grid-cols-2 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-4">
             {plans.map((plan, index) => (
               <div 
                 key={index} 
-                className={`border ${plan.highlighted ? 'border-primary' : 'border-gray-200 dark:border-gray-700'} rounded-lg shadow-sm divide-y divide-gray-200 dark:divide-gray-700 ${plan.highlighted ? 'bg-primary/5' : 'bg-white dark:bg-secondary'}`}
+                className={`min-w-[260px] max-w-xs flex-shrink-0 border ${plan.highlighted ? 'border-primary' : 'border-gray-200 dark:border-gray-700'} rounded-lg shadow-sm divide-y divide-gray-200 dark:divide-gray-700 ${plan.highlighted ? 'bg-primary/5' : 'bg-white dark:bg-secondary'} sm:min-w-0 sm:max-w-none`}
               >
-                <div className="p-6">
-                  <h2 className="text-lg leading-6 font-bold text-primary dark:text-white">{plan.name}</h2>
-                  <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">{plan.description}</p>
-                  <p className="mt-6">
-                    <span className="text-2xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
+                <div className="p-4 sm:p-6">
+                  <h2 className="text-base sm:text-lg leading-6 font-bold text-primary dark:text-white">{plan.name}</h2>
+                  <p className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">{plan.description}</p>
+                  <p className="mt-4 sm:mt-6">
+                    <span className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
                   </p>
-                  <p className="mt-2">
-                    <span className="text-lg font-semibold text-primary dark:text-primary-foreground">{plan.returnRate}</span>
+                  <p className="mt-1 sm:mt-2">
+                    <span className="text-base sm:text-lg font-semibold text-primary dark:text-primary-foreground">{plan.returnRate}</span>
                   </p>
                   <Link href={plan.href}>
-                    <Button className="mt-8 block w-full">
+                    <Button className="mt-4 sm:mt-8 block w-full text-xs sm:text-base py-2 sm:py-3">
                       {plan.cta}
                     </Button>
                   </Link>
                 </div>
-                <div className="pt-6 pb-8 px-6">
-                  <h3 className="text-xs font-medium text-gray-900 dark:text-white tracking-wide uppercase">Features</h3>
-                  <ul className="mt-6 space-y-4">
+                <div className="pt-4 sm:pt-6 pb-4 sm:pb-8 px-4 sm:px-6">
+                  <h3 className="text-[10px] sm:text-xs font-medium text-gray-900 dark:text-white tracking-wide uppercase">Features</h3>
+                  <ul className="mt-3 sm:mt-6 space-y-2 sm:space-y-4">
                     {plan.features.map((feature, featIndex) => (
-                      <li key={featIndex} className="flex space-x-3">
-                        <Check className="flex-shrink-0 h-5 w-5 text-primary" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
+                      <li key={featIndex} className="flex space-x-2 sm:space-x-3 items-center">
+                        <Check className="flex-shrink-0 h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">{feature}</span>
                       </li>
                     ))}
                   </ul>

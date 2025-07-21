@@ -35,10 +35,10 @@ const productionIndexHtml = `<!DOCTYPE html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="CaraxFinance - Professional Investment Platform" />
+    <meta name="description" content="Axix Finance - Professional Investment Platform" />
     <meta name="keywords" content="investment, finance, portfolio, trading" />
-    <meta name="author" content="CaraxFinance" />
-    <title>CaraxFinance - Investment Platform</title>
+    <meta name="author" content="Axix Finance" />
+    <title>Axix Finance - Investment Platform</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   </head>
   <body>
@@ -113,7 +113,7 @@ const envProductionTemplate = `# Production Environment Variables
 NODE_ENV=production
 
 # Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/CaraxFinance
+DATABASE_URL=postgresql://username:password@localhost:5432/AxixFinance
 
 # CORS Configuration
 CORS_ORIGIN=https://your-production-domain.com
@@ -321,28 +321,28 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://caraxfinance:password@db:5432/caraxfinance
+      - DATABASE_URL=postgresql://axixfinance:password@db:5432/axixfinance
       - SESSION_SECRET=your-super-secure-session-secret
       - CORS_ORIGIN=https://your-domain.com
     depends_on:
       - db
     restart: unless-stopped
     networks:
-      - caraxfinance-network
+      - axixfinance-network
 
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=caraxfinance
+      - POSTGRES_USER=axixfinance
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=caraxfinance
+      - POSTGRES_DB=axixfinance
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
     networks:
-      - caraxfinance-network
+      - axixfinance-network
 
   nginx:
     image: nginx:alpine
@@ -356,13 +356,13 @@ services:
       - app
     restart: unless-stopped
     networks:
-      - caraxfinance-network
+      - axixfinance-network
 
 volumes:
   postgres_data:
 
 networks:
-  caraxfinance-network:
+  axixfinance-network:
     driver: bridge
 `;
 

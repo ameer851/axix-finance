@@ -298,12 +298,12 @@ const Dashboard: React.FC = () => {
             <CardTitle className="text-center text-base">Your Referral Link:</CardTitle>
             <CardDescription className="text-center">
               <a
-                href={`https://carax-assets.co/?ref=${user?.username || user?.firstName || 'user'}`}
+                href={`https://axix-finance.co/?ref=${user?.username || user?.firstName || 'user'}`}
                 className="text-blue-700 font-semibold break-all"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                https://carax-assets.co/?ref={user?.username || user?.firstName || 'user'}
+                https://axix-finance.co/?ref={user?.username || user?.firstName || 'user'}
               </a>
             </CardDescription>
           </CardHeader>

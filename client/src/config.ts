@@ -10,7 +10,7 @@ const config = {
   healthCheckEndpoint: '/api/health',
   
   // Other configuration settings
-  appName: 'CaraxFinance',
+  appName: 'Axix Finance',
   version: '1.0.0',
   
   // For development debugging

@@ -9,7 +9,7 @@ const Certificates: React.FC = () => {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Regulatory Licenses</h2>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Carax Finance is fully regulated and licensed by top-tier financial authorities, 
+            Axix Finance is fully regulated and licensed by top-tier financial authorities, 
             providing you with the security and peace of mind your investments deserve.
           </p>
         </div>
@@ -40,7 +40,7 @@ const Certificates: React.FC = () => {
                 <span className="font-semibold">Regulated By:</span> CB Payments Ltd
               </p>
               <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Email Address:</span> support@carax-finance.co
+                <span className="font-semibold">Email Address:</span> support@axix-finance.co
               </p>
               <p className="text-gray-700 dark:text-gray-300">
                 <span className="font-semibold">Website:</span> Anniss.co

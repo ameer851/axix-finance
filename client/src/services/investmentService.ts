@@ -2,8 +2,8 @@ import { apiRequest } from '@/lib/queryClient';
 
 // Bank transfer details
 export const BANK_TRANSFER_DETAILS = {
-  bankName: 'Carax International Bank',
-  accountName: 'Carax Finance Ltd',
+  bankName: 'Axix International Bank',
+  accountName: 'Axix Finance Ltd',
   accountNumber: '8742109365',
   routingNumber: '072305679',
   swiftCode: 'CRAXINTL',

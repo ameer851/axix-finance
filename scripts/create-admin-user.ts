@@ -24,7 +24,7 @@ async function createAdminUser() {
     const adminUser = await storage.createUser({
       username: 'admin',
       password: hashedPassword,
-      email: 'admin@caraxfinance.com',
+      email: 'admin@axixfinance.com',
       firstName: 'Admin',
       lastName: 'User',
       role: 'admin',
@@ -36,7 +36,7 @@ async function createAdminUser() {
     
     if (adminUser) {
       console.log('✅ Admin user created successfully!');
-      console.log('📧 Email: admin@caraxfinance.com');
+      console.log('📧 Email: admin@axixfinance.com');
       console.log('👤 Username: admin');
       console.log('🔑 Password: admin123');
       console.log('🛡️  Role:', adminUser.role);

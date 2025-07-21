@@ -9,8 +9,8 @@ import {
 const FAQ = () => {
   const faqItems = [
     {
-      question: "How do Carax Finance investment plans work?",
-      answer: "Carax Finance offers several investment plans with different returns and durations. You can start by depositing crypto to our wallet addresses, selecting a plan that matches your investment goals. Your principal and returns are paid out at the end of the investment term. All investments are securely managed with transparency and reliability."
+      question: "How do Axix Finance investment plans work?",
+      answer: "Axix Finance offers several investment plans with different returns and durations. You can start by depositing crypto to our wallet addresses, selecting a plan that matches your investment goals. Your principal and returns are paid out at the end of the investment term. All investments are securely managed with transparency and reliability."
     },
     {
       question: "What are the minimum and maximum investment amounts?",
@@ -29,8 +29,8 @@ const FAQ = () => {
       answer: "We currently accept Bitcoin (BTC), Bitcoin Cash (BCH), Ethereum (ETH), USDT (TRC20), and BNB (BEP20). Each cryptocurrency has a dedicated wallet address where you can send funds to make investments. More crypto options may be added in the future."
     },
     {
-      question: "How secure are investments with Carax Finance?",
-      answer: "Carax Finance implements industry-standard security protocols to protect your investments. We are regulated by the Financial Conduct Authority (UK) and the Investment Industry Regulatory Organization of Canada, ensuring compliance with strict financial regulations and standards."
+      question: "How secure are investments with Axix Finance?",
+      answer: "Axix Finance implements industry-standard security protocols to protect your investments. We are regulated by the Financial Conduct Authority (UK) and the Investment Industry Regulatory Organization of Canada, ensuring compliance with strict financial regulations and standards."
     },
     {
       question: "How quickly are withdrawals processed?",

@@ -192,12 +192,12 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
     const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
     
     const message = {
-      from: process.env.EMAIL_FROM || '"Carax Finance" <noreply@caraxfinance.com>',
+      from: process.env.EMAIL_FROM || '"Axix Finance" <noreply@axix-finance.co>',
       to: email, // Make sure the email is properly formatted and exists
-      subject: "Verify Your Carax Finance Account",
+      subject: "Verify Your Axix Finance Account",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Welcome to Carax Finance!</h2>
+          <h2 style="color: #333;">Welcome to Axix Finance!</h2>
           <p>Thank you for creating an account. Please verify your email address to continue.</p>
           <div style="margin: 30px 0;">
             <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Verify My Email</a>
@@ -207,7 +207,7 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
           <p>This link will expire in 24 hours.</p>
           <p>If you did not create an account, please ignore this email.</p>
           <hr style="border: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #777; font-size: 12px;">Carax Finance - Secure Financial Services</p>
+          <p style="color: #777; font-size: 12px;">Axix Finance - Secure Financial Services</p>
         </div>
       `
     };
@@ -315,9 +315,9 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
   const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   
   const message = {
-    from: process.env.EMAIL_FROM || '"Carax Finance" <noreply@caraxfinance.com>',
+    from: process.env.EMAIL_FROM || '"Axix Finance" <noreply@axix-finance.co>',
     to: email,
-    subject: "Reset Your Carax Finance Password",
+    subject: "Reset Your Axix Finance Password",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">Password Reset Request</h2>
@@ -330,7 +330,7 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
         <p>This link will expire in 1 hour.</p>
         <p>If you did not request this reset, please ignore this email or contact support if you have concerns.</p>
         <hr style="border: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #777; font-size: 12px;">Carax Finance - Secure Financial Services</p>
+        <p style="color: #777; font-size: 12px;">Axix Finance - Secure Financial Services</p>
       </div>
     `
   };
@@ -380,7 +380,7 @@ export async function sendNotificationEmail(
   }
 
   const emailMessage = {
-    from: process.env.EMAIL_FROM || '"Carax Finance" <noreply@caraxfinance.com>',
+    from: process.env.EMAIL_FROM || '"Axix Finance" <noreply@axix-finance.co>',
     to: email,
     subject,
     html: `
@@ -390,7 +390,7 @@ export async function sendNotificationEmail(
           ${message}
         </div>
         <hr style="border: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #777; font-size: 12px;">Carax Finance - Secure Financial Services</p>
+        <p style="color: #777; font-size: 12px;">Axix Finance - Secure Financial Services</p>
       </div>
     `
   };
@@ -475,7 +475,7 @@ export async function sendTestEmail(recipient: string, subject: string, text: st
     }
 
     const message = {
-      from: process.env.EMAIL_FROM || '"Carax Finance" <noreply@caraxfinance.com>',
+      from: process.env.EMAIL_FROM || '"Axix Finance" <noreply@axix-finance.co>',
       to: email,
       subject: subject,
       text: text,
@@ -484,7 +484,7 @@ export async function sendTestEmail(recipient: string, subject: string, text: st
           <h2 style="color: #333;">Test Email</h2>
           <p>${text}</p>
           <hr style="border: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #777; font-size: 12px;">Carax Finance - Secure Financial Services</p>
+          <p style="color: #777; font-size: 12px;">Axix Finance - Secure Financial Services</p>
         </div>
       `
     };

@@ -7,14 +7,14 @@ const Testimonials: React.FC = () => {
     {
       name: "James Wilson",
       role: "Premium Investor",
-      content: "I've been using Carax Finance for 6 months and have seen an incredible return on my investments. The Premium Plan gave me 3.5% daily returns consistently, and their customer service is exceptional.",
+      content: "I've been using Axix Finance for 6 months and have seen an incredible return on my investments. The Premium Plan gave me 3.5% daily returns consistently, and their customer service is exceptional.",
       initials: "JW",
       rating: 5
     },
     {
       name: "Rebecca Chen",
       role: "Luxury Plan Investor",
-      content: "After trying several investment platforms, Carax Finance stands out with their transparency and consistent payouts. The Luxury Plan has helped me grow my capital significantly with 7.5% daily returns.",
+      content: "After trying several investment platforms, Axix Finance stands out with their transparency and consistent payouts. The Luxury Plan has helped me grow my capital significantly with 7.5% daily returns.",
       initials: "RC",
       rating: 5
     },
@@ -28,7 +28,7 @@ const Testimonials: React.FC = () => {
     {
       name: "Sophia Martinez",
       role: "Delux Plan Investor",
-      content: "The Delux Plan at Carax Finance has significantly boosted my investment portfolio. 5% daily for 10 days is an incredible return, and the principal being included makes it even better.",
+      content: "The Delux Plan at Axix Finance has significantly boosted my investment portfolio. 5% daily for 10 days is an incredible return, and the principal being included makes it even better.",
       initials: "SM",
       rating: 5
     }

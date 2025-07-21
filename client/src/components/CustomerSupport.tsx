@@ -16,11 +16,11 @@ interface Message {
   timestamp: Date | string;
 }
 
-const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }) => {
+const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = +12709703891 }) => {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { 
-      text: "Hello! Welcome to Carax Finance support. How can I assist you today?", 
+      text: "Hello! Welcome to Axix Finance support. How can I assist you today?", 
       isUser: false,
       timestamp: new Date()
     }
@@ -54,7 +54,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
       // Reset conversation when reopening after it was ended
       setMessages([
         { 
-          text: "Hello! Welcome to Carax Finance support. How can I assist you today?", 
+          text: "Hello! Welcome to Axix Finance support. How can I assist you today?", 
           isUser: false,
           timestamp: new Date()
         }
@@ -89,7 +89,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
     if (["thank you", "thanks", "okay", "ok", "bye", "goodbye"].some(phrase => lowerInput.includes(phrase))) {
       setIsTyping(true);
       setTimeout(() => {
-        addBotMessage("You're welcome! Thank you for chatting with Carax Finance support. Have a great day!");
+        addBotMessage("You're welcome! Thank you for chatting with Axix Finance support. Have a great day!");
         setIsTyping(false);
         setConversationEnded(true);
       }, 1000);
@@ -100,7 +100,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
     if (["hello", "hi", "hey", "greetings"].some(greeting => lowerInput.includes(greeting))) {
       setIsTyping(true);
       setTimeout(() => {
-        addBotMessage("Hello! How can I help you with your Carax Finance experience today?");
+        addBotMessage("Hello! How can I help you with your Axix Finance experience today?");
         setIsTyping(false);
       }, 1000);
       return;
@@ -120,7 +120,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
     if (lowerInput.includes("invest") || lowerInput.includes("portfolio") || lowerInput.includes("return")) {
       setIsTyping(true);
       setTimeout(() => {
-        addBotMessage("Carax Finance offers various investment options with competitive returns. Our portfolio management tools help you track performance and make informed decisions. Would you like to know more about specific investment products?");
+        addBotMessage("Axix Finance offers various investment options with competitive returns. Our portfolio management tools help you track performance and make informed decisions. Would you like to know more about specific investment products?");
         setIsTyping(false);
       }, 1500);
       return;
@@ -140,7 +140,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
     if (lowerInput.includes("contact") || lowerInput.includes("support") || lowerInput.includes("help")) {
       setIsTyping(true);
       setTimeout(() => {
-        addBotMessage("Our support team is available 24/7. For immediate assistance, please use our WhatsApp support. You can also email us at support@caraxfinance.com or call our helpline at +1-800-CARAX-FIN.");
+        addBotMessage("Our support team is available 24/7. For immediate assistance, please use our WhatsApp support. You can also email us at support@axix-finance.co or call our helpline at +1-800-AXIX-FIN.");
         setIsTyping(false);
       }, 1500);
       return;
@@ -177,18 +177,21 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
 
   return (
     <>
-      {/* WhatsApp and Chatbot buttons - bottom right, stacked */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end space-y-3">
+      {/* WhatsApp button, fixed bottom left */}
+      <div className="fixed bottom-6 left-6 z-50">
         <Button
           onClick={handleWhatsappClick}
-          className="rounded-full h-14 w-14 bg-green-500 hover:bg-green-600 p-0 flex items-center justify-center shadow-lg"
-          aria-label="Contact us on WhatsApp"
-          title="Chat with us on WhatsApp"
+          className="rounded-full h-14 w-14 bg-green-600 hover:bg-green-700 p-0 flex items-center justify-center shadow-lg"
+          aria-label="Contact WhatsApp support"
+          title="Contact WhatsApp support"
         >
-          <FaWhatsapp size={30} className="text-white" />
+          <FaWhatsapp size={28} className="text-white" aria-hidden="true" />
         </Button>
+      </div>
 
-        {/* Chatbot - fixed on right */}
+      {/* Chatbot button and UI, fixed bottom right */}
+      <div className="customer-support-container fixed bottom-6 right-6 z-50 flex flex-col items-end space-y-3">
+        {/* Chatbot UI */}
         {isChatbotOpen && (
           <div 
             className="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg w-80 sm:w-96 overflow-hidden animate-in slide-in-from-right border border-amber-600 dark:border-amber-700"
@@ -200,7 +203,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
               <div className="flex items-center">
                 <div className="h-8 w-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold mr-2" aria-hidden="true">CF</div>
                 <div>
-                  <h3 id="chat-heading" className="font-semibold">Carax Finance Support</h3>
+                  <h3 id="chat-heading" className="font-semibold">Axix Finance Support</h3>
                   <p className="text-xs text-amber-300">We typically reply in a few minutes</p>
                 </div>
               </div>
@@ -313,7 +316,7 @@ const CustomerSupport: React.FC<CustomerSupportProps> = ({ whatsappNumber = "" }
           aria-label={isChatbotOpen ? "Close chat" : "Chat with support"}
           aria-expanded={isChatbotOpen}
           aria-haspopup="dialog"
-          title="Chat with Carax Finance support"
+          title="Chat with Axix Finance support"
         >
           <MessageCircle size={26} className="text-white" aria-hidden="true" />
         </Button>

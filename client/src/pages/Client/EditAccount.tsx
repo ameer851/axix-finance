@@ -9,7 +9,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { getUserProfile, updateUserProfile, updateUserSecurity } from '@/services/userService';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Shield } from 'lucide-react';
+
+// ErrorBoundary component
+class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    // You can log error info here
+  }
+  render() {
+    if (this.state.hasError) {
+      return <h1>Something went wrong.</h1>;
+    }
+    return this.props.children;
+  }
+}
 
 const EditAccount: React.FC = () => {
   const { user } = useAuth();
@@ -181,242 +201,244 @@ const EditAccount: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto py-6 max-w-4xl">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Account Settings</CardTitle>
-          <CardDescription>Manage your account information and preferences</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="profile" onValueChange={setCurrentTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="profile">
-                <User className="h-4 w-4 mr-2" />
-                Profile
-              </TabsTrigger>
-              <TabsTrigger value="security">
-                <Lock className="h-4 w-4 mr-2" />
-                Security
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="profile">
-              <form onSubmit={handleProfileSubmit}>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        value={profileForm.firstName}
-                        onChange={handleProfileChange}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        value={profileForm.lastName}
-                        onChange={handleProfileChange}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={profileForm.email}
-                      onChange={handleProfileChange}
-                      className="mt-1"
-                      disabled={true}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Contact support to change your email address</p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      value={profileForm.phone}
-                      onChange={handleProfileChange}
-                      className="mt-1"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                    <Input
-                      id="dateOfBirth"
-                      name="dateOfBirth"
-                      type="date"
-                      value={profileForm.dateOfBirth}
-                      onChange={handleProfileChange}
-                      className="mt-1"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={profileForm.address}
-                      onChange={handleProfileChange}
-                      className="mt-1"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="city">City</Label>
-                      <Input
-                        id="city"
-                        name="city"
-                        value={profileForm.city}
-                        onChange={handleProfileChange}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="state">State/Province</Label>
-                      <Input
-                        id="state"
-                        name="state"
-                        value={profileForm.state}
-                        onChange={handleProfileChange}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="zipCode">Zip/Postal Code</Label>
-                      <Input
-                        id="zipCode"
-                        name="zipCode"
-                        value={profileForm.zipCode}
-                        onChange={handleProfileChange}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="country">Country</Label>
-                      <Input
-                        id="country"
-                        name="country"
-                        value={profileForm.country}
-                        onChange={handleProfileChange}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={updateProfileMutation.isPending}>
-                      {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="security">
-              <form onSubmit={handleSecuritySubmit}>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-6">
-                    <div className="flex items-center justify-between">
+    <ErrorBoundary>
+      <div className="container mx-auto py-6 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">Account Settings</CardTitle>
+            <CardDescription>Manage your account information and preferences</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="profile" onValueChange={setCurrentTab}>
+              <TabsList className="grid w-full grid-cols-3 mb-8">
+                <TabsTrigger value="profile">
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </TabsTrigger>
+                <TabsTrigger value="security">
+                  <Lock className="h-4 w-4 mr-2" />
+                  Security
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="profile">
+                <form onSubmit={handleProfileSubmit}>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <h3 className="font-medium flex items-center">
-                          <Shield className="h-4 w-4 mr-2 text-primary" />
-                          Two-Factor Authentication
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          Add an extra layer of security to your account
-                        </p>
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input
+                          id="firstName"
+                          name="firstName"
+                          value={profileForm.firstName}
+                          onChange={handleProfileChange}
+                          className="mt-1"
+                        />
                       </div>
-                      <Switch
-                        checked={securityForm.twoFactorEnabled}
-                        onCheckedChange={(checked) => setSecurityForm(prev => ({ ...prev, twoFactorEnabled: checked }))}
-                      />
+                      <div>
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input
+                          id="lastName"
+                          name="lastName"
+                          value={profileForm.lastName}
+                          onChange={handleProfileChange}
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <div className="relative">
+                    
+                    <div>
+                      <Label htmlFor="email">Email Address</Label>
                       <Input
-                        id="currentPassword"
-                        name="currentPassword"
-                        type={showPassword ? 'text' : 'password'}
-                        value={securityForm.currentPassword}
-                        onChange={handleSecurityChange}
-                        className="mt-1 pr-10"
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={profileForm.email}
+                        onChange={handleProfileChange}
+                        className="mt-1"
+                        disabled={true}
                       />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+                      <p className="text-xs text-gray-500 mt-1">Contact support to change your email address</p>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <div className="relative">
+                    
+                    <div>
+                      <Label htmlFor="phone">Phone Number</Label>
                       <Input
-                        id="newPassword"
-                        name="newPassword"
-                        type={showNewPassword ? 'text' : 'password'}
-                        value={securityForm.newPassword}
-                        onChange={handleSecurityChange}
-                        className="mt-1 pr-10"
+                        id="phone"
+                        name="phone"
+                        value={profileForm.phone}
+                        onChange={handleProfileChange}
+                        className="mt-1"
                       />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                      >
-                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Password must be at least 8 characters long</p>
+                    
+                    <div>
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        name="dateOfBirth"
+                        type="date"
+                        value={profileForm.dateOfBirth}
+                        onChange={handleProfileChange}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="address">Address</Label>
+                      <Input
+                        id="address"
+                        name="address"
+                        value={profileForm.address}
+                        onChange={handleProfileChange}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="city">City</Label>
+                        <Input
+                          id="city"
+                          name="city"
+                          value={profileForm.city}
+                          onChange={handleProfileChange}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="state">State/Province</Label>
+                        <Input
+                          id="state"
+                          name="state"
+                          value={profileForm.state}
+                          onChange={handleProfileChange}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="zipCode">Zip/Postal Code</Label>
+                        <Input
+                          id="zipCode"
+                          name="zipCode"
+                          value={profileForm.zipCode}
+                          onChange={handleProfileChange}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="country">Country</Label>
+                        <Input
+                          id="country"
+                          name="country"
+                          value={profileForm.country}
+                          onChange={handleProfileChange}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <Button type="submit" disabled={updateProfileMutation.isPending}>
+                        {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      value={securityForm.confirmPassword}
-                      onChange={handleSecurityChange}
-                      className="mt-1"
-                    />
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="security">
+                <form onSubmit={handleSecuritySubmit}>
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-medium flex items-center">
+                            <Shield className="h-4 w-4 mr-2 text-primary" />
+                            Two-Factor Authentication
+                          </h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Add an extra layer of security to your account
+                          </p>
+                        </div>
+                        <Switch
+                          checked={securityForm.twoFactorEnabled}
+                          onCheckedChange={(checked) => setSecurityForm(prev => ({ ...prev, twoFactorEnabled: checked }))}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="currentPassword">Current Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="currentPassword"
+                          name="currentPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          value={securityForm.currentPassword}
+                          onChange={handleSecurityChange}
+                          className="mt-1 pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="newPassword"
+                          name="newPassword"
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={securityForm.newPassword}
+                          onChange={handleSecurityChange}
+                          className="mt-1 pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Password must be at least 8 characters long</p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        value={securityForm.confirmPassword}
+                        onChange={handleSecurityChange}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <Button type="submit" disabled={updateSecurityMutation.isPending}>
+                        {updateSecurityMutation.isPending ? 'Saving...' : 'Update Security Settings'}
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={updateSecurityMutation.isPending}>
-                      {updateSecurityMutation.isPending ? 'Saving...' : 'Update Security Settings'}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    </ErrorBoundary>
   );
 };
 

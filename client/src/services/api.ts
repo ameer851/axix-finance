@@ -1,12 +1,12 @@
 /**
- * API Service for CaraxFinance
+ * API Service for Axix Finance
  * Centralizes all API calls to the backend
  */
 
 import { User, Transaction, Notification } from '@shared/schema';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.caraxfinance.com' 
+  ? 'https://api.axix-finance.co' 
   : 'http://localhost:5000';
 
 // Helper function to handle fetch responses

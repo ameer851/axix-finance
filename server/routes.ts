@@ -368,6 +368,11 @@ router.get('/users/:userId/crypto-balances', requireEmailVerification, async (re
   }
 });
 
+// Health check endpoint
+router.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Export the router
 export default router;
 
@@ -949,21 +954,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin system settings management
+  app.get('/api/admin/settings', isAuthenticated, requireAdminRole, async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      if (!settings) {
+        return res.status(404).json({ message: 'Settings not found' });
+      }
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching system settings:', error);
+      res.status(500).json({ message: 'Failed to fetch system settings' });
+    }
+  });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  app.put('/api/admin/settings', isAuthenticated, requireAdminRole, async (req: Request, res: Response) => {
+    try {
+      const settings = req.body;
+      const updatedSettings = await storage.updateSystemSettings(settings);
+      // Log settings change
+      await storage.createLog({
+        type: "warning",
+        userId: req.user!.id,
+        message: `Admin updated system settings`,
+        details: { settings }
+      });
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error('Error updating system settings:', error);
+      res.status(500).json({ message: 'Failed to update system settings' });
+    }
+  });
 
   // Transactions endpoints
   app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response) => {
@@ -979,6 +1000,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching transactions:', error);
       res.status(500).json({ message: 'Failed to fetch transactions' });
+    }
+  });
+
+  // Add deposit endpoint
+  app.post("/api/transactions/deposit", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { amount, method, currency } = req.body;
+
+      // Validate input
+      if (!amount || isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ message: 'Valid positive amount is required' });
+      }
+
+      if (amount > 1000000) {
+        return res.status(400).json({ message: 'Amount cannot exceed $1,000,000' });
+      }
+
+      // Create deposit transaction
+      const transaction = await storage.createTransaction({
+        userId: userId,
+        type: 'deposit',
+        amount: amount.toString(),
+        status: 'pending',
+        method: method || 'bank_transfer',
+        currency: currency || 'USD',
+        description: `Deposit via ${method || 'bank_transfer'}`
+      });
+
+      // Create notification for the user
+      await storage.createNotification({
+        userId: userId,
+        type: 'transaction',
+        title: 'Deposit Initiated',
+        message: `Your deposit of $${amount.toLocaleString()} has been initiated and is pending confirmation.`,
+        relatedEntityType: 'transaction',
+        relatedEntityId: transaction.id
+      });
+
+      res.status(200).json({
+        success: true,
+        amount: amount,
+        transactionId: transaction.id
+      });
+    } catch (error) {
+      console.error('Error processing deposit:', error);
+      res.status(500).json({ message: 'Failed to process deposit' });
     }
   });
 
@@ -1016,7 +1088,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch user transactions' });
     }
   });
-
 
   
   // Settings endpoints
@@ -1166,6 +1237,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in reset-password:", error);
       return res.status(500).json({ message: "An error occurred while processing your request" });
+    }
+  });
+  
+  // Admin password update route
+  app.post('/api/admin/update-password', isAuthenticated, requireAdminRole, async (req: Request, res: Response) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: 'Current password and new password are required' });
+      }
+      
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+      }
+      
+      const user = await storage.getUserByUsername('admin');
+      if (!user) {
+        return res.status(404).json({ message: 'Admin user not found' });
+      }
+      
+      const isPasswordValid = await comparePasswords(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Current password is incorrect' });
+      }
+      
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(user.id, {
+        password: hashedPassword
+      });
+      
+      return res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+      console.error('Error updating admin password:', error);
+      return res.status(500).json({ message: 'Failed to update password' });
     }
   });
   

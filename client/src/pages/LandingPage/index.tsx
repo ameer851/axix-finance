@@ -4,6 +4,8 @@ import Hero from '@/components/landing/Hero';
 import Features from '@/components/landing/Features';
 import WhyChooseUs from '@/components/landing/WhyChooseUs';
 import VideoSection from '@/components/landing/Video';
+import WinPrizesSection from '@/components/landing/WinPrizesSection';
+import TopTradesSection from '@/components/landing/TopTradesSection';
 import Pricing from '@/components/landing/Pricing';
 import Testimonials from '@/components/landing/Testimonials';
 import Team from '@/components/landing/Team';
@@ -19,6 +21,8 @@ const LandingPage: React.FC = () => {
       <Features />
       <WhyChooseUs />
       <VideoSection />
+      <TopTradesSection />
+      <WinPrizesSection />
       <Pricing />
       <Testimonials />
       <Team />

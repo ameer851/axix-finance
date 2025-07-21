@@ -1,4 +1,4 @@
-// Create CaraxFinance database
+// Create Axix Finance database
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 dotenv.config();

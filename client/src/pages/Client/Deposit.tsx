@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { DollarSign, CreditCard, Wallet, Copy, Check } from 'lucide-react';
 import { depositFunds } from '@/services/transactionService';
 import { getInvestmentPlans, getCryptoExchangeRates, InvestmentPlan, BANK_TRANSFER_DETAILS } from '@/services/investmentService';
+import { getUserBalance } from '@/services/userService';
+import { formatCurrency } from "@/lib/utils";
 
 const Deposit: React.FC = () => {
   const { user } = useAuth();
@@ -38,6 +40,14 @@ const Deposit: React.FC = () => {
   
   // Get the starter plan for default wallet addresses
   const starterPlan = investmentPlans?.find(plan => plan.id === 'starter');
+  
+  // Fetch user balance
+  const { data: balanceData, isLoading: balanceLoading } = useQuery({
+    queryKey: ['balance', user?.id],
+    queryFn: () => getUserBalance(user?.id),
+    enabled: !!user?.id,
+    staleTime: 60000 // 1 minute
+  });
   
   // Function to copy wallet address to clipboard
   const copyToClipboard = (address: string) => {
@@ -175,7 +185,13 @@ const Deposit: React.FC = () => {
               {/* Account Balance */}
               <div className="mb-4">
                 <Label className="font-semibold text-amber-900">Your account balance ($):</Label>
-                <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-1 text-amber-900">${user?.balance ?? 0}</div>
+                <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-1 text-amber-900">
+                  {balanceLoading ? (
+                    <span className="animate-pulse">Loading...</span>
+                  ) : (
+                    formatCurrency(balanceData?.availableBalance || parseFloat(user?.balance || '0'))
+                  )}
+                </div>
               </div>
               {/* Amount Input */}
               <div className="mb-4">

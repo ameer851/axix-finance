@@ -1,4 +1,4 @@
-# CaraxFinance
+# Axix Finance
 
 A modern financial management platform built with React, TypeScript, and Node.js.
 
@@ -43,8 +43,8 @@ A modern financial management platform built with React, TypeScript, and Node.js
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/carax-finance.git
-cd carax-finance
+git clone https://github.com/yourusername/axix-finance.git
+cd axix-finance
 ```
 
 2. Install dependencies:
@@ -166,10 +166,10 @@ The application is containerized and can be deployed using Docker:
 
 ```bash
 # Build the Docker image
-docker build -t carax-finance .
+docker build -t axix-finance .
 
 # Run the container
-docker run -p 4000:4000 -e DATABASE_URL=postgres://user:password@host:port/db carax-finance
+docker run -p 4000:4000 -e DATABASE_URL=postgres://user:password@host:port/db axix-finance
 ```
 
 For production deployment, use Docker Compose:
@@ -201,7 +201,7 @@ if (process.env.NODE_ENV !== 'production') {
 } else {
   // Production CORS settings
   app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'https://your-production-domain.com',
+    origin: process.env.CORS_ORIGIN || 'https://axix-finance.co',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']

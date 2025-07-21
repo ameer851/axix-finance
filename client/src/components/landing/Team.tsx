@@ -12,15 +12,15 @@ import dianaImage from '@/assets/images/Diana olsen.png';
 const Team: React.FC = () => {
   const teamMembers = [
     {
-      name: "Alex Johnson",
+      name: "Elon Musk",
       role: "Chief Executive Officer",
-      bio: "Alex has over 15 years of experience in financial technology and investment management, leading Carax Finance to become a premier digital investment platform.",
+      bio: "Alex has over 15 years of experience in financial technology and investment management, leading Axix Finance to become a premier digital investment platform.",
       initials: "AJ",
       image: ceoImage,
       socialLinks: {
         linkedin: "https://linkedin.com/in/",
         twitter: "https://twitter.com/",
-        email: "alex@caraxfinance.com"
+        email: "alex@axix-finance.co"
       }
     },
     {
@@ -32,7 +32,7 @@ const Team: React.FC = () => {
       socialLinks: {
         linkedin: "https://linkedin.com/in/",
         twitter: "https://twitter.com/",
-        email: "sarah@caraxfinance.com"
+        email: "sarah@axix-finance.co"
       }
     },
     {
@@ -44,19 +44,19 @@ const Team: React.FC = () => {
       socialLinks: {
         linkedin: "https://linkedin.com/in/",
         twitter: "https://twitter.com/",
-        email: "michael@caraxfinance.com"
+        email: "michael@axix-finance.co"
       }
     },
     {
       name: "Diana Olsen",
       role: "Customer Success Director",
-      bio: "Diana leads our support team with a focus on exceptional service. Her financial advisory background helps clients optimize their investment experience.",
+      bio: "Diana leads our support team with a focus on exceptional service. Her financial advisory background helps clients optimize their portfolios and achieve their goals.",
       initials: "DO",
       image: dianaImage,
       socialLinks: {
         linkedin: "https://linkedin.com/in/",
         twitter: "https://twitter.com/",
-        email: "diana@caraxfinance.com"
+        email: "diana@axix-finance.co"
       }
     }
   ];

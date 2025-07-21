@@ -39,6 +39,9 @@ export default function AuditLogsPage() {
   const [filters, setFilters] = useState<ExtendedFilterState>({});
   const [selectedLogs, setSelectedLogs] = useState<string[]>([]);
   const { toast } = useToast();
+  // Geolocation state
+  const [geoData, setGeoData] = useState<Record<string, { city?: string; country?: string }>>({});
+
   // Fetch audit logs from API
   const fetchLogs = async (page = 1, appliedFilters: ExtendedFilterState = {}) => {
     try {
@@ -77,6 +80,27 @@ export default function AuditLogsPage() {
   useEffect(() => {
     fetchLogs(currentPage, filters);
   }, [currentPage, filters]);
+
+  useEffect(() => {
+    if (logs) {
+      const uniqueIps = Array.from(new Set(logs.map((log) => log.ipAddress).filter(Boolean)));
+      uniqueIps.forEach((ip) => {
+        const ipStr = String(ip);
+        if (!geoData[ipStr]) {
+          fetch(`https://ipapi.co/${ipStr}/json/`)
+            .then(res => res.json())
+            .then(data => {
+              setGeoData(prev => ({ ...prev, [ipStr]: { city: data.city, country: data.country_name } }));
+            })
+            .catch(() => {
+              setGeoData(prev => ({ ...prev, [ipStr]: { city: 'Unknown', country: '' } }));
+            });
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logs]);
+
   // Handle filter changes
   const handleFilterChange = (newFilters: FilterState) => {
     setFilters(newFilters as ExtendedFilterState);
@@ -269,6 +293,9 @@ export default function AuditLogsPage() {
                     IP Address
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Location
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Details
                   </th>
                 </tr>
@@ -309,6 +336,9 @@ export default function AuditLogsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {log.ipAddress || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {log.ipAddress && geoData[log.ipAddress] ? `${geoData[log.ipAddress].city || ''}${geoData[log.ipAddress].city && geoData[log.ipAddress].country ? ', ' : ''}${geoData[log.ipAddress].country || ''}` : '—'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {renderDetails(log.details)}

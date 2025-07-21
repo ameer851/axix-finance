@@ -83,7 +83,7 @@ const VerificationBanner: React.FC = () => {
                 variant="link"
                 size="sm"
                 className="text-yellow-700 dark:text-yellow-300 hover:text-yellow-800 dark:hover:text-yellow-200"
-                onClick={() => window.open('mailto:support@caraxfinance.com', '_blank')}
+                onClick={() => window.open('mailto:support@axixfinance.com', '_blank')}
               >
                 Contact Support
               </Button>

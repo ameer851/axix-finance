@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { getUserProfile, getUserBalance, getUserActivity, updateUserProfile } from '@/services/userService';
+import { getUserProfile, getUserBalance, getUserActivity, updateUserProfile, getUserTransactions } from '@/services/userService';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Shield, Clock, CreditCard, User, Bell, Lock, Activity } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -26,7 +26,7 @@ const Profile: React.FC = () => {
     queryKey: ['profile', user?.id],
     queryFn: () => getUserProfile(user?.id),
     enabled: !!user?.id,
-    staleTime: 300000 // 5 minutes
+    staleTime: 30000 // 5 minutes
   });
 
   // Fetch user balance
@@ -44,6 +44,25 @@ const Profile: React.FC = () => {
     enabled: !!user?.id,
     staleTime: 60000 // 1 minute
   });
+
+  // Fetch user transactions for statistics
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+    queryKey: ['transactions', user?.id],
+    queryFn: () => getUserTransactions(user!.id),
+    enabled: !!user?.id,
+    staleTime: 60000 // 1 minute
+  });
+
+  // Calculate statistics
+  const totalDeposits = transactions
+    .filter((t: any) => t.type === 'deposit' && t.status === 'completed')
+    .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0);
+
+  const totalWithdrawals = transactions
+    .filter((t: any) => t.type === 'withdrawal' && t.status === 'completed')
+    .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0);
+
+  const transactionCount = transactions.length;
 
   const getInitials = (name: string) => {
     return name.split(' ').map(part => part?.[0] || '').join('').toUpperCase();
@@ -207,15 +226,15 @@ const Profile: React.FC = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm text-gray-500 dark:text-gray-400">Total Deposits</span>
-                          <span className="font-medium">{formatCurrency(profileData?.totalDeposits || 0)}</span>
+                          <span className="font-medium">{formatCurrency(totalDeposits)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-gray-500 dark:text-gray-400">Total Withdrawals</span>
-                          <span className="font-medium">{formatCurrency(profileData?.totalWithdrawals || 0)}</span>
+                          <span className="font-medium">{formatCurrency(totalWithdrawals)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-gray-500 dark:text-gray-400">Transactions</span>
-                          <span className="font-medium">{profileData?.transactionCount || 0}</span>
+                          <span className="font-medium">{transactionCount}</span>
                         </div>
                       </div>
                     </div>

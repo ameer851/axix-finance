@@ -26,7 +26,13 @@ export async function getUserProfile(userId?: number | string): Promise<any> {
   }
   try {
     const response = await apiRequest('GET', `/api/users/${userId}/profile`);
-    return await response.json();
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(`Unexpected response format: ${text}`);
+    }
   } catch (error: any) {
     console.error('Error fetching user profile:', error);
     if (error.status === 403) {

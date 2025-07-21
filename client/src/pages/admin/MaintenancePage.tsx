@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface MaintenanceSettings {
   enabled: boolean;
@@ -8,18 +9,21 @@ interface MaintenanceSettings {
   allowedIPs: string[];
 }
 
+const defaultSettings: MaintenanceSettings = {
+  enabled: false,
+  message: "The system is currently under maintenance. Please try again later.",
+  scheduledStart: "",
+  scheduledEnd: "",
+  allowedIPs: []
+};
+
 export default function MaintenancePage() {
-  const [settings, setSettings] = useState<MaintenanceSettings>({
-    enabled: false,
-    message: "The system is currently under maintenance. Please try again later.",
-    scheduledStart: "",
-    scheduledEnd: "",
-    allowedIPs: []
-  });
-  
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<MaintenanceSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newIP, setNewIP] = useState("");
+
   useEffect(() => {
     const fetchMaintenanceSettings = async () => {
       try {
@@ -27,36 +31,44 @@ export default function MaintenancePage() {
           credentials: 'include'
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          setSettings(data.settings);
-        } else {
-          console.error('Failed to fetch maintenance settings:', response.statusText);
-          // Fallback to default settings
-          setSettings({
-            enabled: false,
-            message: "The system is currently under maintenance. Please try again later.",
-            scheduledStart: "",
-            scheduledEnd: "",
-            allowedIPs: []
-          });
+        if (!response.ok) {
+          throw new Error('Failed to fetch maintenance settings');
         }
+        
+        const data = await response.json();
+        setSettings(data.settings || defaultSettings);
       } catch (error) {
         console.error('Error fetching maintenance settings:', error);
-        setSettings({
-          enabled: false,
-          message: "The system is currently under maintenance. Please try again later.",
-          scheduledStart: "",
-          scheduledEnd: "",
-          allowedIPs: []
+        toast({
+          title: "Error",
+          description: "Failed to load maintenance settings. Please try again.",
+          variant: "destructive"
         });
+        setSettings(defaultSettings);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMaintenanceSettings();
-  }, []);
+  }, [toast]);
+
+  if (loading) {
+    return (
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-300 rounded w-1/3 mb-6"></div>
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white p-6 rounded-lg shadow">
+              <div className="h-4 bg-gray-300 rounded w-1/4 mb-4"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const handleToggleMaintenance = async () => {
     setSaving(true);
     try {
@@ -69,15 +81,22 @@ export default function MaintenancePage() {
         body: JSON.stringify({ enabled: !settings.enabled })
       });
 
-      if (response.ok) {
-        setSettings(prev => ({ ...prev, enabled: !prev.enabled }));
-      } else {
-        console.error('Failed to toggle maintenance mode:', response.statusText);
-        alert('Failed to toggle maintenance mode. Please try again.');
+      if (!response.ok) {
+        throw new Error('Failed to toggle maintenance mode');
       }
+
+      setSettings(prev => ({ ...prev, enabled: !prev.enabled }));
+      toast({
+        title: "Success",
+        description: `Maintenance mode ${!settings.enabled ? 'enabled' : 'disabled'} successfully`,
+      });
     } catch (error) {
       console.error("Failed to toggle maintenance mode:", error);
-      alert('Error toggling maintenance mode. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to toggle maintenance mode. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setSaving(false);
     }
@@ -95,15 +114,21 @@ export default function MaintenancePage() {
         body: JSON.stringify({ message: settings.message })
       });
 
-      if (response.ok) {
-        alert("Maintenance message updated successfully!");
-      } else {
-        console.error('Failed to update maintenance message:', response.statusText);
-        alert('Failed to update maintenance message. Please try again.');
+      if (!response.ok) {
+        throw new Error('Failed to update maintenance message');
       }
+
+      toast({
+        title: "Success",
+        description: "Maintenance message updated successfully",
+      });
     } catch (error) {
       console.error("Failed to update message:", error);
-      alert('Error updating maintenance message. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to update maintenance message. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setSaving(false);
     }
@@ -111,17 +136,43 @@ export default function MaintenancePage() {
 
   const handleScheduleMaintenance = async () => {
     if (!settings.scheduledStart || !settings.scheduledEnd) {
-      alert("Please select both start and end times for scheduled maintenance.");
+      toast({
+        title: "Error",
+        description: "Please select both start and end times for scheduled maintenance.",
+        variant: "destructive"
+      });
       return;
     }
     
     setSaving(true);
     try {
-      // Mock API call to schedule maintenance
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert("Maintenance scheduled successfully!");
+      const response = await fetch('/api/admin/maintenance', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          scheduledStart: settings.scheduledStart,
+          scheduledEnd: settings.scheduledEnd
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to schedule maintenance');
+      }
+
+      toast({
+        title: "Success",
+        description: "Maintenance scheduled successfully",
+      });
     } catch (error) {
       console.error("Failed to schedule maintenance:", error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule maintenance. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setSaving(false);
     }
@@ -143,22 +194,6 @@ export default function MaintenancePage() {
       allowedIPs: prev.allowedIPs.filter(allowedIP => allowedIP !== ip)
     }));
   };
-
-  if (loading) {
-    return (
-      <div className="animate-pulse">
-        <div className="h-8 bg-gray-300 rounded w-1/3 mb-6"></div>
-        <div className="space-y-6">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-lg shadow">
-              <div className="h-4 bg-gray-300 rounded w-1/4 mb-4"></div>
-              <div className="h-10 bg-gray-300 rounded"></div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-4xl">
@@ -213,21 +248,25 @@ export default function MaintenancePage() {
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Schedule Maintenance</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>            <input
+            <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+            <input
               type="datetime-local"
               value={settings.scheduledStart}
               onChange={(e) => setSettings(prev => ({ ...prev, scheduledStart: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Maintenance start time"
+              title="Select maintenance start time"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>            <input
+            <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+            <input
               type="datetime-local"
               value={settings.scheduledEnd}
               onChange={(e) => setSettings(prev => ({ ...prev, scheduledEnd: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Maintenance end time"
+              title="Select maintenance end time"
             />
           </div>
         </div>
@@ -244,15 +283,13 @@ export default function MaintenancePage() {
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Allowed IP Addresses</h2>
         <p className="text-gray-600 mb-4">These IP addresses will have access during maintenance mode.</p>
-          <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4">
           <input
             type="text"
             value={newIP}
             onChange={(e) => setNewIP(e.target.value)}
             placeholder="Enter IP address (e.g., 192.168.1.1)"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="IP address to whitelist"
-            title="Enter IP address to add to whitelist"
           />
           <button
             onClick={handleAddIP}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
+import LanguageSelector from './LanguageSelector';
 import { Menu, X, Landmark } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -12,10 +13,11 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
+              <LanguageSelector />
               <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
                 <Landmark className="h-5 w-5" />
               </div>
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Carax Finance</span>
+              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Axix Finance</span>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <a href="#features" className="border-transparent text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:border-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
@@ -75,7 +77,7 @@ const Navbar: React.FC = () => {
                 <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
                   <Landmark className="h-5 w-5" />
                 </div>
-                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Carax Finance</span>
+                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary to-amber-600 bg-clip-text text-transparent">Axix Finance</span>
               </div>
               <Button
                 variant="ghost"

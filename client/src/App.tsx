@@ -28,21 +28,25 @@ import Referrals from "@/pages/Client/Referrals";
 import Marketing from "@/pages/Client/Marketing";
 import EditAccount from "@/pages/Client/EditAccount";
 import ClientSettings from "@/pages/Client/Settings";
+import ClientDashboard from "@/pages/Client/ClientDashboard";
 
 // Admin pages
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminUsers from "@/pages/admin/AdminUsers";
+import UsersPage from "@/pages/admin/UsersPage";
 import MaintenancePage from "@/pages/admin/MaintenancePage";
 import DepositsPage from "@/pages/admin/DepositsPage";
 import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
 import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import SettingsPage from "@/pages/admin/SettingsPage";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { Suspense, lazy } from "react";
 import React from "react";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import ClientLayout from "@/pages/Client/ClientLayout";
 
 // Lazy load some less critical components
 const VerificationBanner = lazy(() => import('@/components/VerificationBanner'));
@@ -52,88 +56,6 @@ function LoadingSpinner() {
     <div className="flex items-center justify-center min-h-screen">
       <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
     </div>
-  );
-}
-
-function ProtectedRoute({ 
-  children, 
-  requireVerified = false,
-  requireAdmin = false
-}: { 
-  children: React.ReactNode, 
-  requireVerified?: boolean,
-  requireAdmin?: boolean
-}) {
-  const { user, isAuthenticated, isVerified, isLoading } = useAuth();
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
-  
-  // State to track if redirecting to prevent component unmounting during redirect
-  const [isRedirecting, setIsRedirecting] = React.useState(false);
-  
-  useEffect(() => {
-    if (!isLoading && !isRedirecting) {
-      // Handle authentication requirements
-      if (!isAuthenticated) {
-        setIsRedirecting(true);
-        toast({
-          title: "Authentication required",
-          description: "Please log in to access this page",
-          variant: "destructive",
-        });
-        setLocation("/login");
-        return;
-      }
-      
-      // Handle admin role requirements
-      if (requireAdmin && user?.role !== "admin") {
-        setIsRedirecting(true);
-        toast({
-          title: "Access denied",
-          description: "Admin access required to view this page",
-          variant: "destructive",
-        });
-        setLocation("/dashboard");
-        return;
-      }
-      
-      // Handle verification requirements
-      if (requireVerified && !isVerified) {
-        toast({
-          title: "Verification required",
-          description: "Please verify your email to access this page",
-          variant: "destructive",
-        });
-        // Still allow access but will show verification banner
-      }
-    }
-  }, [isLoading, isAuthenticated, requireVerified, isVerified, requireAdmin, user?.role, isRedirecting, toast, setLocation]);
-  
-  // Show loading state while authentication is being checked or redirecting
-  if (isLoading || isRedirecting) {
-    return <LoadingSpinner />;
-  }
-  
-  // Block access for unauthenticated users
-  if (!isAuthenticated) {
-    return <LoadingSpinner />;
-  }
-  
-  // Block access for non-admin users trying to access admin routes
-  if (requireAdmin && user?.role !== "admin") {
-    return <LoadingSpinner />;
-  }
-  
-  // When verification is required but not done yet, show banner but still allow access
-  return (
-    <>
-      {(requireVerified && !isVerified) && (
-        <Suspense fallback={<div className="h-12 bg-yellow-100 dark:bg-yellow-900"></div>}>
-          <VerificationBanner />
-        </Suspense>
-      )}
-      {children}
-    </>
   );
 }
 
@@ -177,7 +99,7 @@ function Router() {
       {/* User Routes */}
       <Route path="/dashboard">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute requireVerified>
             <DashboardLayout>
               <Dashboard />
             </DashboardLayout>
@@ -229,7 +151,7 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/referals">
+      <Route path="/referrals">
         {() => (
           <ProtectedRoute>
             <DashboardLayout>
@@ -249,7 +171,7 @@ function Router() {
       </Route>
       <Route path="/edit-account">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute requireVerified>
             <DashboardLayout>
               <EditAccount />
             </DashboardLayout>
@@ -267,10 +189,9 @@ function Router() {
       </Route>
       
       {/* Admin Routes */}
-      <Route path="/admin" component={AdminRedirect} />
-      <Route path="/admin/dashboard">
+      <Route path="/admin">
         {() => (
-          <ProtectedRoute requireVerified requireAdmin>
+          <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminDashboard />
             </AdminLayout>
@@ -279,16 +200,25 @@ function Router() {
       </Route>
       <Route path="/admin/users">
         {() => (
-          <ProtectedRoute requireVerified requireAdmin>
+          <ProtectedRoute requireAdmin>
             <AdminLayout>
-              <AdminUsers />
+              <UsersPage />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/settings">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <SettingsPage />
             </AdminLayout>
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/maintenance">
         {() => (
-          <ProtectedRoute requireVerified requireAdmin>
+          <ProtectedRoute requireAdmin>
             <AdminLayout>
               <MaintenancePage />
             </AdminLayout>
@@ -297,7 +227,7 @@ function Router() {
       </Route>
       <Route path="/admin/deposits">
         {() => (
-          <ProtectedRoute requireVerified requireAdmin>
+          <ProtectedRoute requireAdmin>
             <AdminLayout>
               <DepositsPage />
             </AdminLayout>
@@ -306,7 +236,7 @@ function Router() {
       </Route>
       <Route path="/admin/withdrawals">
         {() => (
-          <ProtectedRoute requireVerified requireAdmin>
+          <ProtectedRoute requireAdmin>
             <AdminLayout>
               <WithdrawalsPage />
             </AdminLayout>
@@ -315,7 +245,7 @@ function Router() {
       </Route>
       <Route path="/admin/audit-logs">
         {() => (
-          <ProtectedRoute requireVerified requireAdmin>
+          <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AuditLogsPage />
             </AdminLayout>
@@ -323,7 +253,7 @@ function Router() {
         )}
       </Route>
       
-      {/* Fallback to 404 */}
+      {/* Catch all route */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -331,28 +261,22 @@ function Router() {
 
 function AppContent() {
   const [location] = useLocation();
-  const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].includes(location);
-  const isAdminPage = location.startsWith('/admin');
-  
   return (
-    <>
-      <Router />
-      {/* Only show CustomerSupport component when not on auth pages or admin pages */}
-      {!isAuthPage && !isAdminPage && <CustomerSupport whatsappNumber="+1234567890" />}
-    </>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Router />
+        <Toaster />
+        {!(location.startsWith('/admin')) && <CustomerSupport />}
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <Toaster />
-          <AppContent />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

@@ -104,6 +104,8 @@ export interface IStorage {
   getAllTransactionsForExport(): Promise<Transaction[]>;
   getMaintenanceSettings(): Promise<Setting | undefined>;
   updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting>;
+  getSystemSettings(): Promise<any>;
+  updateSystemSettings(settings: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,7 +129,7 @@ export class DatabaseStorage implements IStorage {
         { name: 'withdrawalFee', value: '5', description: 'Withdrawal fee percentage' },
         { name: 'referralBonus', value: '10', description: 'Referral bonus percentage' },
         { name: 'maintenanceMode', value: 'false', description: 'System maintenance mode' },
-        { name: 'contactEmail', value: process.env.CONTACT_EMAIL || 'support@caraxfinance.com', description: 'Support contact email' }
+        { name: 'contactEmail', value: process.env.CONTACT_EMAIL || 'support@axixfinance.com', description: 'Support contact email' }
       ];
       
       // Create or update required settings
@@ -978,6 +980,21 @@ export class DatabaseStorage implements IStorage {
       .from(transactions)
       .where(eq(transactions.type, 'deposit'));
     return result[0]?.count || 0;
+  }
+
+  async getSystemSettings(): Promise<any> {
+    const result = await db.select()
+      .from(settings)
+      .where(eq(settings.type, 'system'));
+    return result[0] || null;
+  }
+
+  async updateSystemSettings(settings: any): Promise<any> {
+    const result = await db.update(settings)
+      .set(settings)
+      .where(eq(settings.type, 'system'))
+      .returning();
+    return result[0] || null;
   }
 
   async updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {

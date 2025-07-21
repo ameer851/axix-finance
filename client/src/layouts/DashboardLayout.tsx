@@ -258,7 +258,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
                 <div className="flex-shrink-0 flex items-center px-4">
                   <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">C</div>
-                  <span className="ml-2 text-xl font-bold text-primary">Carax Finance</span>
+                  <span className="ml-2 text-xl font-bold text-primary">Axix Finance</span>
                 </div>
                 <nav className="mt-5 px-2 space-y-1">
                   {navItems.map((item) => {
@@ -340,7 +340,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   {greeting}, {user?.firstName || 'User'}!
                 </h1>
                 <p className="text-gray-600 dark:text-gray-300">
-                  Welcome to your Carax Finance dashboard. Manage your investments and track your portfolio performance.
+                  Welcome to your Axix Finance dashboard. Manage your investments and track your portfolio performance.
                 </p>
               </div>
               
@@ -351,7 +351,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       </div>
 
       {/* Customer Support Floating Buttons */}
-      <CustomerSupport whatsappNumber="" />
+      {!(location.startsWith('/admin')) && <CustomerSupport whatsappNumber="12709703891" />}
     </div>
   );
 };

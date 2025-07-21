@@ -1,5 +1,5 @@
 /**
- * CSRF Protection utility for CaraxFinance
+ * CSRF Protection utility for Axix Finance
  * Implements Cross-Site Request Forgery protection measures
  */
 

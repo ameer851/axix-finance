@@ -1,7 +1,7 @@
 version: "2"
 authtoken: 2wb9fba0oPuBK1mcZ2cOj0hZioH_68hSzwoGoYfiZjRoiQumf
 tunnels:
-  caraxfinance:
+  axixfinance:
     addr: 4000
     proto: http
     hostname: # Leave empty for free tier, or add custom domain for paid plans
@@ -23,7 +23,7 @@ tunnels:
         - "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization"
 
   # Alternative tunnel for development/testing
-  caraxfinance-dev:
+  axixfinance-dev:
     addr: 4000
     proto: http
     subdomain: # Add custom subdomain if you have paid plan

@@ -24,6 +24,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   useEffect(() => {    // Fetch real admin stats from API
     const fetchStats = async () => {
       try {
@@ -44,6 +47,63 @@ export default function AdminDashboard() {
 
     fetchStats();
   }, [toast]);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!currentPassword || !newPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all password fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Error",
+        description: "New password must be at least 8 characters long",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/update-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update password');
+      }
+
+      toast({
+        title: "Success",
+        description: "Password updated successfully",
+      });
+      
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (error) {
+      console.error('Error updating password:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update password. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -96,6 +156,45 @@ export default function AdminDashboard() {
           <p className={`text-3xl font-bold ${stats.maintenanceMode ? 'text-red-600' : 'text-green-600'}`}>
             {stats.maintenanceMode ? 'Maintenance' : 'Operational'}
           </p>
+        </div>
+
+        {/* Change Password Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Change Admin Password</h3>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Current Password
+              </label>
+              <input
+                type="password"
+                id="currentPassword"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                New Password
+              </label>
+              <input
+                type="password"
+                id="newPassword"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Change Password
+            </button>
+          </form>
         </div>
       </div>
 

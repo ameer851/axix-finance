@@ -22,7 +22,7 @@ async function updateAdminPassword() {
     
     if (updatedUser) {
       console.log('✅ Admin password updated successfully!');
-      console.log('📧 Email: admin@caraxfinance.com');
+      console.log('📧 Email: admin@axixfinance.com');
       console.log('👤 Username: admin');
       console.log('🔑 Password: Carax@admin123!');
       console.log('🛡️  Role:', updatedUser.role);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import caraxVideo from '@/assets/Video/carxvid.mp4';
+import axixVideo from '@/assets/Video/axixvid.mp4';
 
 const VideoSection: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -31,10 +31,10 @@ const VideoSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-extrabold text-secondary dark:text-white sm:text-4xl">
-            See How Carax Finance Works
+            Discover Axix Finance
           </h2>
           <p className="mt-4 text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Get a quick overview of our investment platform and discover how easy it is to start earning daily returns.
+            Explore our innovative investment solutions and start growing your wealth today.
           </p>
         </div>
 
@@ -46,7 +46,7 @@ const VideoSection: React.FC = () => {
             muted
             playsInline
           >
-            <source src={caraxVideo} type="video/mp4" />
+            <source src={axixVideo} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
           

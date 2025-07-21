@@ -348,20 +348,8 @@ export async function depositFunds(data: {
   }
   
   try {
-    // In a real app, this would make an API call
-    // const response = await apiRequest('POST', `/api/transactions/deposit`, data);
-    // return await response.json();
-    
-    // For development, return mock success
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          amount: data.amount,
-          transactionId: Math.floor(Math.random() * 1000) + 1
-        });
-      }, 1000);
-    });
+    const response = await apiRequest('POST', `/api/transactions/deposit`, data);
+    return await response.json();
   } catch (error: any) {
     console.error('Error depositing funds:', error);
     

@@ -186,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       toast({
         title: "Registration successful",
-        description: `Welcome to CaraxFinance, ${newUser.firstName || newUser.username}!`,
+        description: `Welcome to Axix Finance, ${newUser.firstName || newUser.username}!`,
         variant: "default",
       });
       

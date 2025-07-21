@@ -5,11 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: string | number): string {
+export function formatCurrency(amount: string | number, currency: string = 'USD'): string {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'EUR',
+    currency: currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(numAmount);

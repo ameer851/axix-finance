@@ -25,7 +25,7 @@ const Marketing: React.FC = () => {
                 <h3 className="text-2xl font-semibold text-gray-700 mb-3">Coming Soon</h3>
                 <p className="text-gray-500">
                   Our marketing materials library is currently being developed. Soon you'll have access to 
-                  professional banners, images, and content to help you promote CaraxFinance effectively.
+                  professional banners, images, and content to help you promote Axix Finance effectively.
                 </p>
               </div>
             </div>

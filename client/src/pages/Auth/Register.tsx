@@ -99,11 +99,11 @@ const Register: React.FC = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex flex-col justify-center items-center mb-4">
-            <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Carax Finance</h1>
+            <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Axix Finance</h1>
           </div>
           <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
           <CardDescription className="text-center">
-            Enter your information to get started with Carax Finance
+            Enter your information to get started with Axix Finance
           </CardDescription>
         </CardHeader>
         <CardContent>
