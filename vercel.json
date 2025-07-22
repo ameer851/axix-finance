@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "name": "axix-finance",
+  "name": "axixfinance",
   "builds": [
     {
-      "src": "client/src/**/*",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist"
@@ -22,8 +22,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "framework": "vite",
-  "env": {
-    "VITE_API_URL": "https://your-render-app.onrender.com"
-  }
+  "framework": "vite"
 }
