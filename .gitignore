@@ -35,4 +35,15 @@ tmp/
 supabase/.temp/
 supabase/.branches/
 supabase/.output/
+
+# Large files (use alternative hosting for large assets)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.zip
+*.rar
+*.7z
+*.tar.gz
 temp/
