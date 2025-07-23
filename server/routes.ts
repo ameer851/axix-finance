@@ -515,28 +515,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.id);
       
+      // Validate user ID
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+      
       // Prevent admin from deleting themselves
       if (userId === req.user!.id) {
         return res.status(400).json({ message: 'Cannot delete your own account' });
       }
       
+      // Check if user exists before attempting to delete
+      const userToDelete = await storage.getUser(userId);
+      if (!userToDelete) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
       const deleted = await storage.deleteUser(userId);
       
       if (!deleted) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(500).json({ message: 'Failed to delete user due to database constraints' });
       }
 
       // Log admin action
       await storage.createLog({
         type: "warning",
         userId: req.user!.id,
-        message: `Admin deleted user ${userId}`,
-        details: { targetUserId: userId }
+        message: `Admin deleted user ${userId} (${userToDelete.username})`,
+        details: { 
+          targetUserId: userId,
+          targetUsername: userToDelete.username,
+          targetEmail: userToDelete.email
+        }
       });
 
-      res.json({ message: 'User deleted successfully' });
+      res.json({ 
+        message: 'User deleted successfully',
+        deletedUser: {
+          id: userId,
+          username: userToDelete.username,
+          email: userToDelete.email
+        }
+      });
     } catch (error) {
       console.error('Error deleting user:', error);
+      
+      // Check if it's a foreign key constraint error
+      if (error instanceof Error && error.message.includes('foreign key constraint')) {
+        return res.status(409).json({ 
+          message: 'Cannot delete user: User has associated records that prevent deletion',
+          error: 'foreign_key_constraint'
+        });
+      }
+      
       res.status(500).json({ message: 'Failed to delete user' });
     }
   });
@@ -1028,9 +1059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'deposit',
         amount: amount.toString(),
         status: 'pending',
-        method: method || 'bank_transfer',
-        currency: currency || 'USD',
-        description: `Deposit via ${method || 'bank_transfer'}`
+        description: `Deposit via ${method || 'bank_transfer'} (${currency || 'USD'})`
       });
 
       // Create notification for the user

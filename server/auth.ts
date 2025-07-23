@@ -12,7 +12,7 @@ import { User as SelectUser } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import MemoryStore from "memorystore";
-import { sendVerificationEmail } from "./emailService";
+import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import jwt from "jsonwebtoken";
 
 // Define base user interface to avoid recursion
@@ -338,14 +338,14 @@ export function setupAuth(app: Express) {
       // Hash the password before storing
       const hashedPassword = await hashPassword(req.body.password);
 
-      // Create user with default values
+      // Create user with default values (auto-verified)
       const user = await storage.createUser({
         ...req.body,
         password: hashedPassword,
         role: "user",
         balance: "0",
         isActive: true,
-        isVerified: false,
+        isVerified: true, // Auto-verify new users
         twoFactorEnabled: false,
         referredBy: req.body.referredBy || null
       });
@@ -359,17 +359,11 @@ export function setupAuth(app: Express) {
       await storage.createLog({
         type: "info",
         userId: user.id,
-        message: "User account created"
+        message: "User account created and auto-verified"
       });
 
-      // Generate verification token and send verification email
-      const token = generateEmailVerificationToken(user.id, user.email);
-      
-      // Save token to database
-      await saveVerificationToken(user.id, token);
-      
-      // Send the verification email
-      await sendVerificationEmail(user, token);
+      // Send welcome email with credentials instead of verification email
+      await sendWelcomeEmail(user, req.body.password);
 
       // Log the user in
       req.login(user, (err) => {
@@ -379,7 +373,7 @@ export function setupAuth(app: Express) {
         const { password, ...userWithoutPassword } = user;
         res.status(201).json({
           ...userWithoutPassword,
-          message: "Please check your email to verify your account"
+          message: "Account created successfully! Check your email for login credentials."
         });
       });
     } catch (error: any) {

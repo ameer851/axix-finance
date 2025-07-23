@@ -12,7 +12,7 @@ async function updateAdminPassword() {
       return;
     }
       // Hash the password
-    const hashedPassword = await hashPassword('Carax@admin123!');
+    const hashedPassword = await hashPassword('Axix@secureAdmin2023!');
     
     // Update admin user password and verification status
     const updatedUser = await storage.updateUser(user.id, {

@@ -183,10 +183,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const newUser = await registerService(userData);
       setUser(newUser);
-      
-      toast({
+        toast({
         title: "Registration successful",
-        description: `Welcome to Axix Finance, ${newUser.firstName || newUser.username}!`,
+        description: `Welcome to Axix Finance, ${newUser.firstName || newUser.username}! Check your email for login credentials.`,
         variant: "default",
       });
       

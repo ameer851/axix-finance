@@ -33,7 +33,7 @@ import ClientDashboard from "@/pages/Client/ClientDashboard";
 // Admin pages
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
-import UsersPage from "@/pages/admin/UsersPage";
+import AdminUsers from "@/pages/admin/AdminUsers";
 import MaintenancePage from "@/pages/admin/MaintenancePage";
 import DepositsPage from "@/pages/admin/DepositsPage";
 import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
@@ -197,12 +197,11 @@ function Router() {
             </AdminLayout>
           </ProtectedRoute>
         )}
-      </Route>
-      <Route path="/admin/users">
+      </Route>      <Route path="/admin/users">
         {() => (
           <ProtectedRoute requireAdmin>
             <AdminLayout>
-              <UsersPage />
+              <AdminUsers />
             </AdminLayout>
           </ProtectedRoute>
         )}

@@ -97,14 +97,12 @@ export interface IStorage {
   updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;
   getWithdrawals(options: { limit: number; offset: number; search?: string; status?: string; dateFrom?: string; dateTo?: string; method?: string; amountMin?: number; amountMax?: number }): Promise<Transaction[]>;
   getWithdrawalCount(): Promise<number>;
-  updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;
-  getAuditLogs(options: { limit: number; offset: number; search?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<Log[]>;
+  updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;  getAuditLogs(options: { limit: number; offset: number; search?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<Log[]>;
   getAuditLogCount(): Promise<number>;
   getAllUsersForExport(): Promise<User[]>;
   getAllTransactionsForExport(): Promise<Transaction[]>;
   getMaintenanceSettings(): Promise<Setting | undefined>;
-  updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting>;
-  getSystemSettings(): Promise<any>;
+  updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting>;  getSystemSettings(): Promise<any>;
   updateSystemSettings(settings: any): Promise<any>;
 }
 
@@ -374,14 +372,64 @@ export class DatabaseStorage implements IStorage {
       console.error('Error updating user:', error);
       return undefined;
     }
-  }
-
-  async deleteUser(userId: number): Promise<boolean> {
+  }  async deleteUser(userId: number): Promise<boolean> {
     try {
-      await db.delete(users).where(eq(users.id, userId));
+      // Start a transaction to ensure data consistency
+      await db.transaction(async (tx) => {
+        // First, handle referral relationships - set referredBy to null for users who were referred by this user
+        await tx.update(users)
+          .set({ referredBy: null })
+          .where(eq(users.referredBy, userId));
+        
+        // Delete related records that reference this user
+        // Delete logs associated with this user
+        await tx.delete(logs).where(eq(logs.userId, userId));
+        
+        // Delete transactions associated with this user
+        await tx.delete(transactions).where(eq(transactions.userId, userId));
+        
+        // Delete notifications associated with this user
+        await tx.delete(notifications).where(eq(notifications.userId, userId));
+        
+        // Delete messages where this user is the sender, or set respondedBy to null if this user was the responder
+        await tx.delete(messages).where(eq(messages.userId, userId));
+        await tx.update(messages)
+          .set({ respondedBy: null })
+          .where(eq(messages.respondedBy, userId));
+        
+        // Finally, delete the user
+        await tx.delete(users).where(eq(users.id, userId));
+      });
+      
       return true;
     } catch (error) {
       console.error('Error deleting user:', error);
+      return false;
+    }
+  }
+
+  async updateUserBalance(userId: number, amount: number): Promise<boolean> {
+    try {
+      // Get current user balance
+      const user = await this.getUser(userId);
+      if (!user) {
+        console.error('User not found for balance update:', userId);
+        return false;
+      }
+
+      const currentBalance = parseFloat(user.balance as string);
+      const newBalance = currentBalance + amount;
+
+      // Update user balance
+      await db.update(users)
+        .set({ 
+          balance: newBalance.toString(),
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+    return true;
+    } catch (error) {
+      console.error('Error updating user balance:', error);
       return false;
     }
   }
@@ -981,20 +1029,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(transactions.type, 'deposit'));
     return result[0]?.count || 0;
   }
-
   async getSystemSettings(): Promise<any> {
     const result = await db.select()
-      .from(settings)
-      .where(eq(settings.type, 'system'));
-    return result[0] || null;
+      .from(settings);
+    return result;
   }
 
-  async updateSystemSettings(settings: any): Promise<any> {
-    const result = await db.update(settings)
-      .set(settings)
-      .where(eq(settings.type, 'system'))
-      .returning();
-    return result[0] || null;
+  async updateSystemSettings(settingsData: any): Promise<any> {
+    // Update each setting individually by name
+    const results = [];
+    for (const [name, value] of Object.entries(settingsData)) {
+      const result = await db.update(settings)
+        .set({ value: value as string, updatedAt: new Date() })
+        .where(eq(settings.name, name))
+        .returning();
+      results.push(result[0]);
+    }
+    return results;
   }
 
   async updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {

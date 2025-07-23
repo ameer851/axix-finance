@@ -23,6 +23,7 @@ const formSchema = z.object({
   firstName: z.string().min(2, { message: 'First name must be at least 2 characters' }),
   lastName: z.string().min(2, { message: 'Last name must be at least 2 characters' }),
   email: z.string().email({ message: 'Please enter a valid email address' }),
+  confirmEmail: z.string().email({ message: 'Please enter a valid email address' }),
   username: z.string().min(3, { message: 'Username must be at least 3 characters' }),
   // Wallet address fields - they're all optional
   bitcoinAddress: z.string().optional(),
@@ -38,6 +39,9 @@ const formSchema = z.object({
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
+}).refine((data) => data.email === data.confirmEmail, {
+  message: "Email addresses don't match",
+  path: ["confirmEmail"],
 });
 
 const Register: React.FC = () => {
@@ -47,13 +51,13 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { toast } = useToast();
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
       email: '',
+      confirmEmail: '',
       username: '',
       bitcoinAddress: '',
       bitcoinCashAddress: '',
@@ -65,19 +69,18 @@ const Register: React.FC = () => {
       terms: false,
     },
   });
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
       // Extract only the fields we need for registration
-      const { confirmPassword, terms, ...registerData } = values;
+      const { confirmPassword, confirmEmail, terms, ...registerData } = values;
       
       await register({
         ...registerData,
         role: 'user'
       });      toast({
         title: "Registration successful",
-        description: "Welcome to Axix Finance!",
+        description: "Check your email for your login credentials!",
       });
       
       navigate('/dashboard');
@@ -106,8 +109,7 @@ const Register: React.FC = () => {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="firstName"
@@ -115,7 +117,7 @@ const Register: React.FC = () => {
                     <FormItem>
                       <FormLabel>First name</FormLabel>
                       <FormControl>
-                        <Input placeholder="John" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -128,7 +130,7 @@ const Register: React.FC = () => {
                     <FormItem>
                       <FormLabel>Last name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Doe" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -143,7 +145,21 @@ const Register: React.FC = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="john.doe@example.com" {...field} />
+                      <Input type="email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="confirmEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -32,32 +32,6 @@ const Certificates: React.FC = () => {
                 <p className="text-center font-medium">License</p>
               </div>
             </div>
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-neutral-900 rounded-md">
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">License Type:</span> Exclusive
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Regulated By:</span> CB Payments Ltd
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Email Address:</span> support@axix-finance.co
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Website:</span> Anniss.co
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Address:</span> 65 Avenue John F. Kennedy, 37200 Tours, France
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Effective Date:</span> 02-08-2023
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Expiry Date:</span> 01-09-2028
-              </p>
-              <p className="text-gray-700 dark:text-gray-300 mt-2">
-                The FCA is a financial regulatory body in the United Kingdom, operating independently of the UK Government, financed by charging fees to members of the financial services industry.
-              </p>
-            </div>
           </div>
 
           {/* IIROC Section */}
@@ -76,29 +50,6 @@ const Certificates: React.FC = () => {
                 </div>
                 <p className="text-center font-medium">License</p>
               </div>
-            </div>
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-neutral-900 rounded-md">
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">License Type:</span> Market Making (MM)
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Licensed Institution:</span> OANDA (Canada) Corporation ULC
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Email Address:</span> info@fxtrade.com
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Address:</span> 370 King Street West 2nd Floor, P.O. Box 19043 Toronto, Ontario, Canada, M5V 1J9
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Effective Date:</span> 01-02-2022
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">Expiry Date:</span> 02-03-2026
-              </p>
-              <p className="text-gray-700 dark:text-gray-300 mt-2">
-                IIROC oversees investment dealers and trading activity in Canada's debt and equity markets, ensuring fair and transparent capital markets.
-              </p>
             </div>
           </div>
         </div>
