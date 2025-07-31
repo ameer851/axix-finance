@@ -21,7 +21,6 @@
     "build:prod": "NODE_ENV=production npm run build",
     "start:prod": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview",
-    "postbuild": "npm run db:migrate",
     "deploy:check": "node scripts/pre-deployment-check.js",
     "deploy:prepare": "node prepare-vercel-deployment.js",
     "deploy:vercel": "npm run build && vercel"
