@@ -43,6 +43,5 @@ const VideoSection: React.FC = () => {
     </div>
   );
 };
-};
 
 export default VideoSection;
