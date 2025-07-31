@@ -67,7 +67,7 @@ const Transactions: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
-    queryKey: [`/api/users/${user?.id}/transactions`],
+    queryKey: [`/users/${user?.id}/transactions`],
     enabled: !!user,
   });
 
@@ -95,7 +95,7 @@ const Transactions: React.FC = () => {
       return createTransaction(transaction);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/transactions`] });
+      queryClient.invalidateQueries({ queryKey: [`/users/${user?.id}/transactions`] });
       toast({
         title: 'Transaction created',
         description: 'Your transaction has been submitted and is pending approval.',
@@ -340,3 +340,4 @@ const Transactions: React.FC = () => {
 };
 
 export default Transactions;
+

@@ -207,6 +207,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
               type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setDate(undefined)}
+              aria-label="Clear date filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -219,6 +220,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
               type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setType('all')}
+              aria-label="Clear type filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -231,6 +233,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
               type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setStatus('all')}
+              aria-label="Clear status filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -246,6 +249,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
                 setMinAmount('');
                 setMaxAmount('');
               }}
+              aria-label="Clear amount filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -258,6 +262,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({ onFilter }) => {
               type="button"
               className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               onClick={() => setSearch('')}
+              aria-label="Clear search filter"
             >
               <X className="h-3 w-3" />
             </button>

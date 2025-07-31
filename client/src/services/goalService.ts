@@ -10,7 +10,7 @@ export async function getGoals(userId?: number | string): Promise<Goal[]> {
   }
   
   try {
-    const response = await apiRequest('GET', `/api/goals?userId=${userId}`);
+    const response = await apiRequest('GET', `/goals?userId=${userId}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching goals:', error);
@@ -23,7 +23,7 @@ export async function getGoals(userId?: number | string): Promise<Goal[]> {
  */
 export async function getGoal(goalId: string): Promise<Goal> {
   try {
-    const response = await apiRequest('GET', `/api/goals/${goalId}`);
+    const response = await apiRequest('GET', `/goals/${goalId}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching goal:', error);
@@ -36,7 +36,7 @@ export async function getGoal(goalId: string): Promise<Goal> {
  */
 export async function createGoal(goalData: Partial<Goal>): Promise<Goal> {
   try {
-    const response = await apiRequest('POST', '/api/goals', goalData);
+    const response = await apiRequest('POST', '/goals', goalData);
     return await response.json();
   } catch (error: any) {
     console.error('Error creating goal:', error);
@@ -49,7 +49,7 @@ export async function createGoal(goalData: Partial<Goal>): Promise<Goal> {
  */
 export async function updateGoal(goalId: string, goalData: Partial<Goal>): Promise<Goal> {
   try {
-    const response = await apiRequest('PUT', `/api/goals/${goalId}`, goalData);
+    const response = await apiRequest('PUT', `/goals/${goalId}`, goalData);
     return await response.json();
   } catch (error: any) {
     console.error('Error updating goal:', error);
@@ -62,7 +62,7 @@ export async function updateGoal(goalId: string, goalData: Partial<Goal>): Promi
  */
 export async function deleteGoal(goalId: string): Promise<void> {
   try {
-    await apiRequest('DELETE', `/api/goals/${goalId}`);
+    await apiRequest('DELETE', `/goals/${goalId}`);
   } catch (error: any) {
     console.error('Error deleting goal:', error);
     throw new Error(error.message || 'Failed to delete goal. Please try again later.');

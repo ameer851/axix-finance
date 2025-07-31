@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Calendar, Filter, X, Search, Download } from 'lucide-react';
 
-interface AdminFiltersProps {
+export interface AdminFiltersProps {
   onFilterChange: (filters: FilterState) => void;
   onExport?: (format: 'csv' | 'pdf') => void;
   showExport?: boolean;
+  onCleanupDeleted?: () => void;
   filterOptions?: {
     showDateRange?: boolean;
     showAmountRange?: boolean;
@@ -30,6 +31,7 @@ export default function AdminFilters({
   onFilterChange, 
   onExport, 
   showExport = true,
+  onCleanupDeleted,
   filterOptions = {}
 }: AdminFiltersProps) {
   const [filters, setFilters] = useState<FilterState>({});
@@ -71,10 +73,24 @@ export default function AdminFilters({
     ).join(' ');
   };
 
+  // Debug log
+  console.log('AdminFilters props:', { onCleanupDeleted, showExport, filterOptions });
+
   return (
     <div className="bg-white p-4 rounded-lg shadow mb-6">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">          <button
+        <div className="flex items-center gap-4">
+          {onCleanupDeleted && (
+            <button
+              onClick={onCleanupDeleted}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              title="Permanently remove all deleted users that have no associated records"
+            >
+              <X size={16} />
+              Cleanup Deleted
+            </button>
+          )}
+          <button
             onClick={() => setIsOpen(!isOpen)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             aria-label={`${isOpen ? 'Close' : 'Open'} filters panel`}

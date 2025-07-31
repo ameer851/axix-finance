@@ -1,10 +1,17 @@
 import { User, InsertUser } from '@shared/schema';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import config from '@/config';
+
+// Extended User type for registration responses
+interface RegistrationUser extends User {
+  _shouldRedirectToLogin?: boolean;
+  _registrationMessage?: string;
+}
 
 // Check if the server is available
 export async function checkServerConnection(): Promise<boolean> {
   try {
-    const response = await fetch('/api/health', { 
+    const response = await fetch(`${config.apiUrl}/api/health`, { 
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       // Short timeout to quickly detect server issues
@@ -20,7 +27,7 @@ export async function checkServerConnection(): Promise<boolean> {
 export async function login(username: string, password: string): Promise<User> {
   try {
     // First check if the server is reachable with a longer timeout
-    const isServerAvailable = await fetch('/api/health', { 
+    const isServerAvailable = await fetch(`${config.apiUrl}/api/health`, { 
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       // Longer timeout for more reliable connection check
@@ -35,7 +42,7 @@ export async function login(username: string, password: string): Promise<User> {
     // Attempt login for user
     
     // Use a direct fetch call with explicit error handling for login
-    const response = await fetch('/api/login', {
+    const response = await fetch(`${config.apiUrl}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -78,16 +85,54 @@ export async function login(username: string, password: string): Promise<User> {
   }
 }
 
-export async function register(userData: Omit<InsertUser, 'password'> & { password: string }): Promise<User> {
+export async function register(userData: Omit<InsertUser, 'password'> & { password: string }): Promise<RegistrationUser> {
   try {
     const response = await apiRequest('POST', '/api/register', userData);
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Registration failed');
     }
-    const newUser = await response.json();
-    localStorage.setItem('user', JSON.stringify(newUser));
-    return newUser;
+    const registrationResponse = await response.json();
+    
+    // New response format: { success: true, message: "...", username: "...", email: "...", redirectTo: "/login", emailSent: true }
+    // We don't store user data or log them in automatically anymore
+    // Return a minimal user object for compatibility, but don't store it
+    if (registrationResponse.success) {
+      // Return a minimal user object for compatibility
+      // This won't be stored in localStorage since we're not logging them in
+      return {
+        id: 0, // Temporary ID since we don't have the actual user object
+        username: registrationResponse.username,
+        email: registrationResponse.email,
+        firstName: '',
+        lastName: '',
+        isVerified: true,
+        isActive: true,
+        role: 'user' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        balance: '0',
+        password: '', // Required by User type but not used
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        verificationToken: null,
+        verificationTokenExpiry: null,
+        passwordResetToken: null,
+        passwordResetTokenExpiry: null,
+        pendingEmail: null,
+        referredBy: null,
+        bitcoinAddress: null,
+        bitcoinCashAddress: null,
+        ethereumAddress: null,
+        bnbAddress: null,
+        usdtTrc20Address: null,
+        // This is a flag to indicate the user should be redirected to login
+        _shouldRedirectToLogin: true,
+        _registrationMessage: registrationResponse.message
+      } as RegistrationUser;
+    } else {
+      throw new Error(registrationResponse.message || 'Registration failed');
+    }
   } catch (error: any) {
     if (error.message?.includes('Username already exists')) {
       throw new Error('This username is already taken. Please choose another.');
@@ -101,7 +146,7 @@ export async function register(userData: Omit<InsertUser, 'password'> & { passwo
 
 export async function logout(): Promise<void> {
   try {
-    const response = await apiRequest('POST', '/api/logout');
+    const response = await apiRequest('POST', '/logout');
     if (!response.ok) {
       console.warn('Logout API returned an error, but proceeding with local logout');
     }
@@ -117,7 +162,7 @@ export async function logout(): Promise<void> {
 
 export async function getCurrentUserFromServer(): Promise<User | null> {
   try {
-    const response = await apiRequest('GET', '/api/user');
+    const response = await apiRequest('GET', '/user');
     if (!response.ok) {
       if (response.status === 401) {
         // Not authenticated, clear local storage
@@ -161,7 +206,7 @@ export async function verifyEmail(token: string): Promise<{ success: boolean; me
 
 export async function resendVerificationEmail(): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await apiRequest('POST', '/api/resend-verification');
+    const response = await apiRequest('POST', '/resend-verification');
     const data = await response.json();
     return {
       success: true, 
@@ -177,7 +222,7 @@ export async function resendVerificationEmail(): Promise<{ success: boolean; mes
 
 export async function forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await apiRequest('POST', '/api/auth/forgot-password', { email });
+    const response = await apiRequest('POST', '/auth/forgot-password', { email });
     const data = await response.json();
     return {
       success: true,
@@ -193,7 +238,7 @@ export async function forgotPassword(email: string): Promise<{ success: boolean;
 
 export async function resetPassword(token: string, password: string): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await apiRequest('POST', '/api/auth/reset-password', { token, password });
+    const response = await apiRequest('POST', '/auth/reset-password', { token, password });
     const data = await response.json();
     return {
       success: true,
@@ -212,7 +257,7 @@ export async function resetPassword(token: string, password: string): Promise<{ 
  */
 export async function changePassword(userId: number, currentPassword: string, newPassword: string): Promise<{ message: string }> {
   try {
-    const response = await apiRequest('POST', '/api/change-password', {
+    const response = await apiRequest('POST', '/change-password', {
       userId,
       currentPassword,
       newPassword

@@ -38,7 +38,7 @@ const ForgotPassword: React.FC = () => {
     setIsLoading(true);
     try {
       // In a real application, we would call an API endpoint
-      await apiRequest('POST', '/api/auth/forgot-password', { email: values.email });
+      await apiRequest('POST', '/auth/forgot-password', { email: values.email });
       
       setIsSuccess(true);
       toast({

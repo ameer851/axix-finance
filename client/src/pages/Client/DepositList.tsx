@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Download, Filter, ChevronDown } from 'lucide-react';
+import { Search, Download, Filter, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 import { getUserDeposits } from '@/services/transactionService';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -20,13 +20,68 @@ const DepositList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
 
   // Fetch user deposits
-  const { data: deposits = [], isLoading, isError } = useQuery({
+  const { data: deposits = [], isLoading, isError, error } = useQuery({
     queryKey: ['deposits', user?.id],
     queryFn: () => getUserDeposits(user?.id),
     enabled: !!user?.id,
     staleTime: 60000, // 1 minute
     retry: 2
   });
+
+  // Handle error with toast
+  React.useEffect(() => {
+    if (isError && error) {
+      console.error('Deposits fetch error:', error);
+      toast({
+        title: 'Failed to retrieve deposits',
+        description: (error as any)?.message || 'Unable to load your deposits. Please refresh the page.',
+        variant: 'destructive'
+      });
+    }
+  }, [isError, error, toast]);
+
+  // Show error state
+  if (isError) {
+    return (
+      <div className="container mx-auto py-6 max-w-6xl">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <div className="text-red-500 mb-4">
+                <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold">Failed to retrieve deposits</h3>
+                <p className="text-gray-600 mt-2">{error?.message || 'Unable to load your deposits data.'}</p>
+              </div>
+              <Button 
+                onClick={() => window.location.reload()} 
+                variant="outline"
+                className="mt-4"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6 max-w-6xl">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading your deposits...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Handle search and filtering
   const filteredDeposits = deposits.filter((deposit: any) => {
@@ -148,7 +203,7 @@ const DepositList: React.FC = () => {
     {
       id: 'luxury',
       name: 'Luxury plan',
-      spentRange: '$20000.00 and more',
+      spentRange: '$20,000-UNLIMITED',
       dailyProfit: 7.5,
     },
   ];

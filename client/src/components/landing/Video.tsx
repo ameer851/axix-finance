@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import axixVideo from '@/assets/video/axixvid..mp4';
+import axixVideo from '@/assets/video/axixvid.mp4';
 
 const VideoSection: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);

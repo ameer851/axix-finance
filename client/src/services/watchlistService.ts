@@ -9,7 +9,7 @@ export async function getWatchlist(userId: number | string): Promise<string[]> {
       throw new Error('User ID is required');
     }
     
-    const response = await apiRequest('GET', `/api/users/${userId}/watchlist`);
+    const response = await apiRequest('GET', `/users/${userId}/watchlist`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching watchlist:', error);
@@ -36,7 +36,7 @@ export async function addToWatchlist(userId: number | string, symbol: string): P
       throw new Error('Symbol is required');
     }
     
-    const response = await apiRequest('POST', `/api/users/${userId}/watchlist`, {
+    const response = await apiRequest('POST', `/users/${userId}/watchlist`, {
       symbol
     });
     return await response.json();
@@ -64,7 +64,7 @@ export async function removeFromWatchlist(userId: number | string, symbol: strin
       throw new Error('Symbol is required');
     }
     
-    const response = await apiRequest('DELETE', `/api/users/${userId}/watchlist/${symbol}`);
+    const response = await apiRequest('DELETE', `/users/${userId}/watchlist/${symbol}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error removing from watchlist:', error);

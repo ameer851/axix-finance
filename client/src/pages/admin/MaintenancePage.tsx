@@ -1,320 +1,402 @@
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-
-interface MaintenanceSettings {
-  enabled: boolean;
-  message: string;
-  scheduledStart: string;
-  scheduledEnd: string;
-  allowedIPs: string[];
-}
-
-const defaultSettings: MaintenanceSettings = {
-  enabled: false,
-  message: "The system is currently under maintenance. Please try again later.",
-  scheduledStart: "",
-  scheduledEnd: "",
-  allowedIPs: []
-};
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminService } from '../../services/adminService';
+import { toast } from '../../hooks/use-toast';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Switch } from '../../components/ui/switch';
+import { Textarea } from '../../components/ui/textarea';
+import { Badge } from '../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Settings, AlertTriangle, Clock, Users, Server, Database, Shield, Save } from 'lucide-react';
 
 export default function MaintenancePage() {
-  const { toast } = useToast();
-  const [settings, setSettings] = useState<MaintenanceSettings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [newIP, setNewIP] = useState("");
+  const queryClient = useQueryClient();
+  const [maintenance, setMaintenance] = useState({
+    enabled: false,
+    message: 'The system is currently under maintenance. Please try again later.',
+    scheduledStart: '',
+    scheduledEnd: '',
+    allowAdminAccess: true,
+    maintenanceType: 'system',
+    affectedServices: [] as string[]
+  });
 
-  useEffect(() => {
-    const fetchMaintenanceSettings = async () => {
-      try {
-        const response = await fetch('/api/admin/maintenance', {
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch maintenance settings');
-        }
-        
-        const data = await response.json();
-        setSettings(data.settings || defaultSettings);
-      } catch (error) {
-        console.error('Error fetching maintenance settings:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load maintenance settings. Please try again.",
-          variant: "destructive"
-        });
-        setSettings(defaultSettings);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: serverMaintenance, isLoading } = useQuery({
+    queryKey: ['admin-maintenance'],
+    queryFn: adminService.getMaintenanceSettings
+  });
 
-    fetchMaintenanceSettings();
-  }, [toast]);
+  React.useEffect(() => {
+    if (serverMaintenance) {
+      setMaintenance(prev => ({
+        ...prev,
+        ...serverMaintenance,
+        affectedServices: serverMaintenance.affectedServices || []
+      }));
+    }
+  }, [serverMaintenance]);
 
-  if (loading) {
+  const updateMutation = useMutation({
+    mutationFn: adminService.updateMaintenanceSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-maintenance'] });
+      toast({ 
+        title: 'Success', 
+        description: maintenance.enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled'
+      });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update maintenance settings', variant: 'destructive' });
+    }
+  });
+
+  const handleInputChange = (field: string, value: any) => {
+    setMaintenance(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleServiceToggle = (service: string) => {
+    setMaintenance(prev => {
+      const currentServices = prev.affectedServices || [];
+      return {
+        ...prev,
+        affectedServices: currentServices.includes(service)
+          ? currentServices.filter(s => s !== service)
+          : [...currentServices, service]
+      };
+    });
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(maintenance);
+  };
+
+  const enableMaintenanceNow = () => {
+    const now = new Date();
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
+    
+    setMaintenance(prev => ({
+      ...prev,
+      enabled: true,
+      scheduledStart: now.toISOString().slice(0, 16),
+      scheduledEnd: endTime.toISOString().slice(0, 16)
+    }));
+  };
+
+  const disableMaintenanceNow = () => {
+    setMaintenance(prev => ({
+      ...prev,
+      enabled: false
+    }));
+  };
+
+  const availableServices = [
+    'deposits',
+    'withdrawals', 
+    'trading',
+    'portfolio',
+    'messaging',
+    'registration'
+  ];
+
+  if (isLoading) {
     return (
-      <div className="animate-pulse">
-        <div className="h-8 bg-gray-300 rounded w-1/3 mb-6"></div>
-        <div className="space-y-6">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-lg shadow">
-              <div className="h-4 bg-gray-300 rounded w-1/4 mb-4"></div>
-              <div className="h-10 bg-gray-300 rounded"></div>
-            </div>
-          ))}
-        </div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  const handleToggleMaintenance = async () => {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/admin/maintenance', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ enabled: !settings.enabled })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle maintenance mode');
-      }
-
-      setSettings(prev => ({ ...prev, enabled: !prev.enabled }));
-      toast({
-        title: "Success",
-        description: `Maintenance mode ${!settings.enabled ? 'enabled' : 'disabled'} successfully`,
-      });
-    } catch (error) {
-      console.error("Failed to toggle maintenance mode:", error);
-      toast({
-        title: "Error",
-        description: "Failed to toggle maintenance mode. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdateMessage = async () => {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/admin/maintenance', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ message: settings.message })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update maintenance message');
-      }
-
-      toast({
-        title: "Success",
-        description: "Maintenance message updated successfully",
-      });
-    } catch (error) {
-      console.error("Failed to update message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update maintenance message. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleScheduleMaintenance = async () => {
-    if (!settings.scheduledStart || !settings.scheduledEnd) {
-      toast({
-        title: "Error",
-        description: "Please select both start and end times for scheduled maintenance.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      const response = await fetch('/api/admin/maintenance', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          scheduledStart: settings.scheduledStart,
-          scheduledEnd: settings.scheduledEnd
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to schedule maintenance');
-      }
-
-      toast({
-        title: "Success",
-        description: "Maintenance scheduled successfully",
-      });
-    } catch (error) {
-      console.error("Failed to schedule maintenance:", error);
-      toast({
-        title: "Error",
-        description: "Failed to schedule maintenance. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddIP = () => {
-    if (newIP && !settings.allowedIPs.includes(newIP)) {
-      setSettings(prev => ({
-        ...prev,
-        allowedIPs: [...prev.allowedIPs, newIP]
-      }));
-      setNewIP("");
-    }
-  };
-
-  const handleRemoveIP = (ip: string) => {
-    setSettings(prev => ({
-      ...prev,
-      allowedIPs: prev.allowedIPs.filter(allowedIP => allowedIP !== ip)
-    }));
-  };
-
   return (
-    <div className="max-w-4xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Maintenance Mode</h1>
-
-      {/* Current Status */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Current Status</h2>
-            <p className={`text-lg font-medium ${settings.enabled ? 'text-red-600' : 'text-green-600'}`}>
-              {settings.enabled ? 'Maintenance Mode Active' : 'System Operational'}
-            </p>
-          </div>
-          <button
-            onClick={handleToggleMaintenance}
-            disabled={saving}
-            className={`px-6 py-3 rounded-lg font-medium text-white transition-colors ${
-              settings.enabled
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-red-600 hover:bg-red-700'
-            } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {saving ? 'Updating...' : (settings.enabled ? 'Disable Maintenance' : 'Enable Maintenance')}
-          </button>
-        </div>
-      </div>
-
-      {/* Maintenance Message */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Maintenance Message</h2>
-        <div className="space-y-4">
-          <textarea
-            value={settings.message}
-            onChange={(e) => setSettings(prev => ({ ...prev, message: e.target.value }))}
-            rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter the message users will see during maintenance..."
-          />
-          <button
-            onClick={handleUpdateMessage}
-            disabled={saving}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Updating...' : 'Update Message'}
-          </button>
-        </div>
-      </div>
-
-      {/* Scheduled Maintenance */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Schedule Maintenance</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
-            <input
-              type="datetime-local"
-              value={settings.scheduledStart}
-              onChange={(e) => setSettings(prev => ({ ...prev, scheduledStart: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Maintenance start time"
-              title="Select maintenance start time"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
-            <input
-              type="datetime-local"
-              value={settings.scheduledEnd}
-              onChange={(e) => setSettings(prev => ({ ...prev, scheduledEnd: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Maintenance end time"
-              title="Select maintenance end time"
-            />
-          </div>
-        </div>
-        <button
-          onClick={handleScheduleMaintenance}
-          disabled={saving}
-          className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? 'Scheduling...' : 'Schedule Maintenance'}
-        </button>
-      </div>
-
-      {/* Allowed IPs */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Allowed IP Addresses</h2>
-        <p className="text-gray-600 mb-4">These IP addresses will have access during maintenance mode.</p>
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={newIP}
-            onChange={(e) => setNewIP(e.target.value)}
-            placeholder="Enter IP address (e.g., 192.168.1.1)"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            onClick={handleAddIP}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-          >
-            Add IP
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {settings.allowedIPs.map((ip, index) => (
-            <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-              <span className="font-mono text-sm">{ip}</span>
-              <button
-                onClick={() => handleRemoveIP(ip)}
-                className="text-red-600 hover:text-red-800 text-sm"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          {settings.allowedIPs.length === 0 && (
-            <p className="text-gray-500 text-sm italic">No allowed IP addresses configured.</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Settings className="h-8 w-8" />
+          Maintenance Management
+        </h1>
+        <div className="flex gap-2">
+          {maintenance.enabled ? (
+            <Button 
+              onClick={disableMaintenanceNow} 
+              variant="outline"
+              className="border-green-600 text-green-600 hover:bg-green-50"
+            >
+              Disable Now
+            </Button>
+          ) : (
+            <Button 
+              onClick={enableMaintenanceNow} 
+              variant="outline"
+              className="border-orange-600 text-orange-600 hover:bg-orange-50"
+            >
+              Enable Now
+            </Button>
           )}
+          <Button 
+            onClick={handleSave} 
+            disabled={updateMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
         </div>
+      </div>
+
+      {/* Status Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Current Status
+            </span>
+            {maintenance.enabled ? (
+              <Badge className="bg-red-100 text-red-800">
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                MAINTENANCE ACTIVE
+              </Badge>
+            ) : (
+              <Badge className="bg-green-100 text-green-800">
+                <Server className="w-3 h-3 mr-1" />
+                SYSTEM OPERATIONAL
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {maintenance.enabled ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 font-semibold">🚧 System is currently in maintenance mode</p>
+              <p className="text-red-700 text-sm mt-1">
+                {maintenance.message}
+              </p>
+              {maintenance.scheduledEnd && (
+                <p className="text-red-600 text-sm mt-2">
+                  Scheduled end: {new Date(maintenance.scheduledEnd).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-800 font-semibold">✅ System is operational</p>
+              <p className="text-green-700 text-sm mt-1">
+                All services are running normally.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Maintenance Control */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Maintenance Control
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="maintenanceEnabled">Enable Maintenance Mode</Label>
+                <p className="text-sm text-gray-500">Put the system in maintenance mode</p>
+              </div>
+              <Switch
+                id="maintenanceEnabled"
+                checked={maintenance.enabled}
+                onCheckedChange={(checked) => handleInputChange('enabled', checked)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="maintenanceType">Maintenance Type</Label>
+              <Select 
+                value={maintenance.maintenanceType} 
+                onValueChange={(value) => handleInputChange('maintenanceType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select maintenance type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">System Maintenance</SelectItem>
+                  <SelectItem value="database">Database Maintenance</SelectItem>
+                  <SelectItem value="security">Security Update</SelectItem>
+                  <SelectItem value="feature">Feature Deployment</SelectItem>
+                  <SelectItem value="emergency">Emergency Maintenance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="maintenanceMessage">Maintenance Message</Label>
+              <Textarea
+                id="maintenanceMessage"
+                value={maintenance.message}
+                onChange={(e) => handleInputChange('message', e.target.value)}
+                placeholder="Enter message to display to users"
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Schedule Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Schedule Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="scheduledStart">Scheduled Start</Label>
+              <Input
+                id="scheduledStart"
+                type="datetime-local"
+                value={maintenance.scheduledStart}
+                onChange={(e) => handleInputChange('scheduledStart', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="scheduledEnd">Scheduled End</Label>
+              <Input
+                id="scheduledEnd"
+                type="datetime-local"
+                value={maintenance.scheduledEnd}
+                onChange={(e) => handleInputChange('scheduledEnd', e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="allowAdminAccess">Allow Admin Access</Label>
+                <p className="text-sm text-gray-500">Allow administrators to access during maintenance</p>
+              </div>
+              <Switch
+                id="allowAdminAccess"
+                checked={maintenance.allowAdminAccess}
+                onCheckedChange={(checked) => handleInputChange('allowAdminAccess', checked)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Affected Services */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Affected Services
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {availableServices.map((service) => (
+                <div key={service} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`service-${service}`}
+                    checked={maintenance.affectedServices?.includes(service) || false}
+                    onChange={() => handleServiceToggle(service)}
+                    className="rounded border-gray-300"
+                    aria-label={service}
+                  />
+                  <Label htmlFor={`service-${service}`} className="capitalize">
+                    {service}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            {(maintenance.affectedServices?.length || 0) > 0 && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 text-sm">
+                  <strong>Affected services:</strong> {maintenance.affectedServices?.join(', ') || ''}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Quick Actions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button
+              variant="outline"
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+              onClick={() => {
+                setMaintenance(prev => ({
+                  ...prev,
+                  maintenanceType: 'system',
+                  message: 'Scheduled system maintenance. We\'ll be back shortly.',
+                  affectedServices: []
+                }));
+              }}
+            >
+              <Server className="w-4 h-4 mr-2" />
+              System Maintenance
+            </Button>
+            <Button
+              variant="outline"
+              className="border-purple-600 text-purple-600 hover:bg-purple-50"
+              onClick={() => {
+                setMaintenance(prev => ({
+                  ...prev,
+                  maintenanceType: 'database',
+                  message: 'Database optimization in progress. Please try again later.',
+                  affectedServices: ['deposits', 'withdrawals', 'trading']
+                }));
+              }}
+            >
+              <Database className="w-4 h-4 mr-2" />
+              Database Update
+            </Button>
+            <Button
+              variant="outline"
+              className="border-red-600 text-red-600 hover:bg-red-50"
+              onClick={() => {
+                setMaintenance(prev => ({
+                  ...prev,
+                  maintenanceType: 'emergency',
+                  message: 'Emergency maintenance in progress. All services temporarily unavailable.',
+                  affectedServices: availableServices
+                }));
+              }}
+            >
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              Emergency Mode
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button at Bottom */}
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleSave} 
+          disabled={updateMutation.isPending}
+          size="lg"
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {updateMutation.isPending ? 'Saving...' : 'Save Maintenance Settings'}
+        </Button>
       </div>
     </div>
   );

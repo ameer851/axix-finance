@@ -59,7 +59,7 @@ const ResetPassword: React.FC = () => {
     setIsLoading(true);
     try {
       // In a real application, we would call an API endpoint
-      await apiRequest('POST', '/api/auth/reset-password', { 
+      await apiRequest('POST', '/auth/reset-password', { 
         token,
         password: values.password
       });

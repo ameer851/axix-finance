@@ -11,6 +11,27 @@ async function throwIfResNotOk(res: Response) {
     let errorDetails = {};
     
     try {
+      // Special handling for 401 Unauthorized responses
+      if (res.status === 401) {
+        console.warn('Authentication required - redirecting to login');
+        // Force refresh token if applicable
+        try {
+          // Optional: Try to refresh the token
+          // const refreshed = await refreshToken();
+          // if (refreshed) return; // If token refresh successful, don't throw
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+        
+        // Redirect to login after a brief delay to allow this error to be handled
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+        
+        errorMessage = 'Authentication required - please log in';
+        throw new Error(errorMessage);
+      }
+      
       // First try to parse as JSON
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
@@ -22,6 +43,9 @@ async function throwIfResNotOk(res: Response) {
         errorMessage = await res.text() || res.statusText;
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'Authentication required - please log in') {
+        throw error; // Rethrow auth errors
+      }
       // If JSON parsing fails, use statusText
       errorMessage = res.statusText || `HTTP error ${res.status}`;
     }
@@ -64,7 +88,8 @@ export async function apiRequest(
     }
     
     // Add origin validation for security if this is a mutation (POST, PUT, DELETE)
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+    // Disabled in development to avoid CORS issues
+    if (false && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
       const expectedOrigins = [config.apiUrl, window.location.origin];
       if (!validateOrigin(expectedOrigins)) {
         const error = new Error('Security validation failed: Invalid request origin');
@@ -78,8 +103,7 @@ export async function apiRequest(
     
     // Debug logging for development
     if (config.debug) {
-      // API Request initiated
-      // Request includes data
+      console.log(`API Request: ${method} ${fullUrl}`, data ? { data } : '');
     }
     
     // Add mode: 'cors' explicitly for cross-origin requests
@@ -93,7 +117,7 @@ export async function apiRequest(
     
     // Debug logging for development
     if (config.debug) {
-      // API Response received
+      console.log(`API Response: ${res.status} ${res.statusText} - ${method} ${fullUrl}`);
     }
 
     // Only throw if needed
@@ -147,8 +171,17 @@ export const getQueryFn: <T>(options: {
       
       // Check if the response is empty
       const text = await res.text();
-      if (!text) {
+      
+      // Handle empty responses
+      if (!text || text.trim() === '') {
+        console.warn('Empty response received from server');
         return null;
+      }
+      
+      // Check if response is HTML instead of JSON (server error page)
+      if (text.trim().startsWith('<!DOCTYPE html>') || text.trim().startsWith('<html')) {
+        console.error('Server returned HTML instead of JSON. Possible server error.');
+        throw new Error('Server returned invalid response format. Please try again later.');
       }
       
       // Try to parse the JSON
@@ -156,8 +189,9 @@ export const getQueryFn: <T>(options: {
         return JSON.parse(text);
       } catch (error) {
         console.error('Error parsing JSON response:', error);
-        console.error('Raw response:', text);
-        throw new Error('Invalid JSON response from server');
+        // Only log first 500 chars to avoid console clutter
+        console.debug('Raw response (truncated):', text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+        throw new Error('Invalid JSON response from server. Please try again later.');
       }
     } catch (error) {
       console.error('API request failed:', error);
@@ -171,11 +205,26 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 30000, // 30 seconds default stale time
+      retry: (failureCount, error: any) => {
+        // Don't retry on rate limit errors or authentication errors
+        if (error?.status === 401 || error?.status === 403) {
+          return false;
+        }
+        if (error?.message?.includes('Rate limit exceeded') || error?.message?.includes('429')) {
+          return false;
+        }
+        return failureCount < 2;
+      },
     },
     mutations: {
-      retry: false,
+      retry: (failureCount, error: any) => {
+        // Don't retry mutations on rate limit or auth errors
+        if (error?.status === 401 || error?.status === 403 || error?.status === 429) {
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
   },
 });

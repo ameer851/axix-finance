@@ -20,6 +20,8 @@ import Settings from "@/pages/Dashboard/Settings";
 
 // Client pages
 import Deposit from "@/pages/Client/Deposit";
+import DepositConfirmation from "@/pages/Client/DepositConfirmation";
+import DepositThankYou from "@/pages/Client/DepositThankYou";
 import DepositList from "@/pages/Client/DepositList";
 import Profile from "@/pages/Client/Profile";
 import Withdraw from "@/pages/Client/Withdraw";
@@ -27,8 +29,15 @@ import History from "@/pages/Client/History";
 import Referrals from "@/pages/Client/Referrals";
 import Marketing from "@/pages/Client/Marketing";
 import EditAccount from "@/pages/Client/EditAccount";
+import SimpleEditAccount from "@/pages/Client/SimpleEditAccount";
 import ClientSettings from "@/pages/Client/Settings";
 import ClientDashboard from "@/pages/Client/ClientDashboard";
+import DepositsHistory from "@/pages/Client/DepositsHistory";
+import WithdrawalHistory from "@/pages/Client/WithdrawalHistory";
+import DepositsHistoryPage from "@/pages/Client/DepositsHistoryPage";
+import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
+import DepositsListPage from "@/pages/Client/DepositsListPage";
+import EditAccountPage from "@/pages/Client/EditAccountPage";
 
 // Admin pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -39,11 +48,14 @@ import DepositsPage from "@/pages/admin/DepositsPage";
 import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
 import AuditLogsPage from "@/pages/admin/AuditLogsPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
+import VisitorsPage from "@/pages/admin/VisitorsPage";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
+import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { useEffect } from "react";
 import { Suspense, lazy } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import React from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ClientLayout from "@/pages/Client/ClientLayout";
@@ -72,6 +84,9 @@ function AdminRedirect() {
 function Router() {
   const { isAuthenticated, user } = useAuth();
   const [location, setLocation] = useLocation();
+  
+  // Enable visitor tracking for all users
+  useVisitorTracking();
 
   // Redirect authenticated users away from auth pages
   useEffect(() => {
@@ -95,7 +110,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
-      
+
       {/* User Routes */}
       <Route path="/dashboard">
         {() => (
@@ -115,11 +130,38 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/deposit-confirmation">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <DepositConfirmation />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/deposit-confirmation">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <DepositConfirmation />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/deposit-thank-you">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <DepositThankYou />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/deposit-list">
         {() => (
           <ProtectedRoute>
             <DashboardLayout>
-              <DepositList />
+              <DepositsListPage />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -173,7 +215,16 @@ function Router() {
         {() => (
           <ProtectedRoute requireVerified>
             <DashboardLayout>
-              <EditAccount />
+              <EditAccountPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/simple-edit-account">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <SimpleEditAccount />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -183,6 +234,24 @@ function Router() {
           <ProtectedRoute>
             <DashboardLayout>
               <ClientSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/deposits-history">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <DepositsHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/withdrawal-history">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <WithdrawalsHistoryPage />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -251,6 +320,15 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/admin/visitors">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <VisitorsPage />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       
       {/* Catch all route */}
       <Route component={NotFound} />
@@ -265,7 +343,11 @@ function AppContent() {
       <TooltipProvider>
         <Router />
         <Toaster />
-        {!(location.startsWith('/admin')) && <CustomerSupport />}
+        {!(location.startsWith('/admin')) && (
+          <ErrorBoundary fallback={<div className="hidden">Support unavailable</div>}>
+            <CustomerSupport />
+          </ErrorBoundary>
+        )}
       </TooltipProvider>
     </QueryClientProvider>
   );
@@ -273,9 +355,15 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        console.error("Root level error caught:", error, errorInfo);
+      }}
+    >
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

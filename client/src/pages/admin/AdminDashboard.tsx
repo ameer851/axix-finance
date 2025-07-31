@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { adminService } from "@/services/adminService";
+import { adminQueryConfig, handleAdminQueryError } from "@/lib/adminQueryConfig";
 
 interface DashboardStats {
   totalUsers: number;
@@ -12,41 +14,34 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
+  const queryClient = useQueryClient();
+  const [processing, setProcessing] = useState(false);
+  const { toast } = useToast();
+  
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
+  // Use React Query for admin stats with proper caching and error handling
+  const { 
+    data: stats, 
+    isLoading: loading, 
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: adminService.getStats,
+    ...adminQueryConfig.mediumFrequency
+  });
+
+  // Provide default values if stats is undefined
+  const dashboardStats = stats || {
     totalUsers: 0,
     activeUsers: 0,
     totalDeposits: 0,
     totalWithdrawals: 0,
     pendingTransactions: 0,
     maintenanceMode: false
-  });
-
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-  
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-
-  useEffect(() => {    // Fetch real admin stats from API
-    const fetchStats = async () => {
-      try {
-        const response = await apiRequest("GET", "/api/admin/stats");
-        const data = await response.json();
-        setStats(data);
-      } catch (error) {
-        console.error('Error fetching admin stats:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch dashboard statistics. Please try again.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [toast]);
+  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,23 +65,7 @@ export default function AdminDashboard() {
     }
 
     try {
-      const response = await fetch('/api/admin/update-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update password');
-      }
+      await adminService.updateAdminPassword(currentPassword, newPassword, newPassword);
 
       toast({
         title: "Success",
@@ -95,15 +74,17 @@ export default function AdminDashboard() {
       
       setCurrentPassword('');
       setNewPassword('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating password:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update password. Please try again.",
+        description: error.message || "Failed to update password. Please try again.",
         variant: "destructive"
       });
     }
   };
+
+  // Quick actions removed
 
   if (loading) {
     return (
@@ -128,33 +109,33 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Total Users</h3>
-          <p className="text-3xl font-bold text-blue-600">{stats.totalUsers.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-blue-600">{dashboardStats.totalUsers.toLocaleString()}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Active Users</h3>
-          <p className="text-3xl font-bold text-green-600">{stats.activeUsers.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-green-600">{dashboardStats.activeUsers.toLocaleString()}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Total Deposits</h3>
-          <p className="text-3xl font-bold text-emerald-600">${stats.totalDeposits.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-emerald-600">${dashboardStats.totalDeposits.toLocaleString()}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Total Withdrawals</h3>
-          <p className="text-3xl font-bold text-orange-600">${stats.totalWithdrawals.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-orange-600">${dashboardStats.totalWithdrawals.toLocaleString()}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Pending Transactions</h3>
-          <p className="text-3xl font-bold text-amber-600">{stats.pendingTransactions}</p>
+          <p className="text-3xl font-bold text-amber-600">{dashboardStats.pendingTransactions}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">System Status</h3>
-          <p className={`text-3xl font-bold ${stats.maintenanceMode ? 'text-red-600' : 'text-green-600'}`}>
-            {stats.maintenanceMode ? 'Maintenance' : 'Operational'}
+          <p className={`text-3xl font-bold ${dashboardStats.maintenanceMode ? 'text-red-600' : 'text-green-600'}`}>
+            {dashboardStats.maintenanceMode ? 'Maintenance' : 'Operational'}
           </p>
         </div>
 
@@ -198,40 +179,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm text-gray-600">New user registration</span>
-              <span className="text-xs text-gray-500">2 minutes ago</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm text-gray-600">Deposit processed</span>
-              <span className="text-xs text-gray-500">15 minutes ago</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm text-gray-600">Withdrawal approved</span>
-              <span className="text-xs text-gray-500">1 hour ago</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <button className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-              Process Pending Transactions
-            </button>
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
-              Generate Reports
-            </button>
-            <button className="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 transition-colors">
-              System Maintenance
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 // Application configuration
 const config = {
-  // API base URL - Supabase Edge Functions
-  apiUrl: import.meta.env.VITE_SUPABASE_URL 
-    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
-    : (import.meta.env.DEV ? '' : 'https://your-project.supabase.co/functions/v1'),
+  // API base URL - Local Express server in development, Supabase in production
+  apiUrl: import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL
+    : (import.meta.env.DEV ? 'http://localhost:4000' : 'https://your-project.supabase.co/functions/v1'),
   
   // Frontend URL - environment dependent
   frontendUrl: import.meta.env.VITE_FRONTEND_URL || (import.meta.env.DEV ? 'http://localhost:4000' : 'https://your-domain.vercel.app'),

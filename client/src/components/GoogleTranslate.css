@@ -1,0 +1,462 @@
+/* Google Translate Widget Styles - Professional Navbar Integration */
+.google-translate-container {
+  position: relative;
+  display: inline-block;
+  min-width: 160px;
+  max-width: 200px;
+}
+
+/* Enhanced dropdown styling */
+.google-translate-container .goog-te-combo {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 30px 8px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  transition: all 0.2s ease;
+  max-height: 38px;
+  overflow-y: auto;
+  text-overflow: ellipsis;
+  
+  /* Add better font optimization for displaying many languages */
+  font-feature-settings: "tnum" on, "lnum" on;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+/* Dark mode styles */
+.dark .google-translate-container .goog-te-combo {
+  background-color: #1f2937;
+  border-color: #4b5563;
+  color: #f9fafb;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Hover states with animation */
+.google-translate-container .goog-te-combo:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 3px 6px 0 rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+}
+
+.dark .google-translate-container .goog-te-combo:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 3px 6px 0 rgba(96, 165, 250, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Custom dropdown styles for scrollable options */
+.google-translate-container select.goog-te-combo option {
+  background-color: #ffffff;
+  color: #374151;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.dark .google-translate-container select.goog-te-combo option {
+  background-color: #1f2937;
+  color: #f9fafb;
+}
+
+/* Cross-browser compatible scrollbar styling */
+.google-translate-container select.goog-te-combo::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.google-translate-container select.goog-te-combo::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.google-translate-container select.goog-te-combo::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.google-translate-container select.goog-te-combo::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark .google-translate-container select.goog-te-combo::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark .google-translate-container select.goog-te-combo::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+.dark .google-translate-container select.goog-te-combo::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Admin panel specific styles */
+.admin-google-translate .google-translate-container {
+  min-width: 180px;
+}
+
+.admin-google-translate .goog-te-combo {
+  border-color: #475569;
+  background-color: #0f172a;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* Client dashboard specific styles */
+.client-google-translate .google-translate-container {
+  min-width: 160px;
+  transition: transform 0.2s ease;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 640px) {
+  .client-google-translate .google-translate-container,
+  .admin-google-translate .google-translate-container {
+    min-width: 120px;
+  }
+  
+  /* Adjust Google Translate dropdown menu on mobile */
+  .goog-te-menu-frame {
+    max-width: 300px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
+.client-google-translate .goog-te-combo {
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  color: #374151;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 0.375rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  transition: all 0.2s ease;
+  
+  /* Responsive padding for mobile */
+  @media (max-width: 640px) {
+    padding: 0.375rem 1.5rem 0.375rem 0.5rem;
+    font-size: 0.8125rem;
+  }
+}
+
+.dark .client-google-translate .goog-te-combo {
+  border-color: #334155;
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+.client-google-translate:hover .goog-te-combo {
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Focus states */
+.google-translate-container .goog-te-combo:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.dark .google-translate-container .goog-te-combo:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1), 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Hide Google Translate banner and unwanted elements */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+.goog-te-gadget-icon {
+  display: none !important;
+}
+
+/* Ensure the translate widget shows properly */
+.goog-te-gadget-simple {
+  background-color: transparent !important;
+  border: none !important;
+  font-size: inherit !important;
+  display: inline-block !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value {
+  color: inherit !important;
+  vertical-align: top !important;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value span {
+  color: inherit !important;
+}
+
+/* Google Translate menu frame styling */
+.goog-te-menu-frame {
+  max-height: 350px !important; /* Increased height for more languages */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  z-index: 9999 !important;
+  background-color: #ffffff !important;
+}
+
+/* Enhanced scrollable dropdown for Google Translate */
+.google-translate-container .goog-te-menu-frame,
+.goog-te-menu-frame.goog-te-menu2 {
+  max-height: 350px !important; /* Increased height for more languages */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  z-index: 9999 !important;
+  background-color: #ffffff !important;
+}
+
+/* Custom scrollbar for webkit browsers */
+.goog-te-menu-frame::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.goog-te-menu-frame::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 3px !important;
+}
+
+.goog-te-menu-frame::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 3px !important;
+}
+
+.goog-te-menu-frame::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Enhanced webkit scrollbar for all Google Translate dropdowns */
+.google-translate-container .goog-te-menu-frame::-webkit-scrollbar,
+.goog-te-menu-frame.goog-te-menu2::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.google-translate-container .goog-te-menu-frame::-webkit-scrollbar-track,
+.goog-te-menu-frame.goog-te-menu2::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 3px !important;
+}
+
+.google-translate-container .goog-te-menu-frame::-webkit-scrollbar-thumb,
+.goog-te-menu-frame.goog-te-menu2::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 3px !important;
+}
+
+.google-translate-container .goog-te-menu-frame::-webkit-scrollbar-thumb:hover,
+.goog-te-menu-frame.goog-te-menu2::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+.dark .goog-te-menu-frame {
+  border-color: #4b5563 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+  background-color: #374151 !important;
+}
+
+/* Scrollbar styling for the dropdown */
+.goog-te-menu-frame::-webkit-scrollbar {
+  width: 6px;
+}
+
+.goog-te-menu-frame::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 3px;
+}
+
+.dark .goog-te-menu-frame::-webkit-scrollbar-track {
+  background: #4b5563;
+}
+
+.goog-te-menu-frame::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.dark .goog-te-menu-frame::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+
+.goog-te-menu-frame::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.dark .goog-te-menu-frame::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Menu items styling */
+.goog-te-menu2-item {
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: background-color 0.15s ease-in-out !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.dark .goog-te-menu2-item {
+  border-bottom-color: #4b5563 !important;
+  color: #f9fafb !important;
+}
+
+.goog-te-menu2-item:hover {
+  background-color: #f8fafc !important;
+  color: #1f2937 !important;
+}
+
+.dark .goog-te-menu2-item:hover {
+  background-color: #4b5563 !important;
+  color: #ffffff !important;
+}
+
+.goog-te-menu2-item-selected {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Optimize for many language options */
+.goog-te-menu2 table,
+.goog-te-menu2 table td {
+  width: 100% !important;
+  display: block !important;
+}
+
+.goog-te-menu2-colpad {
+  display: none !important;
+}
+
+/* Remove last item border */
+.goog-te-menu2-item:last-child {
+  border-bottom: none !important;
+}
+
+/* Prevent body shift when translate loads */
+body {
+  top: 0px !important;
+}
+
+/* Enhanced professional styling for navbar context */
+.google-translate-container.navbar-style .goog-te-combo {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  padding: 6px 28px 6px 10px;
+  min-width: 110px;
+  max-width: 140px;
+}
+
+.dark .google-translate-container.navbar-style .goog-te-combo {
+  background-color: #334155;
+  border-color: #475569;
+}
+
+/* Client dashboard specific styling */
+.client-header .google-translate-container .goog-te-combo {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.client-header.dark .google-translate-container .goog-te-combo {
+  background-color: #374151;
+  border-color: #4b5563;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.client-header .google-translate-container .goog-te-combo:hover {
+  border-color: var(--primary);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.client-header .google-translate-container .goog-te-combo:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+/* Mobile client header styling */
+@media (max-width: 768px) {
+  .client-header .google-translate-container {
+    min-width: 100px;
+    max-width: 120px;
+  }
+  
+  .client-header .google-translate-container .goog-te-combo {
+    font-size: 12px;
+    padding: 6px 24px 6px 8px;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .google-translate-container {
+    min-width: 100px;
+    max-width: 120px;
+  }
+  
+  .google-translate-container .goog-te-combo {
+    font-size: 12px;
+    padding: 6px 28px 6px 8px;
+    background-size: 14px;
+  }
+  
+  .goog-te-menu-frame {
+    max-height: 250px !important;
+  }
+  
+  .goog-te-menu2-item {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Additional mobile-specific styles */
+@media (max-width: 640px) {
+  .google-translate-container {
+    min-width: 90px;
+    max-width: 110px;
+  }
+}
+
+/* Force scrolling on all Google Translate dropdown instances */
+iframe[src*="translate.google"] + .goog-te-menu-frame,
+body .goog-te-menu-frame,
+div[id^="google_translate_element"] .goog-te-menu-frame {
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Ensure scrollbar appears on hover for better UX */
+.goog-te-menu-frame:hover::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+.goog-te-menu-frame:hover::-webkit-scrollbar-thumb {
+  background: #94a3b8 !important;
+}

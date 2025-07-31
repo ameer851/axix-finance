@@ -31,8 +31,10 @@ interface UserFormData {
 
 interface FundingFormData {
   amount: number;
-  description: string;
+  description?: string;
 }
+
+
 
 interface UsersResponse {
   users: User[];
@@ -45,15 +47,41 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [fundingUser, setFundingUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterState>({});
+  const [fundingUser, setFundingUser] = useState<User | null>(null);
   const { toast } = useToast();
+  
+  const {
+    register: registerFunding,
+    handleSubmit: handleSubmitFunding,
+    formState: { errors: fundingErrors },
+    reset: resetFunding
+  } = useForm<FundingFormData>();
+
+  const onSubmitFunding = async (data: FundingFormData) => {
+    if (!fundingUser) return;
+    try {
+      await apiRequest("POST", `/api/admin/users/${fundingUser.id}/fund`, data);
+      toast({
+        title: "Success",
+        description: `Successfully funded ${fundingUser.username}'s account with $${data.amount}`,
+      });
+      setFundingUser(null);
+      resetFunding();
+      fetchUsers(); // Refresh the users list
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fund user account",
+        variant: "destructive",
+      });
+    }
+  };
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UserFormData>();
-  const { register: registerFunding, handleSubmit: handleFundingSubmit, reset: resetFunding, formState: { errors: fundingErrors } } = useForm<FundingFormData>();
   // Fetch users from API with advanced filtering
   const fetchUsers = async (page = 1, appliedFilters: FilterState = {}) => {
     try {
@@ -116,7 +144,7 @@ export default function AdminUsers() {
   // Bulk action handlers
   const handleBulkApprove = async (userIds: string[]) => {
     try {
-      const response = await apiRequest("PUT", "/api/admin/users/bulk-approve", {
+      const response = await apiRequest("POST", "/api/admin/users/bulk-approve", {
         userIds: userIds
       });
 
@@ -139,7 +167,7 @@ export default function AdminUsers() {
 
   const handleBulkSuspend = async (userIds: string[]) => {
     try {
-      const response = await apiRequest("PUT", "/api/admin/users/bulk-suspend", {
+      const response = await apiRequest("POST", "/api/admin/users/bulk-suspend", {
         userIds: userIds
       });
 
@@ -253,48 +281,7 @@ export default function AdminUsers() {
     }
   };
 
-  // Funding functionality
-  const handleFundUser = (user: User) => {
-    setFundingUser(user);
-    resetFunding();
-  };
 
-  const onFundingSubmit = async (data: FundingFormData) => {
-    if (!fundingUser) return;
-    
-    try {
-      const response = await apiRequest("POST", `/api/admin/users/${fundingUser.id}/fund`, {
-        amount: data.amount,
-        description: data.description
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Update the user's balance in the local state
-        setUsers(prev => prev.map(user => 
-          user.id === fundingUser.id 
-            ? { ...user, balance: result.newBalance.toString() }
-            : user
-        ));
-        
-        setFundingUser(null);
-        resetFunding();
-        
-        toast({
-          title: "Success",
-          description: `Successfully funded $${data.amount.toLocaleString()} to ${fundingUser.firstName} ${fundingUser.lastName}`
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fund user account:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fund user account",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleDeleteUser = async (userId: number) => {
     if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
@@ -453,18 +440,13 @@ export default function AdminUsers() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(user.createdAt).toLocaleDateString()}
-                </td>                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                   <button
                     onClick={() => handleEditUser(user)}
                     className="text-indigo-600 hover:text-indigo-900"
                   >
                     Edit
-                  </button>
-                  <button
-                    onClick={() => handleFundUser(user)}
-                    className="text-green-600 hover:text-green-900"
-                  >
-                    Fund Account
                   </button>
                   <button
                     onClick={() => handleDeleteUser(user.id)}
@@ -618,27 +600,23 @@ export default function AdminUsers() {
         </div>
       )}
 
-      {/* Fund User Modal */}
+      {/* Funding Dialog */}
       {fundingUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Fund Account - {fundingUser.firstName} {fundingUser.lastName}
-              </h3>
-              <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                <p className="text-sm text-gray-600">
-                  Current Balance: <span className="font-semibold">${parseFloat(fundingUser.balance).toLocaleString()}</span>
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <form onSubmit={handleSubmitFunding(onSubmitFunding)} className="p-6">
+                <h3 className="text-lg font-medium text-gray-900">Fund User Account</h3>
+                <p className="text-sm text-gray-500 mt-2 mb-4">
+                  Add funds to {fundingUser.username}'s account
                 </p>
-                <p className="text-sm text-gray-600">
-                  Email: <span className="font-semibold">{fundingUser.email}</span>
-                </p>
-              </div>
-              <form onSubmit={handleFundingSubmit(onFundingSubmit)} className="space-y-4">
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Amount to Fund ($)</label>
+                  <label className="block text-sm font-medium text-gray-700">Amount (USD)</label>
                   <input
-                    {...registerFunding("amount", { 
+                    {...registerFunding("amount", {
                       required: "Amount is required",
                       min: { value: 1, message: "Amount must be at least $1" },
                       max: { value: 1000000, message: "Amount cannot exceed $1,000,000" }
@@ -707,3 +685,4 @@ export default function AdminUsers() {
     </div>
   );
 }
+

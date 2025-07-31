@@ -4,10 +4,9 @@
  */
 
 import { User, Transaction, Notification } from '@shared/schema';
+import config from '../config';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.axix-finance.co' 
-  : 'http://localhost:5000';
+const API_BASE_URL = config.apiUrl;
 
 // Helper function to handle fetch responses
 const handleResponse = async (response: Response) => {
@@ -48,14 +47,14 @@ const fetchWithAuth = async (
 // Auth API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    return fetchWithAuth('/auth/login', {
+    return fetchWithAuth('/api/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   },
   
   register: async (userData: Partial<User>) => {
-    return fetchWithAuth('/auth/register', {
+    return fetchWithAuth('/api/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });

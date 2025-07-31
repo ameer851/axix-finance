@@ -75,15 +75,20 @@ const Register: React.FC = () => {
       // Extract only the fields we need for registration
       const { confirmPassword, confirmEmail, terms, ...registerData } = values;
       
-      await register({
+      const result = await register({
         ...registerData,
         role: 'user'
-      });      toast({
-        title: "Registration successful",
-        description: "Check your email for your login credentials!",
       });
       
-      navigate('/dashboard');
+      // Additional success message for registration
+      toast({
+        title: "🎉 Welcome to Axix Finance!",
+        description: "Your account has been created successfully! Please check your email for login credentials, then use the login page to access your account.",
+        duration: 6000, // Show longer for important message
+      });
+      
+      // Navigate to login page after successful registration
+      navigate('/login');
     } catch (error: any) {
       toast({
         title: "Registration failed",

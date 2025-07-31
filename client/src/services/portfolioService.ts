@@ -30,7 +30,7 @@ export async function getUserPortfolio(userId?: number | string): Promise<Portfo
   
   try {
     // Make a real API call to fetch portfolio data
-    const response = await apiRequest('GET', `/api/portfolio/${userId}`);
+    const response = await apiRequest('GET', `/portfolio/${userId}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching portfolio data:', error);
@@ -48,7 +48,7 @@ export async function getPortfolioTransactions(userId?: number | string): Promis
   
   try {
     // Make a real API call
-    const response = await apiRequest('GET', `/api/portfolio/${userId}/transactions`);
+    const response = await apiRequest('GET', `/portfolio/${userId}/transactions`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching portfolio transactions:', error);
@@ -62,7 +62,7 @@ export async function getPortfolioTransactions(userId?: number | string): Promis
 export async function getMarketData(): Promise<any[]> {
   try {
     // Make a real API call to a market data provider
-    const response = await apiRequest('GET', '/api/market/data');
+    const response = await apiRequest('GET', '/market/data');
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching market data:', error);
@@ -83,7 +83,7 @@ export async function depositFunds(userId: number | string, amount: number): Pro
   }
   
   try {
-    const response = await apiRequest('POST', `/api/portfolio/${userId}/deposit`, { amount });
+    const response = await apiRequest('POST', `/portfolio/${userId}/deposit`, { amount });
     return await response.json();
   } catch (error: any) {
     console.error('Error depositing funds:', error);
@@ -104,7 +104,7 @@ export async function withdrawFunds(userId: number | string, amount: number): Pr
   }
   
   try {
-    const response = await apiRequest('POST', `/api/portfolio/${userId}/withdraw`, { amount });
+    const response = await apiRequest('POST', `/portfolio/${userId}/withdraw`, { amount });
     return await response.json();
   } catch (error: any) {
     console.error('Error withdrawing funds:', error);
@@ -129,7 +129,7 @@ export async function investInSecurity(userId: number | string, symbol: string, 
   }
   
   try {
-    const response = await apiRequest('POST', `/api/portfolio/${userId}/invest`, { symbol, amount });
+    const response = await apiRequest('POST', `/portfolio/${userId}/invest`, { symbol, amount });
     return await response.json();
   } catch (error: any) {
     console.error('Error making investment:', error);

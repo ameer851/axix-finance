@@ -1,8 +1,6 @@
 node_modules
 .env
-.env.local
-.env.production
-.env.supabase
+.env.*.backup
 dist/
 *.log
 .DS_Store
@@ -47,3 +45,35 @@ supabase/.output/
 *.7z
 *.tar.gz
 temp/
+
+# Video files (should be hosted externally)
+client/src/assets/video/
+client/src/assets/Video/
+
+# Executables and binaries
+*.exe
+*.app
+*.dmg
+*.msi
+
+# Additional environment and config files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Package manager files
+package-lock.json.backup
+yarn-error.log
+.pnpm-debug.log*
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon\r
+
+# Ngrok and tunneling tools
+ngrok
+ngrok.exe
+ngrok.yml
+ngrok.authtoken

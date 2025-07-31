@@ -39,7 +39,7 @@ const Login: React.FC = () => {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const response = await fetch('/api/health', { 
+        const response = await fetch('/health', { 
           signal: AbortSignal.timeout(3000)
         });
         setIsServerAvailable(response.ok);
@@ -226,3 +226,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+

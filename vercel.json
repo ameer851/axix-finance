@@ -3,21 +3,32 @@
   "name": "axixfinance",
   "builds": [
     {
-      "src": "package.json",
+      "src": "client/**",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "buildCommand": "cd client && npm install && npm run build"
       }
     }
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://your-project.supabase.co/api/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/client/dist/index.html"
     }
+  ],
+  "env": {
+    "VITE_API_URL": "https://your-project.supabase.co",
+    "VITE_API_KEY": "@supabase-anon-key",
+    "VITE_PROJECT_URL": "@vercel-url"
+  }
   ],
   "buildCommand": "npm run build",
   "outputDirectory": "dist",

@@ -36,29 +36,31 @@ const Features: React.FC = () => {
   ];
 
   return (
-    <div id="features" className="py-12 bg-white dark:bg-secondary">
+    <div id="features" className="py-8 sm:py-12 lg:py-16 bg-white dark:bg-secondary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="lg:text-center">
-          <h2 className="text-base text-primary font-semibold tracking-wide uppercase">Why Choose Us</h2>
-          <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-secondary dark:text-white sm:text-4xl">
+        <div className="text-center lg:text-center">
+          <h2 className="text-sm sm:text-base text-primary font-semibold tracking-wide uppercase">Why Choose Us</h2>
+          <p className="mt-2 text-2xl sm:text-3xl lg:text-4xl leading-8 font-extrabold tracking-tight text-secondary dark:text-white">
             Premium Investment Features
           </p>
-          <p className="mt-4 max-w-2xl text-xl text-gray-600 dark:text-gray-300 lg:mx-auto">
+          <p className="mt-4 max-w-2xl text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mx-auto">
             Our investment platform offers unique advantages designed to maximize your returns and financial growth.
           </p>
         </div>
 
-        <div className="mt-10">
-          <dl className="space-y-6 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-x-6 md:gap-y-8 lg:gap-x-8 lg:gap-y-10">
+        <div className="mt-8 sm:mt-10 lg:mt-16">
+          <dl className="space-y-6 sm:space-y-8 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 lg:gap-8 xl:gap-10">
             {features.map((feature, index) => (
-              <div key={index} className="relative bg-accent dark:bg-accent/20 p-5 md:p-6 rounded-lg transition-all hover:shadow-md">
+              <div key={index} className="relative bg-accent dark:bg-accent/20 p-4 sm:p-6 lg:p-8 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 group">
                 <dt>
-                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary text-white mb-3 md:mb-4">
-                    {feature.icon}
+                  <div className="flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary text-white mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    {React.cloneElement(feature.icon as React.ReactElement, {
+                      className: "h-5 w-5 sm:h-6 sm:w-6"
+                    })}
                   </div>
-                  <p className="text-lg leading-6 font-bold text-secondary dark:text-white mb-1">{feature.title}</p>
+                  <p className="text-base sm:text-lg lg:text-xl leading-6 font-bold text-secondary dark:text-white mb-2">{feature.title}</p>
                 </dt>
-                <dd className="mt-1 text-sm md:text-base text-gray-600 dark:text-gray-300">
+                <dd className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
                   {feature.description}
                 </dd>
               </div>

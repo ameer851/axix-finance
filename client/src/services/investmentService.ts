@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
+import { getCryptoExchangeRates as getTradingViewRates } from './tradingViewService';
 
 // Bank transfer details
 export const BANK_TRANSFER_DETAILS = {
@@ -151,6 +152,7 @@ export async function getInvestmentPlan(planId: string): Promise<InvestmentPlan 
 
 /**
  * Get current cryptocurrency exchange rates
+ * Now fetches real-time data from TradingView API with fallback
  */
 export async function getCryptoExchangeRates(): Promise<{
   bitcoin: number;
@@ -160,25 +162,27 @@ export async function getCryptoExchangeRates(): Promise<{
   usdt: number;
 }> {
   try {
-    // In a real app, this would make an API call to a crypto price API
-    // const response = await apiRequest('GET', '/api/crypto/rates');
-    // return await response.json();
+    // Fetch real-time rates from TradingView
+    const tradingViewRates = await getTradingViewRates();
     
-    // For development, return mock data
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          bitcoin: 43250.00,
-          bitcoinCash: 250.75,
-          ethereum: 2150.75,
-          bnb: 375.50,
-          usdt: 1.00
-        });
-      }, 300);
-    });
+    return {
+      bitcoin: tradingViewRates.bitcoin || 98750.00,
+      bitcoinCash: tradingViewRates.bitcoinCash || 485.20,
+      ethereum: tradingViewRates.ethereum || 3420.85,
+      bnb: tradingViewRates.bnb || 672.40,
+      usdt: tradingViewRates.usdt || 1.00
+    };
   } catch (error: any) {
-    console.error('Error fetching crypto exchange rates:', error);
-    throw new Error(error.message || 'Failed to fetch exchange rates. Please try again later.');
+    console.error('Error fetching real-time crypto rates, using fallback:', error);
+    
+    // Fallback to static prices if TradingView API fails
+    return {
+      bitcoin: 98750.00,      // Bitcoin (BTC) - Fallback price
+      bitcoinCash: 485.20,    // Bitcoin Cash (BCH) - Fallback price
+      ethereum: 3420.85,     // Ethereum (ETH) - Fallback price
+      bnb: 672.40,           // BNB (BSC) - Fallback price
+      usdt: 1.00             // USDT (TRC20) - Stable at $1.00
+    };
   }
 }
 

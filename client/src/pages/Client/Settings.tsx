@@ -12,74 +12,97 @@ import { getUserProfile } from '@/services/userService';
 const INVESTMENT_PLANS = [
   {
     id: 'starter',
-    name: 'Starter Plan',
-    minAmount: 100,
-    maxAmount: 1000,
-    returnRate: '5-8% Monthly',
-    duration: '3 Months',
+    name: 'STARTER PLAN',
+    minAmount: 50,
+    maxAmount: 999,
+    returnRate: '2% daily for 3 days',
+    duration: '3 Days',
     features: [
-      'Basic portfolio management',
-      'Weekly market updates',
-      'Email support'
+      'Principal Included',
+      '10% Referral Commission',
+      'Quick 3-day Investment Cycle',
+      'Secure Investment Platform',
+      'Daily Returns Directly to Your Account'
     ],
     walletAddresses: {
       bitcoin: 'bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58',
       bitcoinCash: 'qpnej2mh5wh68qhqps8hych9mecpmw3rvgkznv0v0g',
-      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32', // Same address for BNB
-      bnb: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
-      usdt: 'THpFyXdC93QvnM8DJUeLmEVjq2hsFpULWb'
-    }
-  },
-  {
-    id: 'growth',
-    name: 'Growth Plan',
-    minAmount: 1000,
-    maxAmount: 10000,
-    returnRate: '8-12% Monthly',
-    duration: '6 Months',
-    features: [
-      'Advanced portfolio management',
-      'Daily market updates',
-      'Priority email & chat support',
-      'Quarterly strategy sessions'
-    ],
-    walletAddresses: {
-      bitcoin: 'bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58',
-      bitcoinCash: 'qpnej2mh5wh68qhqps8hych9mecpmw3rvgkznv0v0g',
-      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32', // Same address for BNB
+      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
       bnb: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
       usdt: 'THpFyXdC93QvnM8DJUeLmEVjq2hsFpULWb'
     }
   },
   {
     id: 'premium',
-    name: 'Premium Plan',
-    minAmount: 10000,
-    maxAmount: 100000,
-    returnRate: '12-18% Monthly',
-    duration: '12 Months',
+    name: 'PREMIUM PLAN',
+    minAmount: 1000,
+    maxAmount: 4999,
+    returnRate: '3.5% daily for 7 days',
+    duration: '7 Days',
     features: [
-      'Personalized portfolio management',
-      'Real-time market alerts',
-      '24/7 dedicated support',
-      'Monthly strategy sessions',
-      'Tax optimization',
-      'Early access to new investment opportunities'
+      'Principal Included',
+      '10% Referral Commission',
+      'Extended 7-day Investment Cycle',
+      'Priority Customer Support',
+      'Higher Daily Percentage Returns'
     ],
     walletAddresses: {
       bitcoin: 'bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58',
       bitcoinCash: 'qpnej2mh5wh68qhqps8hych9mecpmw3rvgkznv0v0g',
-      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32', // Same address for BNB
+      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
+      bnb: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
+      usdt: 'THpFyXdC93QvnM8DJUeLmEVjq2hsFpULWb'
+    }
+  },
+  {
+    id: 'deluxe',
+    name: 'DELUX PLAN',
+    minAmount: 5000,
+    maxAmount: 19999,
+    returnRate: '5% daily for 10 days',
+    duration: '10 Days',
+    features: [
+      'Principal Included',
+      '10% Referral Commission',
+      'Premium 10-day Investment Cycle',
+      'VIP Customer Support',
+      'Superior Daily Percentage Returns'
+    ],
+    walletAddresses: {
+      bitcoin: 'bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58',
+      bitcoinCash: 'qpnej2mh5wh68qhqps8hych9mecpmw3rvgkznv0v0g',
+      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
+      bnb: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
+      usdt: 'THpFyXdC93QvnM8DJUeLmEVjq2hsFpULWb'
+    }
+  },
+  {
+    id: 'luxury',
+    name: 'LUXURY PLAN',
+    minAmount: 20000,
+    maxAmount: Infinity,
+    returnRate: '7.5% daily for 30 days',
+    duration: '30 Days',
+    features: [
+      'Principal Included',
+      '10% Referral Commission',
+      'Extended 30-day Investment Cycle',
+      'Dedicated Account Manager',
+      'Maximum Daily Returns'
+    ],
+    walletAddresses: {
+      bitcoin: 'bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58',
+      bitcoinCash: 'qpnej2mh5wh68qhqps8hych9mecpmw3rvgkznv0v0g',
+      ethereum: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
       bnb: '0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32',
       usdt: 'THpFyXdC93QvnM8DJUeLmEVjq2hsFpULWb'
     }
   }
 ];
 
-const Settings: React.FC = () => {
+const InvestmentPlans: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [currentTab, setCurrentTab] = useState('investment');
   const [copiedWallet, setCopiedWallet] = useState<string | null>(null);
 
   // Fetch user profile data
@@ -109,207 +132,67 @@ const Settings: React.FC = () => {
     <div className="container mx-auto py-6 max-w-5xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Account Settings</CardTitle>
-          <CardDescription>Manage your account settings and investment plans</CardDescription>
+          <CardTitle className="text-2xl">Investment Plans</CardTitle>
+          <CardDescription>Choose an investment plan that suits your financial goals</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="investment" onValueChange={setCurrentTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="investment">
-                <Briefcase className="h-4 w-4 mr-2" />
-                Investment Plans
-              </TabsTrigger>
-              <TabsTrigger value="security">
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                Security Settings
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="investment">
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium">Available Investment Plans</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Choose an investment plan that suits your financial goals. Send the exact amount to the corresponding wallet address.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {INVESTMENT_PLANS.map((plan) => (
-                    <Card key={plan.id} className="border-2 hover:border-primary transition-all duration-200">
-                      <CardHeader className="bg-accent/50">
-                        <CardTitle>{plan.name}</CardTitle>
-                        <CardDescription>
-                          ${plan.minAmount} - ${plan.maxAmount}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-6">
-                        <div className="space-y-4">
-                          <div>
-                            <p className="font-medium">Return Rate:</p>
-                            <p className="text-primary">{plan.returnRate}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {INVESTMENT_PLANS.map((plan) => (
+              <Card key={plan.id} className="border-2 hover:border-primary transition-all duration-200">
+                <CardHeader className="bg-accent/50">
+                  <CardTitle>{plan.name}</CardTitle>
+                  <CardDescription>
+                    ${plan.minAmount} - ${plan.maxAmount === Infinity ? 'Unlimited' : plan.maxAmount}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-medium">Return Rate:</p>
+                      <p className="text-primary">{plan.returnRate}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Duration:</p>
+                      <p>{plan.duration}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-2">Features:</p>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {plan.features.map((feature, index) => (
+                          <li key={index}>{feature}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="pt-4">
+                      <p className="font-medium mb-2">Deposit Addresses:</p>
+                      <div className="space-y-2">
+                        {Object.entries(plan.walletAddresses).map(([crypto, address]) => (
+                          <div key={crypto} className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{crypto.charAt(0).toUpperCase() + crypto.slice(1)}:</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(address, `${plan.id}-${crypto}`)}
+                            >
+                              {copiedWallet === `${plan.id}-${crypto}` ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </Button>
                           </div>
-                          <div>
-                            <p className="font-medium">Duration:</p>
-                            <p>{plan.duration}</p>
-                          </div>
-                          <div>
-                            <p className="font-medium mb-2">Features:</p>
-                            <ul className="list-disc pl-5 space-y-1 text-sm">
-                              {plan.features.map((feature, index) => (
-                                <li key={index}>{feature}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          
-                          <div className="pt-4">
-                            <p className="font-medium mb-2">Deposit Addresses:</p>
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">Bitcoin:</span>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(plan.walletAddresses.bitcoin, `${plan.id}-btc`)}
-                                >
-                                  {copiedWallet === `${plan.id}-btc` ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="bg-muted p-2 rounded text-xs font-mono break-all">
-                                {plan.walletAddresses.bitcoin}
-                              </div>
-                              
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-sm font-medium">Bitcoin Cash:</span>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(plan.walletAddresses.bitcoinCash, `${plan.id}-bch`)}
-                                >
-                                  {copiedWallet === `${plan.id}-bch` ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="bg-muted p-2 rounded text-xs font-mono break-all">
-                                {plan.walletAddresses.bitcoinCash}
-                              </div>
-                              
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-sm font-medium">Ethereum:</span>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(plan.walletAddresses.ethereum, `${plan.id}-eth`)}
-                                >
-                                  {copiedWallet === `${plan.id}-eth` ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="bg-muted p-2 rounded text-xs font-mono break-all">
-                                {plan.walletAddresses.ethereum}
-                              </div>
-                              
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-sm font-medium">BNB (BSC):</span>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(plan.walletAddresses.bnb, `${plan.id}-bnb`)}
-                                >
-                                  {copiedWallet === `${plan.id}-bnb` ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="bg-muted p-2 rounded text-xs font-mono break-all">
-                                {plan.walletAddresses.bnb}
-                              </div>
-                              
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-sm font-medium">USDT (TRC20):</span>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(plan.walletAddresses.usdt, `${plan.id}-usdt`)}
-                                >
-                                  {copiedWallet === `${plan.id}-usdt` ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="bg-muted p-2 rounded text-xs font-mono break-all">
-                                {plan.walletAddresses.usdt}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                
-                <div className="bg-muted p-4 rounded-md mt-6">
-                  <h4 className="font-medium flex items-center">
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Important Information
-                  </h4>
-                  <ul className="list-disc pl-5 mt-2 space-y-1 text-sm">
-                    <li>Send only the cryptocurrency specified for each address.</li>
-                    <li>The amount sent must be within the plan's range to qualify for that plan.</li>
-                    <li>Your investment will be credited to your account after network confirmation.</li>
-                    <li>Please contact support if you have any issues with your deposit.</li>
-                  </ul>
-                </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="security">
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium">Security Settings</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Manage your account security settings and preferences.
-                </p>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">Two-Factor Authentication</h4>
-                          <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
-                        </div>
-                        <Button variant="outline">Enable 2FA</Button>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">Transaction Confirmations</h4>
-                          <p className="text-sm text-muted-foreground">Require email confirmation for all transactions</p>
-                        </div>
-                        <Button variant="outline">Enable</Button>
+                        ))}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default Settings;
+export default InvestmentPlans;

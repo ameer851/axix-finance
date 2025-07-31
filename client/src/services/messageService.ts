@@ -18,7 +18,7 @@ export type MessageFilters = {
  */
 export async function createMessage(messageData: InsertMessage): Promise<Message> {
   try {
-    const response = await apiRequest('POST', '/api/messages', messageData);
+    const response = await apiRequest('POST', '/messages', messageData);
     return await response.json();
   } catch (error: any) {
     console.error('Error creating message:', error);
@@ -40,7 +40,7 @@ export async function createMessage(messageData: InsertMessage): Promise<Message
  */
 export async function getMessage(messageId: number): Promise<Message> {
   try {
-    const response = await apiRequest('GET', `/api/messages/${messageId}`);
+    const response = await apiRequest('GET', `/messages/${messageId}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching message:', error);
@@ -80,7 +80,7 @@ export async function getMessages(filters: MessageFilters = {}): Promise<{
     if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
     if (filters.order) queryParams.append('order', filters.order);
     
-    const url = `/api/messages${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/messages${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest('GET', url);
     
     return await response.json();
@@ -102,7 +102,7 @@ export async function getMessages(filters: MessageFilters = {}): Promise<{
  */
 export async function getUnreadMessagesCount(): Promise<number> {
   try {
-    const response = await apiRequest('GET', '/api/messages/unread/count');
+    const response = await apiRequest('GET', '/messages/unread/count');
     const data = await response.json();
     return data.count;
   } catch (error: any) {
@@ -124,7 +124,7 @@ export async function getUnreadMessagesCount(): Promise<number> {
  */
 export async function markMessageAsRead(messageId: number): Promise<Message> {
   try {
-    const response = await apiRequest('PATCH', `/api/messages/${messageId}/status`, { 
+    const response = await apiRequest('PATCH', `/messages/${messageId}/status`, { 
       status: 'read' 
     });
     return await response.json();
@@ -147,7 +147,7 @@ export async function markMessageAsRead(messageId: number): Promise<Message> {
  */
 export async function deleteMessage(messageId: number): Promise<boolean> {
   try {
-    const response = await apiRequest('DELETE', `/api/messages/${messageId}`);
+    const response = await apiRequest('DELETE', `/messages/${messageId}`);
     return true;
   } catch (error: any) {
     console.error('Error deleting message:', error);

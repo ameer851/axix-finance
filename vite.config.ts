@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -9,16 +8,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(async () => {
   const plugins = [
     react(),
-    process.env.NODE_ENV !== "production" && runtimeErrorOverlay(),
   ];
 
-  // Conditionally add cartographer plugin in development
-  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
+  // Conditionally add Replit-specific plugins only if they're available
+  if (process.env.NODE_ENV !== "production") {
     try {
-      const cartographerModule = await import("@replit/vite-plugin-cartographer");
-      plugins.push(cartographerModule.cartographer());
+      // Only import Replit plugins if they exist
+      const runtimeErrorOverlay = await import("@replit/vite-plugin-runtime-error-modal");
+      plugins.push(runtimeErrorOverlay.default());
     } catch (error) {
-      // Cartographer plugin not available - continue without it
+      // Runtime error overlay not available - continue without it
+      console.log("Replit runtime error overlay not available, continuing without it");
+    }
+
+    // Conditionally add cartographer plugin in development
+    if (process.env.REPL_ID !== undefined) {
+      try {
+        const cartographerModule = await import("@replit/vite-plugin-cartographer");
+        plugins.push(cartographerModule.cartographer());
+      } catch (error) {
+        // Cartographer plugin not available - continue without it
+      }
     }
   }
 

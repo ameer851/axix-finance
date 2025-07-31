@@ -1,5 +1,6 @@
 import { Transaction, InsertTransaction, TransactionType, TransactionStatus } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
+import { api } from '@/lib/api';
 
 // Mock data for development
 const MOCK_TRANSACTIONS: Transaction[] = [
@@ -73,7 +74,7 @@ export type TransactionFilters = {
  */
 export async function createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
   try {
-    const response = await apiRequest('POST', '/api/transactions', transactionData);
+    const response = await apiRequest('POST', '/transactions', transactionData);
     return await response.json();
   } catch (error: any) {
     console.error('Error creating transaction:', error);
@@ -96,7 +97,7 @@ export async function createTransaction(transactionData: InsertTransaction): Pro
  */
 export async function getTransaction(transactionId: number): Promise<Transaction> {
   try {
-    const response = await apiRequest('GET', `/api/transactions/${transactionId}`);
+    const response = await apiRequest('GET', `/transactions/${transactionId}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching transaction:', error);
@@ -139,7 +140,7 @@ export async function getTransactions(filters: TransactionFilters = {}): Promise
     if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
     if (filters.order) queryParams.append('order', filters.order);
     
-    const url = `/api/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest('GET', url);
     
     return await response.json();
@@ -178,7 +179,7 @@ export async function updateTransactionStatus(
   try {
     const payload: { status: TransactionStatus } = { status };
     
-    const response = await apiRequest('PATCH', `/api/transactions/${transactionId}/status`, payload);
+    const response = await apiRequest('PATCH', `/transactions/${transactionId}/status`, payload);
     const updatedTransaction = await response.json();
     
     return updatedTransaction;
@@ -203,22 +204,33 @@ export async function updateTransactionStatus(
  * Get user transactions by user ID
  */
 export async function getUserTransactions(userId?: number | string): Promise<Transaction[]> {
-  if (!userId) {
-    throw new Error('User ID is required');
-  }
   try {
-    const response = await apiRequest('GET', `/api/transactions/${userId}`);
-    return await response.json();
+    if (userId) {
+      return await api.get(`/api/transactions/${userId}`);
+    } else {
+      return await api.get('/api/transactions');
+    }
   } catch (error: any) {
     console.error('Error fetching user transactions:', error);
     if (error.status === 403) {
       throw new Error('You do not have permission to view these transactions.');
     } else if (error.status === 404) {
       throw new Error('User not found.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
+    } else {
+      throw new Error(error.message || 'Failed to fetch user transactions. Please try again later.');
     }
-    throw new Error(error.message || 'Failed to fetch user transactions. Please try again later.');
+  }
+}
+
+/**
+ * Get user pending transactions
+ */
+export async function getUserPendingTransactions(): Promise<Transaction[]> {
+  try {
+    return await api.get('/api/transactions/pending');
+  } catch (error: any) {
+    console.error('Error fetching pending transactions:', error);
+    throw new Error(error.message || 'Failed to fetch pending transactions. Please try again later.');
   }
 }
 
@@ -230,18 +242,46 @@ export async function getUserDeposits(userId?: number | string): Promise<any[]> 
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('GET', `/api/deposits/${userId}`);
-    return await response.json();
+    // Use the dedicated deposits endpoint
+    const response = await fetch(`/api/users/${userId}/deposits`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      // Handle specific HTTP errors without triggering auth logout
+      if (response.status === 404) {
+        return []; // Return empty array if no deposits found
+      } else if (response.status === 403) {
+        throw new Error('Access denied to deposits data');
+      } else if (response.status >= 500) {
+        throw new Error('Server error while fetching deposits');
+      } else {
+        // Try to get error message from response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch deposits`);
+        } catch {
+          throw new Error(`HTTP ${response.status}: Failed to fetch deposits`);
+        }
+      }
+    }
+
+    const deposits = await response.json();
+    return Array.isArray(deposits) ? deposits : [];
   } catch (error: any) {
     console.error('Error fetching user deposits:', error);
-    if (error.status === 403) {
-      throw new Error('You do not have permission to view these deposits.');
-    } else if (error.status === 404) {
-      throw new Error('User not found.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
+    
+    // Don't re-throw network errors that might cause auth logout
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.warn('Network error fetching deposits, returning empty array');
+      return [];
     }
-    throw new Error(error.message || 'Failed to fetch user deposits. Please try again later.');
+    
+    throw error;
   }
 }
 
@@ -259,7 +299,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
   }
     try {
     // Use the actual API endpoint to get real balance data
-    const response = await apiRequest('GET', `/api/users/${userId}/balance`);
+    const response = await apiRequest('GET', `/users/${userId}/balance`);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -334,7 +374,6 @@ export async function getUserBalance(userId?: number | string): Promise<{
  * Deposit funds to user account
  */
 export async function depositFunds(data: {
-  userId?: number | string;
   amount: number;
   method: string;
   currency: string;
@@ -343,26 +382,61 @@ export async function depositFunds(data: {
   amount: number;
   transactionId: number;
 }> {
-  if (!data.userId) {
-    throw new Error('User ID is required');
-  }
-  
   try {
-    const response = await apiRequest('POST', `/api/transactions/deposit`, data);
+    const response = await apiRequest('POST', `/transactions/deposit`, data);
     return await response.json();
   } catch (error: any) {
     console.error('Error depositing funds:', error);
-    
-    if (error.status === 400) {
-      throw new Error(error.message || 'Invalid deposit data. Please check your inputs.');
-    } else if (error.status === 403) {
-      throw new Error('You do not have permission to make deposits.');
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-    }
-    
     throw new Error(error.message || 'Failed to process deposit. Please try again later.');
   }
+}
+
+/**
+ * Submit deposit confirmation with transaction hash
+ * Includes retry logic for rate limiting
+ */
+export async function submitDepositConfirmation(data: {
+  amount: number;
+  cryptoType: string;
+  walletAddress: string;
+  transactionHash: string;
+  planName: string;
+}): Promise<{
+  success: boolean;
+  amount: number;
+  transactionId: number;
+}> {
+  const maxRetries = 3;
+  let retryCount = 0;
+  
+  const attemptSubmission = async (): Promise<any> => {
+    try {
+      const response = await apiRequest('POST', `/transactions/deposit-confirmation`, data);
+      const result = await response.json();
+      console.log('Server response:', result);
+      return result;
+    } catch (error: any) {
+      // Check if it's a rate limiting error (429)
+      if (error.status === 429 && retryCount < maxRetries) {
+        retryCount++;
+        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+        console.log(`Rate limited. Retrying in ${delay}ms (attempt ${retryCount}/${maxRetries})`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return attemptSubmission();
+      }
+      
+      console.error('Error submitting deposit confirmation:', error);
+      
+      if (error.status === 429) {
+        throw new Error('Server is currently busy. Please wait a moment and try again.');
+      }
+      
+      throw new Error(error.message || 'Failed to submit deposit confirmation. Please try again later.');
+    }
+  };
+  
+  return attemptSubmission();
 }
 
 /**
@@ -385,7 +459,7 @@ export async function withdrawFunds(data: {
   
   try {
     // In a real app, this would make an API call
-    // const response = await apiRequest('POST', `/api/transactions/withdraw`, data);
+    // const response = await apiRequest('POST', `/transactions/withdraw`, data);
     // return await response.json();
     
     // For development, return mock success
@@ -427,7 +501,7 @@ export async function getTransactionStats(): Promise<{
   transactionTrend: { date: string; count: number; volume: string }[];
 }> {
   try {
-    const response = await apiRequest('GET', '/api/transactions/stats');
+    const response = await apiRequest('GET', '/transactions/stats');
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching transaction statistics:', error);

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import LanguageSelector from './LanguageSelector';
-import { Menu, X, Landmark } from 'lucide-react';
+import LanguageDropdown from '@/components/LanguageDropdown';
+import { Menu, X, Landmark, Globe } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -13,7 +13,7 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <LanguageSelector />
+              <LanguageDropdown variant="navbar" />
               <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
                 <Landmark className="h-5 w-5" />
               </div>
@@ -90,6 +90,15 @@ const Navbar: React.FC = () => {
             </div>
             
             <div className="px-4 pt-2 pb-6 space-y-1 max-h-[calc(100vh-100px)] overflow-y-auto">
+              {/* Language Selector for Mobile */}
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 mb-2">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Globe className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Select Language</span>
+                </div>
+                <LanguageDropdown variant="navbar" />
+              </div>
+
               {[
                 { href: "#features", label: "Features" },
                 { href: "#video", label: "Watch Demo" },

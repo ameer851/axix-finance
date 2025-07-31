@@ -6,7 +6,7 @@ import { apiRequest } from '@/lib/queryClient';
  */
 export async function getAllSettings(): Promise<Setting[]> {
   try {
-    const response = await apiRequest('GET', '/api/settings');
+    const response = await apiRequest('GET', '/settings');
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching settings:', error);
@@ -26,7 +26,7 @@ export async function getAllSettings(): Promise<Setting[]> {
  */
 export async function getSetting(name: string): Promise<Setting> {
   try {
-    const response = await apiRequest('GET', `/api/settings/${name}`);
+    const response = await apiRequest('GET', `/settings/${name}`);
     return await response.json();
   } catch (error: any) {
     console.error(`Error fetching setting ${name}:`, error);
@@ -48,7 +48,7 @@ export async function getSetting(name: string): Promise<Setting> {
  */
 export async function getPublicSettings(): Promise<Record<string, string>> {
   try {
-    const response = await apiRequest('GET', '/api/settings/public');
+    const response = await apiRequest('GET', '/settings/public');
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching public settings:', error);

@@ -41,7 +41,7 @@ export async function getStatements(filters: DocumentFilters): Promise<Document[
     if (filters.page) queryParams.append('page', String(filters.page));
     if (filters.limit) queryParams.append('limit', String(filters.limit));
     
-    const url = `/api/users/${filters.userId}/statements${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/users/${filters.userId}/statements${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest('GET', url);
     return await response.json();
   } catch (error: any) {
@@ -73,7 +73,7 @@ export async function getTaxDocuments(filters: DocumentFilters): Promise<Documen
     if (filters.page) queryParams.append('page', String(filters.page));
     if (filters.limit) queryParams.append('limit', String(filters.limit));
     
-    const url = `/api/users/${filters.userId}/tax-documents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/users/${filters.userId}/tax-documents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest('GET', url);
     return await response.json();
   } catch (error: any) {
@@ -97,7 +97,7 @@ export async function downloadDocument(documentId: string): Promise<Blob> {
       throw new Error('Document ID is required');
     }
     
-    const response = await apiRequest('GET', `/api/documents/${documentId}/download`);
+    const response = await apiRequest('GET', `/documents/${documentId}/download`);
     return await response.blob();
   } catch (error: any) {
     console.error('Error downloading document:', error);

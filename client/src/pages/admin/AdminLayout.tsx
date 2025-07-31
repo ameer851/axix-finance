@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, User, Menu, X, Home, Users, DollarSign, ArrowUp, Settings, Wrench, FileText } from "lucide-react";
+import { LogOut, User, Menu, X, Home, Users, DollarSign, ArrowUp, Settings, Wrench, FileText, Eye } from "lucide-react";
 import { useState } from "react";
+import AdminGoogleTranslate from "@/components/AdminGoogleTranslate";
 
 interface AdminLayoutProps {
   children?: React.ReactNode;
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const navigation = [
     { name: 'Dashboard', href: '/admin', icon: Home },
     { name: 'Users', href: '/admin/users', icon: Users },
+    { name: 'Visitors', href: '/admin/visitors', icon: Eye },
     { name: 'Deposits', href: '/admin/deposits', icon: DollarSign },
     { name: 'Withdrawals', href: '/admin/withdrawals', icon: ArrowUp },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
@@ -64,69 +66,30 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
         
         <nav className="flex flex-col gap-2 flex-1">
-          <Link
-            href="/admin"
-            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-              location === '/admin' ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <Home className="mr-3 h-6 w-6" />
-            Dashboard
-          </Link>
-
-          <Link
-            href="/admin/users"
-            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-              location === '/admin/users' ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <Users className="mr-3 h-6 w-6" />
-            Users
-          </Link>
-
-          <Link
-            href="/admin/deposits"
-            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-              location === '/admin/deposits' ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <DollarSign className="mr-3 h-6 w-6" />
-            Deposits
-          </Link>
-
-          <Link
-            href="/admin/withdrawals"
-            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-              location === '/admin/withdrawals' ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <ArrowUp className="mr-3 h-6 w-6" />
-            Withdrawals
-          </Link>
-
-          <Link
-            href="/admin/settings"
-            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-              location === '/admin/settings' ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <Settings className="mr-3 h-6 w-6" />
-            Settings
-          </Link>
-
-          <Link
-            href="/admin/maintenance"
-            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-              location === '/admin/maintenance' ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-            }`}
-          >
-            <Wrench className="mr-3 h-6 w-6" />
-            Maintenance
-          </Link>
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+                  location === item.href ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
+                }`}
+              >
+                <Icon className="mr-3 h-6 w-6" />
+                {item.name}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* User info and logout section */}
         <div className="border-t border-gray-600 pt-4 mt-4">
+          {/* Language translator for admin panel */}
+          <div className="mb-4 px-2">
+            <AdminGoogleTranslate />
+          </div>
+          
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
               <User size={16} />
@@ -212,26 +175,44 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       )}
       {/* Main content */}
-      <main className={`flex-1 p-6 bg-gray-100 transition-all duration-300 ease-in-out`}>
-        {/* Toggle button for mobile */}
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="md:hidden fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-md hover:bg-gray-700 transition-colors"
-          title="Open sidebar"
-        >
-          <Menu size={20} />
-        </button>
-        {/* Fallback toggle button for desktop when sidebar is collapsed */}
-        {sidebarCollapsed && (
-          <button
-            onClick={toggleSidebar}
-            className="hidden md:block fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-md hover:bg-gray-700 transition-colors"
-            title="Show sidebar"
-          >
-            <Menu size={20} />
-          </button>
-        )}
-        <div className={`pt-12`}>
+      <main className={`flex-1 bg-gray-100 transition-all duration-300 ease-in-out flex flex-col`}>
+        {/* Top Header Bar */}
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {/* Toggle button for mobile */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden mr-4 bg-gray-800 text-white p-2 rounded-md hover:bg-gray-700 transition-colors"
+                title="Open sidebar"
+              >
+                <Menu size={20} />
+              </button>
+              {/* Fallback toggle button for desktop when sidebar is collapsed */}
+              {sidebarCollapsed && (
+                <button
+                  onClick={toggleSidebar}
+                  className="hidden md:block mr-4 bg-gray-800 text-white p-2 rounded-md hover:bg-gray-700 transition-colors"
+                  title="Show sidebar"
+                >
+                  <Menu size={20} />
+                </button>
+              )}
+              <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
+            </div>
+            
+            {/* Right side - Admin info only */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center text-sm text-gray-600">
+                <User className="w-4 h-4 mr-2" />
+                <span>{user?.firstName} {user?.lastName}</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="flex-1 p-6">
           {children}
         </div>
       </main>

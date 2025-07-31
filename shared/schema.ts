@@ -21,8 +21,8 @@ export const users = pgTable("users", {
   lastName: text("last_name").notNull(),
   role: roleEnum("role").notNull().default("user"),
   balance: numeric("balance").notNull().default("0"),
-  isVerified: boolean("is_verified").default(false),
-  isActive: boolean("is_active").default(true),
+  isVerified: boolean("is_verified").default(true), // Users are verified by default
+  isActive: boolean("is_active").default(true), // Accounts are active by default
   referredBy: integer("referred_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   verificationTokenExpiry: timestamp("verification_token_expiry"),
   passwordResetToken: text("password_reset_token"),
   passwordResetTokenExpiry: timestamp("password_reset_token_expiry"),
+  pendingEmail: text("pending_email"),
   // New wallet address fields
   bitcoinAddress: text("bitcoin_address"),
   bitcoinCashAddress: text("bitcoin_cash_address"),
@@ -52,6 +53,16 @@ export const transactions = pgTable("transactions", {
   updatedAt: timestamp("updated_at").defaultNow(),
   processedBy: integer("processed_by").references(() => users.id),
   rejectionReason: text("rejection_reason"),
+  // New fields for crypto deposits
+  transactionHash: text("transaction_hash"),
+  cryptoType: text("crypto_type"),
+  walletAddress: text("wallet_address"),
+  planName: text("plan_name"),
+  // New fields for investment plan tracking
+  planDuration: text("plan_duration"),
+  dailyProfit: numeric("daily_profit"),
+  totalReturn: numeric("total_return"),
+  expectedCompletionDate: timestamp("expected_completion_date"),
 });
 
 // System logs table
@@ -91,6 +102,31 @@ export const notifications = pgTable("notifications", {
   relatedEntityId: integer("related_entity_id"),
   createdAt: timestamp("created_at").defaultNow(),
   expiresAt: timestamp("expires_at"),
+});
+
+// Audit logs table
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  action: text("action").notNull(),
+  description: text("description").notNull(),
+  details: jsonb("details"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  location: text("location"),
+  severity: text("severity").default("low"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Visitor tracking table
+export const visitor_tracking = pgTable("visitor_tracking", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  userId: integer("user_id").references(() => users.id),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  lastActivity: timestamp("last_activity").notNull().defaultNow(),
+  firstSeen: timestamp("first_seen").notNull().defaultNow(),
 });
 
 // System settings table

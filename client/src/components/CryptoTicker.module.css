@@ -1,0 +1,5 @@
+.container {
+  /* Default width and height can be overridden by dynamic styles */
+  width: 100%;
+  height: 100%;
+}

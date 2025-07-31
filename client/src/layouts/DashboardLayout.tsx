@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import VerificationBanner from '@/components/VerificationBanner';
 import CustomerSupport from '@/components/CustomerSupport';
+import GoogleTranslate from '@/components/GoogleTranslate';
 import { 
   Home, 
   LineChart,
@@ -37,6 +38,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, logout, updateUserBalance } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [greeting, setGreeting] = useState('Good day');
   const { toast } = useToast();
   
@@ -76,12 +78,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
     { path: '/deposit', label: 'Deposit', icon: <DollarSign className="h-5 w-5" /> },
     { path: '/deposit-list', label: 'Deposit List', icon: <LineChart className="h-5 w-5" /> },
-    { path: '/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
     { path: '/withdraw', label: 'Withdraw', icon: <ArrowLeftRight className="h-5 w-5" /> },
-    { path: '/history', label: 'History', icon: <History className="h-5 w-5" /> },
+    { 
+      path: '/history', 
+      label: 'History', 
+      icon: <History className="h-5 w-5" />, 
+      subItems: [
+        { path: '/deposits-history', label: 'Deposits History', icon: <DollarSign className="h-4 w-4" /> },
+        { path: '/withdrawal-history', label: 'Withdrawal History', icon: <ArrowLeftRight className="h-4 w-4" /> }
+      ]
+    },
     { path: '/referrals', label: 'Referrals', icon: <Share2 className="h-5 w-5" /> },
     { path: '/marketing', label: 'Marketing', icon: <TrendingUp className="h-5 w-5" /> },
-    { path: '/settings', label: 'Investment Plans', icon: <Settings className="h-5 w-5" /> },
     { path: '/edit-account', label: 'Edit Account', icon: <Edit className="h-5 w-5" /> },
     { path: '#', label: 'Logout', icon: <LogOut className="h-5 w-5" />, onClick: handleLogout },
   ];
@@ -90,10 +98,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     return name.split(' ').map(part => part?.[0] || '').join('').toUpperCase();
   };
 
-  const userInitials = user && user.firstName && user.lastName ? 
-    getInitials(`${user.firstName} ${user.lastName}`) : 'U';
-  const userName = user && user.firstName && user.lastName ?
-    `${user.firstName} ${user.lastName}` : 'User';
+  const userInitials = user ? (
+    user.firstName && user.lastName ? 
+      getInitials(`${user.firstName} ${user.lastName}`) :
+    user.username ?
+      getInitials(user.username) :
+    user.email ?
+      getInitials(user.email) :
+      'U'
+  ) : 'U';
+  
+  const userName = user ? (
+    user.firstName && user.lastName ?
+      `${user.firstName} ${user.lastName}` :
+    user.username ||
+    user.email ||
+    'User'
+  ) : 'User';
 
 
   // Handle search functionality
@@ -166,9 +187,19 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 )}
               </div>
               
+              {/* Language Selector in Sidebar - Desktop only */}
+              {!sidebarCollapsed && (
+                <div className="px-4 pb-4">
+                  {/* Language selector removed for admin panel */}
+                </div>
+              )}
+              
               <nav className="mt-5 flex-1 px-2 bg-primary space-y-1">
                 {navItems.map((item) => {
                   const isActive = location === item.path;
+                  const hasSubItems = item.subItems && item.subItems.length > 0;
+                  const isExpanded = expandedMenu === item.label;
+                  const isSubItemActive = hasSubItems && item.subItems.some(subItem => location === subItem.path);
                   
                   // Handle logout button differently
                   if (item.onClick) {
@@ -181,6 +212,59 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                       >
                         <span className={sidebarCollapsed ? '' : 'mr-3'} >{item.icon}</span>
                         {!sidebarCollapsed && item.label}
+                      </div>
+                    );
+                  }
+                  
+                  // Items with sub-menus
+                  if (hasSubItems) {
+                    return (
+                      <div key={item.label}>
+                        <div
+                          onClick={() => {
+                            if (sidebarCollapsed) return;
+                            setExpandedMenu(isExpanded ? null : item.label);
+                          }}
+                          className={`${
+                            isActive || isSubItemActive
+                              ? 'bg-white text-primary'
+                              : 'text-white hover:bg-primary-foreground/10 hover:text-white'
+                          } group flex ${sidebarCollapsed ? 'justify-center' : ''} items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer`}
+                          title={sidebarCollapsed ? item.label : ''}
+                        >
+                          <span className={sidebarCollapsed ? '' : 'mr-3'} >{item.icon}</span>
+                          {!sidebarCollapsed && (
+                            <>
+                              <span className="flex-1">{item.label}</span>
+                              <ChevronRight 
+                                className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                              />
+                            </>
+                          )}
+                        </div>
+                        
+                        {/* Sub-menu items */}
+                        {!sidebarCollapsed && isExpanded && (
+                          <div className="ml-4 mt-1 space-y-1">
+                            {item.subItems.map((subItem) => {
+                              const isSubActive = location === subItem.path;
+                              return (
+                                <Link key={subItem.path} href={subItem.path}>
+                                  <div
+                                    className={`${
+                                      isSubActive
+                                        ? 'bg-white text-primary'
+                                        : 'text-white/80 hover:bg-primary-foreground/10 hover:text-white'
+                                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer`}
+                                  >
+                                    <span className="mr-3">{subItem.icon}</span>
+                                    {subItem.label}
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -225,8 +309,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <div className="flex-1 flex items-center">
               {/* REMOVE: Search bar */}
             </div>
-            <div className="ml-4 flex items-center md:ml-6">
-              {/* REMOVE: NotificationDropdown and related code */}
+            <div className="ml-4 flex items-center md:ml-6 space-x-3">
+              {/* Google Translate Widget */}
+              <GoogleTranslate />
+              
               {/* Mobile user dropdown */}
               <div className="ml-3 relative md:hidden">
                 <Avatar className="h-8 w-8 cursor-pointer">
@@ -260,9 +346,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">C</div>
                   <span className="ml-2 text-xl font-bold text-primary">Axix Finance</span>
                 </div>
+                
+                {/* Google Translate Widget in Mobile Menu */}
+                <div className="px-4 pt-4 pb-2">
+                  <div className="bg-gray-50 dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Language</div>
+                    <GoogleTranslate />
+                  </div>
+                </div>
                 <nav className="mt-5 px-2 space-y-1">
                   {navItems.map((item) => {
                     const isActive = location === item.path;
+                    const hasSubItems = item.subItems && item.subItems.length > 0;
+                    const isExpanded = expandedMenu === item.label;
+                    const isSubItemActive = hasSubItems && item.subItems.some(subItem => location === subItem.path);
                     
                     // Handle logout button differently
                     if (item.onClick) {
@@ -277,6 +374,54 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         >
                           <span className="mr-4 text-inherit">{item.icon}</span>
                           {item.label}
+                        </div>
+                      );
+                    }
+                    
+                    // Items with sub-menus
+                    if (hasSubItems) {
+                      return (
+                        <div key={item.label}>
+                          <div
+                            onClick={() => setExpandedMenu(isExpanded ? null : item.label)}
+                            className={`${
+                              isActive || isSubItemActive
+                                ? 'bg-primary text-white'
+                                : 'text-primary hover:bg-primary/10 hover:text-primary-foreground'
+                            } group flex items-center px-2 py-2 text-base font-medium rounded-md cursor-pointer justify-between`}
+                          >
+                            <div className="flex items-center">
+                              <span className="mr-4 text-inherit">{item.icon}</span>
+                              {item.label}
+                            </div>
+                            <ChevronRight 
+                              className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                            />
+                          </div>
+                          
+                          {/* Sub-menu items */}
+                          {isExpanded && (
+                            <div className="ml-4 mt-1 space-y-1">
+                              {item.subItems.map((subItem) => {
+                                const isSubActive = location === subItem.path;
+                                return (
+                                  <Link key={subItem.path} href={subItem.path}>
+                                    <div
+                                      onClick={() => setMobileMenuOpen(false)}
+                                      className={`${
+                                        isSubActive
+                                          ? 'bg-primary text-white'
+                                          : 'text-primary/80 hover:bg-primary/10 hover:text-primary'
+                                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer`}
+                                    >
+                                      <span className="mr-3">{subItem.icon}</span>
+                                      {subItem.label}
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     }

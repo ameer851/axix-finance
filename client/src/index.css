@@ -1,3 +1,7 @@
+/* Import Translation Component styles */
+@import './components/GoogleTranslate.css';
+@import './components/LanguageDropdown.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

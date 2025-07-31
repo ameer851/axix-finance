@@ -27,6 +27,7 @@ A modern financial management platform built with React, TypeScript, and Node.js
 - JSON Web Tokens (JWT) for authentication
 - ZOD for validation
 - Winston for logging
+- Resend API for email delivery with SMTP fallback
 
 ### Infrastructure
 - Docker containers
@@ -58,7 +59,15 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Start the development environment:
+4. Configure the email service (recommended):
+```bash
+# Set up Resend email service (recommended)
+npm run email:setup:resend
+
+# Or manually configure email settings in .env file
+```
+
+5. Start the development environment:
 ```bash
 # Using Docker Compose (recommended)
 docker-compose up -d
@@ -68,7 +77,7 @@ npm run dev:server
 npm run dev:client
 ```
 
-5. Access the application:
+6. Access the application:
 - Frontend: http://localhost:4000
 - Backend API: http://localhost:5000
 
@@ -77,6 +86,8 @@ npm run dev:client
 See `.env.example` for a complete list of environment variables. Critical variables include:
 
 - `DATABASE_URL`: PostgreSQL connection string
+- `RESEND_API_KEY`: API key for Resend email service (recommended)
+- `SMTP_USER` and `SMTP_PASSWORD`: Credentials for SMTP fallback
 - `JWT_SECRET`: Secret key for JWT tokens
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`: Email service configuration (Brevo)
 - `ETHEREAL_USER`, `ETHEREAL_PASS`: Development email testing configuration
@@ -114,9 +125,13 @@ See `.env.example` for a complete list of environment variables. Critical variab
 ## Documentation
 
 ### Email Service
-The project uses Gmail SMTP for reliable email delivery in production:
-- **Production**: Gmail SMTP with App Password authentication
-- **Simple Setup**: Easy configuration with standard Gmail credentials
+The project uses Resend API as the primary email service with SMTP fallback:
+- **Primary**: [Resend API](https://resend.com) for reliable email delivery and analytics
+- **Fallback**: Gmail SMTP with App Password authentication
+- **Multi-Provider**: Automatic fallback ensures maximum email deliverability
+- **Simple Setup**: Easy configuration with `npm run email:setup:resend`
+
+See [Email Service Documentation](docs/email-service-documentation.md) for details.
 - **High Deliverability**: Reliable email delivery backed by Google
 
 Documentation:

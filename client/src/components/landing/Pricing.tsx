@@ -30,8 +30,8 @@ const Pricing: React.FC = () => {
         "Principal included",
         "10% referral commission",
         "Extended 7-day investment cycle",
-        "Priority customer support",
-        "Higher daily percentage returns"
+        "Secure investment platform",
+        "Daily returns directly to your account"
       ],
       cta: "Invest Now",
       href: "/register",
@@ -63,7 +63,7 @@ const Pricing: React.FC = () => {
         "10% referral commission",
         "Extended 30-day investment cycle",
         "Dedicated account manager",
-        "Highest possible daily returns"
+        "Maximum daily returns"
       ],
       cta: "Invest Now",
       href: "/register",
@@ -86,36 +86,41 @@ const Pricing: React.FC = () => {
         </div>
       </div>
       <div className="mt-8 pb-16 sm:mt-12 sm:pb-20 lg:pb-28">
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
-          {/* Mobile: horizontal scroll, Desktop: grid */}
-          <div className="mt-8 flex space-x-4 overflow-x-auto sm:mt-16 sm:space-x-0 sm:grid sm:grid-cols-2 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Mobile: Stacked cards, Tablet: 2 columns, Desktop: 4 columns */}
+          <div className="mt-8 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-1 md:grid-cols-2 sm:gap-4 md:gap-6 lg:max-w-6xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-4 xl:gap-8">
             {plans.map((plan, index) => (
               <div 
                 key={index} 
-                className={`min-w-[260px] max-w-xs flex-shrink-0 border ${plan.highlighted ? 'border-primary' : 'border-gray-200 dark:border-gray-700'} rounded-lg shadow-sm divide-y divide-gray-200 dark:divide-gray-700 ${plan.highlighted ? 'bg-primary/5' : 'bg-white dark:bg-secondary'} sm:min-w-0 sm:max-w-none`}
+                className={`w-full border ${plan.highlighted ? 'border-primary ring-2 ring-primary/20' : 'border-gray-200 dark:border-gray-700'} rounded-xl shadow-sm divide-y divide-gray-200 dark:divide-gray-700 ${plan.highlighted ? 'bg-primary/5 scale-105 sm:scale-100 md:scale-105' : 'bg-white dark:bg-secondary'} transition-all duration-300 hover:shadow-lg hover:scale-105`}
               >
+                {plan.highlighted && (
+                  <div className="bg-primary text-white text-center py-2 rounded-t-xl">
+                    <span className="text-sm font-semibold">MOST POPULAR</span>
+                  </div>
+                )}
                 <div className="p-4 sm:p-6">
-                  <h2 className="text-base sm:text-lg leading-6 font-bold text-primary dark:text-white">{plan.name}</h2>
-                  <p className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">{plan.description}</p>
+                  <h2 className="text-lg sm:text-xl leading-6 font-bold text-primary dark:text-white">{plan.name}</h2>
+                  <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300">{plan.description}</p>
                   <p className="mt-4 sm:mt-6">
-                    <span className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
+                    <span className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
                   </p>
-                  <p className="mt-1 sm:mt-2">
-                    <span className="text-base sm:text-lg font-semibold text-primary dark:text-primary-foreground">{plan.returnRate}</span>
+                  <p className="mt-2">
+                    <span className="text-lg sm:text-xl font-semibold text-primary dark:text-primary-foreground">{plan.returnRate}</span>
                   </p>
                   <Link href={plan.href}>
-                    <Button className="mt-4 sm:mt-8 block w-full text-xs sm:text-base py-2 sm:py-3">
+                    <Button className={`mt-6 sm:mt-8 block w-full text-sm sm:text-base py-3 sm:py-4 transition-all ${plan.highlighted ? 'bg-primary hover:bg-primary/90 shadow-lg' : ''}`}>
                       {plan.cta}
                     </Button>
                   </Link>
                 </div>
-                <div className="pt-4 sm:pt-6 pb-4 sm:pb-8 px-4 sm:px-6">
-                  <h3 className="text-[10px] sm:text-xs font-medium text-gray-900 dark:text-white tracking-wide uppercase">Features</h3>
-                  <ul className="mt-3 sm:mt-6 space-y-2 sm:space-y-4">
+                <div className="pt-4 sm:pt-6 pb-6 sm:pb-8 px-4 sm:px-6">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white tracking-wide uppercase">Features</h3>
+                  <ul className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
                     {plan.features.map((feature, featIndex) => (
-                      <li key={featIndex} className="flex space-x-2 sm:space-x-3 items-center">
-                        <Check className="flex-shrink-0 h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">{feature}</span>
+                      <li key={featIndex} className="flex space-x-3 items-start">
+                        <Check className="flex-shrink-0 h-4 w-4 sm:h-5 sm:w-5 text-primary mt-0.5" />
+                        <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">{feature}</span>
                       </li>
                     ))}
                   </ul>

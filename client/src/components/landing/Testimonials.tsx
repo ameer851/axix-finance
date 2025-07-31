@@ -41,37 +41,38 @@ const Testimonials: React.FC = () => {
   };
 
   return (
-    <div id="testimonials" className="bg-accent dark:bg-accent/20 py-16 sm:py-24">
+    <div id="testimonials" className="bg-accent dark:bg-accent/20 py-12 sm:py-16 lg:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="lg:text-center">
-          <h2 className="text-base text-primary font-semibold tracking-wide uppercase">Success Stories</h2>
-          <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-secondary dark:text-white sm:text-4xl">
+        <div className="text-center">
+          <h2 className="text-sm sm:text-base text-primary font-semibold tracking-wide uppercase">Success Stories</h2>
+          <p className="mt-2 text-2xl sm:text-3xl lg:text-4xl leading-8 font-extrabold tracking-tight text-secondary dark:text-white">
             Our Investors Share Their Experience
-          </p>          <p className="mt-4 max-w-2xl text-xl text-gray-600 dark:text-gray-300 lg:mx-auto">
+          </p>
+          <p className="mt-4 max-w-2xl text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mx-auto">
             Join thousands of satisfied investors who are growing their wealth with Axix Finance.
           </p>
         </div>
-        <div className="mt-12">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 sm:mt-12 lg:mt-16">
+          <div className="grid gap-4 sm:gap-6 lg:gap-8 md:grid-cols-2 lg:grid-cols-4">
             {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-white dark:bg-secondary rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-800">
-                <div className="flex items-center mb-4">
-                  <div className="flex-shrink-0 mr-4">
-                    <Avatar className="h-12 w-12 border-2 border-primary">
-                      <AvatarFallback className="bg-primary text-white">
+              <div key={index} className="bg-white dark:bg-secondary rounded-xl p-4 sm:p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 border border-gray-100 dark:border-gray-800">
+                <div className="flex items-center mb-3 sm:mb-4">
+                  <div className="flex-shrink-0 mr-3 sm:mr-4">
+                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary">
+                      <AvatarFallback className="bg-primary text-white text-sm sm:text-base">
                         {testimonial.initials}
                       </AvatarFallback>
                     </Avatar>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-secondary dark:text-white">{testimonial.name}</h4>
-                    <p className="text-primary text-sm font-medium">{testimonial.role}</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-bold text-secondary dark:text-white text-sm sm:text-base truncate">{testimonial.name}</h4>
+                    <p className="text-primary text-xs sm:text-sm font-medium">{testimonial.role}</p>
                     <div className="flex mt-1">
                       {renderStars(testimonial.rating)}
                     </div>
                   </div>
                 </div>
-                <p className="text-gray-700 dark:text-gray-300 italic">"{testimonial.content}"</p>
+                <p className="text-gray-700 dark:text-gray-300 italic text-sm sm:text-base leading-relaxed">"{testimonial.content}"</p>
               </div>
             ))}
           </div>

@@ -15,19 +15,21 @@ import Footer from '@/components/landing/Footer';
 
 const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <Navbar />
-      <Hero />
-      <Features />
-      <WhyChooseUs />
-      <VideoSection />
-      <TopTradesSection />
-      <WinPrizesSection />
-      <Pricing />
-      <Testimonials />
-      <Team />
-      <Certificates />
-      <FAQ />
+      <main className="flex-1">
+        <Hero />
+        <Features />
+        <WhyChooseUs />
+        <VideoSection />
+        <TopTradesSection />
+        <WinPrizesSection />
+        <Pricing />
+        <Testimonials />
+        <Team />
+        <Certificates />
+        <FAQ />
+      </main>
       <Footer />
     </div>
   );

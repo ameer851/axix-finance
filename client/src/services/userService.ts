@@ -18,14 +18,44 @@ export type UserFilters = {
 };
 
 /**
+ * Get current user profile
+ */
+export async function getCurrentUserProfile(): Promise<any> {
+  try {
+    const response = await apiRequest('GET', '/profile');
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(`Unexpected response format: ${text}`);
+    }
+  } catch (error: any) {
+    console.error('Error fetching user profile:', error);
+    if (error.status === 403) {
+      throw new Error('You do not have permission to view this profile.');
+    } else if (error.status === 404) {
+      throw new Error('User not found.');
+    } else if (error.isOffline || error.isNetworkError) {
+      throw new Error('Cannot connect to server. Please check your internet connection and try again.');
+    }
+    throw new Error(error.message || 'Failed to fetch user profile. Please try again later.');
+  }
+}
+
+/**
  * Get user profile by ID
  */
 export async function getUserProfile(userId?: number | string): Promise<any> {
-  if (!userId) {
-    throw new Error('User ID is required');
-  }
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}/profile`);
+    // If no userId provided, get current user profile
+    if (!userId) {
+      return getCurrentUserProfile();
+    }
+    
+    // For specific user ID, check if there's an admin route or fallback to current user
+    const endpoint = `/users/${userId}/profile`;
+    const response = await apiRequest('GET', endpoint);
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       return await response.json();
@@ -54,7 +84,7 @@ export async function getUserActivity(userId?: number | string): Promise<any[]> 
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}/activity`);
+    const response = await apiRequest('GET', `/users/${userId}/activity`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching user activity:', error);
@@ -77,7 +107,7 @@ export async function getUserBalance(userId?: number | string): Promise<any> {
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}/balance`);
+    const response = await apiRequest('GET', `/users/${userId}/balance`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching user balance:', error);
@@ -100,7 +130,7 @@ export async function updateUserProfile(userId?: number | string, data?: any): P
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/profile`, data);
+    const response = await apiRequest('PATCH', `/users/${userId}/profile`, data);
     return await response.json();
   } catch (error: any) {
     console.error('Error updating user profile:', error);
@@ -125,7 +155,7 @@ export async function updateUserProfileGeneral(userId?: number | string, data?: 
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/profile`, data);
+    const response = await apiRequest('PATCH', `/users/${userId}/profile`, data);
     return await response.json();
   } catch (error: any) {
     console.error('Error updating user profile:', error);
@@ -150,7 +180,7 @@ export async function updateUserSecurity(userId?: number | string, data?: any): 
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/security`, data);
+    const response = await apiRequest('PATCH', `/users/${userId}/security`, data);
     return await response.json();
   } catch (error: any) {
     console.error('Error updating security settings:', error);
@@ -175,7 +205,7 @@ export async function updateUserNotifications(userId?: number | string, data?: a
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/notifications`, data);
+    const response = await apiRequest('PATCH', `/users/${userId}/notifications`, data);
     return await response.json();
   } catch (error: any) {
     console.error('Error updating notification preferences:', error);
@@ -198,7 +228,7 @@ export async function getUserReferrals(userId?: number | string): Promise<any[]>
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}/referrals`);
+    const response = await apiRequest('GET', `/users/${userId}/referrals`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching user referrals:', error);
@@ -221,7 +251,7 @@ export async function getUserReferralStats(userId?: number | string): Promise<an
     throw new Error('User ID is required');
   }
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}/referral-stats`);
+    const response = await apiRequest('GET', `/users/${userId}/referral-stats`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching referral stats:', error);
@@ -241,7 +271,7 @@ export async function getUserReferralStats(userId?: number | string): Promise<an
  */
 export async function getUser(userId: number): Promise<User> {
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}`);
+    const response = await apiRequest('GET', `/users/${userId}`);
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching user:', error);
@@ -276,7 +306,7 @@ export async function getUsers(filters: UserFilters = {}): Promise<{
     if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
     if (filters.order) queryParams.append('order', filters.order);
 
-    const url = `/api/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest('GET', url);
 
     return await response.json();
@@ -319,7 +349,7 @@ export async function getUserTransactions(
     if (filters.page) queryParams.append('page', String(filters.page));
     if (filters.limit) queryParams.append('limit', String(filters.limit));
 
-    const url = `/api/users/${userId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/users/${userId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest('GET', url);
 
     return await response.json();
@@ -341,7 +371,7 @@ export async function getUserTransactions(
  */
 export async function updateUserProfileDetails(userId: number, profileData: Partial<User>): Promise<User> {
   try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}`, profileData);
+    const response = await apiRequest('PATCH', `/users/${userId}`, profileData);
     const updatedUser = await response.json();
 
     return updatedUser;
@@ -376,7 +406,7 @@ export async function getDashboardStats(userId: number): Promise<{
   };
 }> {
   try {
-    const response = await apiRequest('GET', `/api/users/${userId}/dashboard-stats`);
+    const response = await apiRequest('GET', `/users/${userId}/dashboard-stats`);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -398,7 +428,7 @@ export async function updatePassword(
   data: { currentPassword: string; newPassword: string }
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await apiRequest('POST', `/api/users/${userId}/change-password`, data);
+    const response = await apiRequest('POST', `/users/${userId}/change-password`, data);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -431,7 +461,7 @@ export async function updateNotificationPreferences(
   }
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await apiRequest('PATCH', `/api/users/${userId}/notification-preferences`, preferences);
+    const response = await apiRequest('PATCH', `/users/${userId}/notification-preferences`, preferences);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

@@ -36,7 +36,7 @@ const Portfolio: React.FC = () => {
 
   // Fetch user transactions
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
-    queryKey: [`/api/users/${userId}/transactions`],
+    queryKey: [`/users/${userId}/transactions`],
     enabled: !!userId
   });
 
@@ -89,15 +89,15 @@ const Portfolio: React.FC = () => {
       badgeColor: 'bg-green-500',
       minInvestment: 50,
       maxInvestment: 999,
-      dailyReturn: 2.5,
-      duration: 7,
-      totalReturn: 17.5,
+      dailyReturn: 2,
+      duration: 3,
+      totalReturn: 6,
       features: [
-        'Daily Profit Withdrawal',
-        'Principal Back Guarantee',
-        'Low Risk Investment',
-        '24/7 Customer Support',
-        'Real-time Monitoring'
+        'Principal Included',
+        '10% Referral Commission',
+        'Quick 3-day Investment Cycle',
+        'Secure Investment Platform',
+        'Daily Returns Directly to Your Account'
       ],
       icon: <Target className="h-6 w-6" />,
       gradient: 'from-green-400 to-green-600',
@@ -110,15 +110,15 @@ const Portfolio: React.FC = () => {
       badgeColor: 'bg-blue-500',
       minInvestment: 1000,
       maxInvestment: 4999,
-      dailyReturn: 4.0,
-      duration: 10,
-      totalReturn: 40.0,
+      dailyReturn: 3.5,
+      duration: 7,
+      totalReturn: 24.5,
       features: [
-        'Higher Daily Returns',
+        'Principal Included',
+        '10% Referral Commission',
+        'Extended 7-day Investment Cycle',
         'Priority Customer Support',
-        'Advanced Risk Management',
-        'Bonus Referral Rewards',
-        'Investment Insights'
+        'Higher Daily Percentage Returns'
       ],
       icon: <Award className="h-6 w-6" />,
       gradient: 'from-blue-400 to-blue-600',
@@ -126,20 +126,20 @@ const Portfolio: React.FC = () => {
       popular: false
     },
     {
-      name: 'DELUXE PLAN',
+      name: 'DELUX PLAN',
       badge: 'High Yield Returns',
       badgeColor: 'bg-purple-500',
       minInvestment: 5000,
       maxInvestment: 19999,
-      dailyReturn: 6.0,
-      duration: 15,
-      totalReturn: 90.0,
+      dailyReturn: 5,
+      duration: 10,
+      totalReturn: 50,
       features: [
-        'Premium Daily Returns',
-        'Dedicated Account Manager',
-        'Advanced Analytics Dashboard',
+        'Principal Included',
+        '10% Referral Commission',
+        'Premium 10-day Investment Cycle',
         'VIP Customer Support',
-        'Exclusive Market Insights'
+        'Superior Daily Percentage Returns'
       ],
       icon: <Star className="h-6 w-6" />,
       gradient: 'from-purple-400 to-purple-600',
@@ -152,15 +152,15 @@ const Portfolio: React.FC = () => {
       badgeColor: 'bg-yellow-500',
       minInvestment: 20000,
       maxInvestment: Infinity,
-      dailyReturn: 8.5,
-      duration: 20,
-      totalReturn: 170.0,
+      dailyReturn: 7.5,
+      duration: 30,
+      totalReturn: 225,
       features: [
-        'Maximum Daily Returns',
-        'Personal Investment Advisor',
-        'Exclusive Investment Opportunities',
-        'Private Support Channel',
-        'Custom Investment Strategy'
+        'Principal Included',
+        '10% Referral Commission',
+        'Extended 30-day Investment Cycle',
+        'Dedicated Account Manager',
+        'Maximum Daily Returns'
       ],
       icon: <Trophy className="h-6 w-6" />,
       gradient: 'from-yellow-400 to-orange-500',
@@ -308,90 +308,33 @@ const Portfolio: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {investmentPlans.map((plan, index) => (
-            <Card 
-              key={index} 
-              className={`relative overflow-hidden hover:shadow-2xl transition-all duration-300 group border-0 shadow-xl ${
-                plan.popular ? 'ring-2 ring-green-400 scale-105' : ''
-              }`}
+            <Card
+              key={index}
+              className={`min-w-[260px] max-w-xs flex-shrink-0 border ${plan.highlighted ? 'border-primary' : 'border-gray-200'} rounded-lg shadow-sm divide-y divide-gray-200`}
             >
-              {/* Background Gradient */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${plan.bgGradient} opacity-50`} />
-              
-              {/* Popular Badge */}
-              {plan.popular && (
-                <div className="absolute -top-1 -right-1 z-10">
-                  <div className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
-                    POPULAR
-                  </div>
-                </div>
-              )}
-              
-              <CardHeader className="relative text-center pb-2">
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${plan.gradient} text-white shadow-lg`}>
-                    {plan.icon}
-                  </div>
-                </div>
-                <CardTitle className="text-xl font-bold text-gray-900">{plan.name}</CardTitle>
-                <Badge className={`${plan.badgeColor} text-white text-xs mt-2`}>
-                  {plan.badge}
-                </Badge>
-                
-                {/* Daily Return Highlight */}
-                <div className="mt-4 p-4 bg-white bg-opacity-60 rounded-xl">
-                  <div className="text-3xl font-bold text-green-600">{plan.dailyReturn}%</div>
-                  <div className="text-sm text-gray-600">Daily Return</div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="relative space-y-4 pt-2">
-                {/* Investment Details */}
-                <div className="bg-white bg-opacity-60 rounded-xl p-4 space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Min Investment:</span>
-                    <span className="font-semibold text-gray-900">${plan.minInvestment}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Max Investment:</span>
-                    <span className="font-semibold text-gray-900">
-                      {plan.maxInvestment === Infinity ? 'Unlimited' : `$${plan.maxInvestment.toLocaleString()}`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-semibold text-gray-900">{plan.duration} days</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-t pt-2">
-                    <span className="text-gray-600">Total ROI:</span>
-                    <span className="font-bold text-green-600">{plan.totalReturn}%</span>
-                  </div>
-                </div>
-                
-                {/* Features */}
-                <div className="bg-white bg-opacity-60 rounded-xl p-4">
-                  <h4 className="font-semibold text-sm mb-3 text-gray-900">Plan Features:</h4>
-                  <ul className="space-y-2">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="text-xs text-gray-700 flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {/* Invest Button */}
-                <Button 
-                  className={`w-full bg-gradient-to-r ${plan.gradient} text-white border-0 hover:shadow-lg transition-all duration-300 font-semibold py-6 text-base`}
-                  onClick={() => {
-                    setSelectedPlan(plan.name);
-                    setIsInvestDialogOpen(true);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Invest Now
+              <div className="p-4">
+                <h2 className="text-base leading-6 font-bold text-primary">{plan.name}</h2>
+                <p className="mt-2 text-sm text-gray-600">{plan.description}</p>
+                <p className="mt-4">
+                  <span className="text-xl font-extrabold text-gray-900">{plan.price}</span>
+                </p>
+                <p className="mt-1">
+                  <span className="text-base font-semibold text-primary">{plan.returnRate}</span>
+                </p>
+                <Button className="mt-4 block w-full text-base py-3" href={plan.href}>
+                  {plan.cta}
                 </Button>
-              </CardContent>
+              </div>
+              <div className="pt-4 pb-4 px-4">
+                <h3 className="text-xs font-medium text-gray-900">Features</h3>
+                <ul className="mt-3 space-y-2">
+                  {plan.features.map((feature, featIndex) => (
+                    <li key={featIndex} className="flex space-x-2 items-center">
+                      <span className="text-sm text-gray-600">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </Card>
           ))}
         </div>

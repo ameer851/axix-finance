@@ -1,121 +1,1293 @@
-import { 
-  users, type User, type InsertUser, 
-  transactions, type Transaction, type InsertTransaction, 
-  logs, type Log, type InsertLog,
-  messages, type Message, type InsertMessage,
-  settings, type Setting, type InsertSetting,
-  notifications, type Notification, type InsertNotification,
-  transactionStatusEnum, roleEnum, transactionTypeEnum, logTypeEnum, messageStatusEnum,
-  notificationTypeEnum, notificationPriorityEnum,
-  type TransactionStatus, type TransactionType, type LogType, type MessageStatus,
-  type NotificationType, type NotificationPriority
-} from "@shared/schema";
+import { eq, and, like, desc, sql, or, between, gte, lte } from "drizzle-orm";
 import { db } from "./db";
-import { eq, and, or, between, like, sql, desc, asc, isNull, isNotNull } from "drizzle-orm";
+import { transactions, users, notifications, auditLogs, visitor_tracking } from "@shared/schema";
 
-export interface IStorage {
-  // User methods
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;  getUserByEmail(email: string): Promise<User | undefined>;
-  getAllUsers(): Promise<User[]>;
-  getUsers(options: { limit: number; offset: number; search?: string; status?: string }): Promise<User[]>;
-  getUserCount(): Promise<number>;
-  createUser(user: InsertUser): Promise<User | undefined>;
-  updateUserProfile(userId: number, data: Partial<User>): Promise<User | undefined>;
-  updateUserVerificationStatus(userId: number, isVerified: boolean): Promise<User | undefined>;
-  updateUserActiveStatus(userId: number, isActive: boolean): Promise<User | undefined>;
-  updateUser2FAStatus(userId: number, enabled: boolean, secret?: string): Promise<User | undefined>;  getUserReferrals(referrerId: number): Promise<User[]>;
-  searchUsers(query: string): Promise<User[]>;
-  updateUser(userId: number, data: Partial<User>): Promise<User | undefined>;
-  deleteUser(userId: number): Promise<boolean>;
-  getActiveUserCount(): Promise<number>;
-  // Add missing verification functions
-  updateUserVerificationToken(userId: number, token: string): Promise<User | undefined>;
-  getUserByVerificationToken(token: string): Promise<User | undefined>;
-  // Transaction methods
-  getTransaction(id: number): Promise<Transaction | undefined>;
-  getUserTransactions(userId: number): Promise<Transaction[]>;
-  getAllTransactions(): Promise<Transaction[]>;
-  getPendingTransactions(): Promise<Transaction[]>;
-  getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]>;
-  getTransactionsByStatus(status: TransactionStatus): Promise<Transaction[]>;
-  getTransactionsByType(type: TransactionType): Promise<Transaction[]>;
-  searchTransactions(query: string): Promise<Transaction[]>;
-  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
-  updateTransactionStatus(id: number, status: TransactionStatus, rejectionReason?: string): Promise<Transaction | undefined>;
-  
-  // Database management
-  checkDatabaseConnection(): Promise<boolean>;
-  initializeDatabase(): Promise<void>;
-  
-  // Log methods
-  createLog(log: InsertLog): Promise<Log>;
-  getLogs(limit?: number, offset?: number): Promise<Log[]>;
-  getAllLogs(): Promise<Log[]>;
-  getUserLogs(userId: number): Promise<Log[]>;
-  getLogsByType(type: LogType): Promise<Log[]>;
-  getLogsByDateRange(startDate: Date, endDate: Date): Promise<Log[]>;
-  searchLogs(query: string): Promise<Log[]>;
-  
-  // Message methods
-  createMessage(message: InsertMessage): Promise<Message>;
-  getMessage(id: number): Promise<Message | undefined>;
-  getUserMessages(userId: number): Promise<Message[]>;
-  getAllMessages(): Promise<Message[]>;
-  getUnreadMessages(): Promise<Message[]>;
-  updateMessageStatus(id: number, status: MessageStatus): Promise<Message | undefined>;
-  
-  // Notification methods
-  getUserNotifications(userId: number, options?: {
-    type?: NotificationType;
-    priority?: NotificationPriority;
-    read?: boolean;
-    offset?: number;
-    limit?: number;
-  }): Promise<{ notifications: Notification[]; total: number }>;
-  getNotification(id: number): Promise<Notification | undefined>;
-  createNotification(notification: InsertNotification): Promise<Notification>;
-  createBulkNotifications(notifications: InsertNotification[]): Promise<number>;
-  markNotificationAsRead(id: number): Promise<Notification | undefined>;
-  markAllNotificationsAsRead(userId: number): Promise<number>;
-  deleteNotification(id: number): Promise<boolean>;
-  getUnreadNotificationCount(userId: number): Promise<number>;
-  getNotificationPreferences(userId: number): Promise<any | undefined>;
-  updateNotificationPreferences(userId: number, preferences: any): Promise<any>;
-    // Settings methods
-  getSetting(name: string): Promise<Setting | undefined>;
-  getAllSettings(): Promise<Setting[]>;
-  createOrUpdateSetting(name: string, value: string, description?: string): Promise<Setting>;
-  
-  // Additional admin methods needed by routes
-  getRecentTransactions(limit?: number): Promise<Transaction[]>;
-  getPendingTransactionCount(): Promise<number>;
-  getTransactions(options: { limit: number; offset: number; search?: string; status?: string; type?: string; dateFrom?: string; dateTo?: string }): Promise<Transaction[]>;
-  getTransactionCount(): Promise<number>;
-  getDeposits(options: { limit: number; offset: number; search?: string; status?: string; dateFrom?: string; dateTo?: string; method?: string; amountMin?: number; amountMax?: number }): Promise<Transaction[]>;
-  getDepositCount(): Promise<number>;
-  updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;
-  getWithdrawals(options: { limit: number; offset: number; search?: string; status?: string; dateFrom?: string; dateTo?: string; method?: string; amountMin?: number; amountMax?: number }): Promise<Transaction[]>;
-  getWithdrawalCount(): Promise<number>;
-  updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined>;  getAuditLogs(options: { limit: number; offset: number; search?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<Log[]>;
-  getAuditLogCount(): Promise<number>;
-  getAllUsersForExport(): Promise<User[]>;
-  getAllTransactionsForExport(): Promise<Transaction[]>;
-  getMaintenanceSettings(): Promise<Setting | undefined>;
-  updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting>;  getSystemSettings(): Promise<any>;
-  updateSystemSettings(settings: any): Promise<any>;
+// Local type definitions (since @shared/types doesn't exist)
+type Transaction = typeof transactions.$inferSelect;
+type TransactionStatus = "pending" | "completed" | "rejected";
+type User = typeof users.$inferSelect;
+type Notification = typeof notifications.$inferSelect;
+type AuditLog = typeof auditLogs.$inferSelect;
+type VisitorTracking = typeof visitor_tracking.$inferSelect;
+
+// Define types for method options
+interface GetUsersOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+  status?: string;
 }
 
-export class DatabaseStorage implements IStorage {
-  // Database management methods
+async function cleanupDeletedUsers(): Promise<{ success: boolean; message: string; deletedCount: number }> {
+  try {
+    // Get all deactivated users (ones previously marked as deleted)
+    const deletedUsers = await db.select()
+      .from(users)
+      .where(and(
+        eq(users.isActive, false),
+        like(users.email, '%@deleted.local')
+      ));
+
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    // Try to delete each user if they have no associated records
+    for (const user of deletedUsers) {
+      const { canDelete, associatedRecords } = await this.canUserBeDeleted(user.id);
+      
+      if (canDelete) {
+        try {
+          // If no associated records, permanently delete
+          await db.delete(users).where(eq(users.id, user.id));
+          deletedCount++;
+        } catch (deleteError) {
+          console.error(`Failed to delete user ${user.id}:`, deleteError);
+          errors.push(`User ${user.id}: Deletion failed`);
+        }
+      } else {
+        const counts = [
+          `${associatedRecords.transactions} transactions`,
+          `${associatedRecords.auditLogs} audit logs`,
+          `${associatedRecords.logs} logs`
+        ].filter(c => !c.startsWith('0')).join(', ');
+        errors.push(`User ${user.id}: Has associated records (${counts})`);
+      }
+    }
+
+    const message = errors.length > 0
+      ? `Deleted ${deletedCount} users. Some users could not be deleted:\n${errors.join('\n')}`
+      : `Successfully deleted ${deletedCount} users`;
+
+    return {
+      success: true,
+      message,
+      deletedCount
+    };
+  } catch (error) {
+    console.error('Failed to cleanup deleted users:', error);
+    return {
+      success: false,
+      message: 'Failed to cleanup deleted users: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      deletedCount: 0
+    };
+  }
+}
+
+interface GetTransactionsOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+  status?: string;
+  type?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+interface GetAuditLogsOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+  action?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+// Single clean DatabaseStorage class
+export class DatabaseStorage {
+  async cleanupDeletedUsers(): Promise<{ success: boolean; message: string; deletedCount: number }> {
+    try {
+      // Get all deactivated users (ones previously marked as deleted)
+      const deletedUsers = await db.select()
+        .from(users)
+        .where(and(
+          eq(users.isActive, false),
+          like(users.email, '%@deleted.local')
+        ));
+
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      // Try to delete each user if they have no associated records
+      for (const user of deletedUsers) {
+        const { canDelete, associatedRecords } = await this.canUserBeDeleted(user.id);
+        
+        if (canDelete) {
+          try {
+            // If no associated records, permanently delete
+            await db.delete(users).where(eq(users.id, user.id));
+            deletedCount++;
+          } catch (deleteError) {
+            console.error(`Failed to delete user ${user.id}:`, deleteError);
+            errors.push(`User ${user.id}: Deletion failed`);
+          }
+        } else {
+          const counts = [
+            `${associatedRecords.transactions} transactions`,
+            `${associatedRecords.auditLogs} audit logs`,
+            `${associatedRecords.logs} logs`
+          ].filter(c => !c.startsWith('0')).join(', ');
+          errors.push(`User ${user.id}: Has associated records (${counts})`);
+        }
+      }
+
+      const message = errors.length > 0
+        ? `Deleted ${deletedCount} users. Some users could not be deleted:\n${errors.join('\n')}`
+        : `Successfully deleted ${deletedCount} users`;
+
+      return {
+        success: true,
+        message,
+        deletedCount
+      };
+    } catch (error) {
+      console.error('Failed to cleanup deleted users:', error);
+      return {
+        success: false,
+        message: 'Failed to cleanup deleted users: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        deletedCount: 0
+      };
+    }
+  }
+  // Transaction methods
+  async getTransaction(id: number): Promise<Transaction | undefined> {
+    try {
+      const result = await db.select({
+        id: transactions.id,
+        userId: transactions.userId,
+        type: transactions.type,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        processedBy: transactions.processedBy,
+        rejectionReason: transactions.rejectionReason,
+        transactionHash: transactions.transactionHash,
+        cryptoType: transactions.cryptoType,
+        walletAddress: transactions.walletAddress,
+        planName: transactions.planName
+      }).from(transactions).where(eq(transactions.id, id));
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error(`Failed to get transaction ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async updateTransactionStatus(id: number, status: TransactionStatus, reason?: string): Promise<Transaction | undefined> {
+    try {
+      const updateData: any = { 
+        status, 
+        updatedAt: new Date() 
+      };
+      
+      // Add rejection reason if status is rejected and reason is provided
+      if (status === 'rejected' && reason) {
+        updateData.rejectionReason = reason;
+      }
+      
+      const result = await db.update(transactions)
+        .set(updateData)
+        .where(eq(transactions.id, id))
+        .returning();
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error(`Failed to update transaction ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async getTransactionById(id: number): Promise<Transaction | undefined> {
+    return this.getTransaction(id);
+  }
+
+  async getTransactions(options: GetTransactionsOptions): Promise<Transaction[]> {
+    try {
+      let whereClause: any = undefined;
+      const conditions: any[] = [];
+      
+      if (options.status) {
+        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+      }
+      
+      if (options.type) {
+        conditions.push(eq(transactions.type, options.type as any));
+      }
+      
+      if (options.dateFrom && options.dateTo) {
+        conditions.push(
+          between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
+        );
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+      }
+      
+      const query = whereClause 
+        ? db.select({
+            id: transactions.id,
+            userId: transactions.userId,
+            type: transactions.type,
+            amount: transactions.amount,
+            description: transactions.description,
+            status: transactions.status,
+            createdAt: transactions.createdAt,
+            updatedAt: transactions.updatedAt,
+            processedBy: transactions.processedBy,
+            rejectionReason: transactions.rejectionReason,
+            transactionHash: transactions.transactionHash,
+            cryptoType: transactions.cryptoType,
+            walletAddress: transactions.walletAddress
+            // Excluding new columns that don't exist yet: planName, planDuration, dailyProfit, totalReturn, expectedCompletionDate
+          }).from(transactions).where(whereClause)
+        : db.select({
+            id: transactions.id,
+            userId: transactions.userId,
+            type: transactions.type,
+            amount: transactions.amount,
+            description: transactions.description,
+            status: transactions.status,
+            createdAt: transactions.createdAt,
+            updatedAt: transactions.updatedAt,
+            processedBy: transactions.processedBy,
+            rejectionReason: transactions.rejectionReason,
+            transactionHash: transactions.transactionHash,
+            cryptoType: transactions.cryptoType,
+            walletAddress: transactions.walletAddress
+            // Excluding new columns that don't exist yet: planName, planDuration, dailyProfit, totalReturn, expectedCompletionDate
+          }).from(transactions);
+      
+      return await query.limit(options.limit).offset(options.offset);
+    } catch (error) {
+      console.error('Failed to get transactions:', error);
+      return [];
+    }
+  }
+
+  async getTransactionCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(transactions);
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get transaction count:', error);
+      return 0;
+    }
+  }
+
+  async getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
+    try {
+      return await db.select({
+        id: transactions.id,
+        userId: transactions.userId,
+        type: transactions.type,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        processedBy: transactions.processedBy,
+        rejectionReason: transactions.rejectionReason,
+        transactionHash: transactions.transactionHash,
+        cryptoType: transactions.cryptoType,
+        walletAddress: transactions.walletAddress
+      })
+        .from(transactions)
+        .orderBy(desc(transactions.createdAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('Failed to get recent transactions:', error);
+      return [];
+    }
+  }
+
+  async getPendingDeposits(options: { limit: number; offset: number }): Promise<Transaction[]> {
+    try {
+      return await db.select({
+        id: transactions.id,
+        userId: transactions.userId,
+        type: transactions.type,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        processedBy: transactions.processedBy,
+        rejectionReason: transactions.rejectionReason,
+        transactionHash: transactions.transactionHash,
+        cryptoType: transactions.cryptoType,
+        walletAddress: transactions.walletAddress
+      })
+        .from(transactions)
+        .where(and(
+          eq(transactions.type, 'deposit'),
+          eq(transactions.status, 'pending')
+        ))
+        .limit(options.limit)
+        .offset(options.offset);
+    } catch (error) {
+      console.error('Failed to get pending deposits:', error);
+      return [];
+    }
+  }
+
+  async getPendingDepositCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(and(
+          eq(transactions.type, 'deposit'),
+          eq(transactions.status, 'pending')
+        ));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get pending deposit count:', error);
+      return 0;
+    }
+  }
+
+  async getPendingWithdrawalCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(and(
+          eq(transactions.type, 'withdrawal'),
+          eq(transactions.status, 'pending')
+        ));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get pending withdrawal count:', error);
+      return 0;
+    }
+  }
+
+  async getTotalDepositAmount(): Promise<number> {
+    try {
+      const result = await db.select({
+        total: sql<number>`coalesce(sum(amount), 0)`
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.type, 'deposit'),
+        eq(transactions.status, 'completed')
+      ));
+      return result[0].total;
+    } catch (error) {
+      console.error('Failed to get total deposit amount:', error);
+      return 0;
+    }
+  }
+
+  async getTotalWithdrawalAmount(): Promise<number> {
+    try {
+      const result = await db.select({
+        total: sql<number>`coalesce(sum(amount), 0)`
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.type, 'withdrawal'),
+        eq(transactions.status, 'completed')
+      ));
+      return result[0].total;
+    } catch (error) {
+      console.error('Failed to get total withdrawal amount:', error);
+      return 0;
+    }
+  }
+
+  // User methods
+  async searchUsers(query: string): Promise<User[]> {
+    try {
+      return await db.select().from(users).where(
+        or(
+          like(users.username, `%${query}%`),
+          like(users.email, `%${query}%`),
+          like(users.firstName, `%${query}%`),
+          like(users.lastName, `%${query}%`)
+        )
+      );
+    } catch (error) {
+      console.error('Failed to search users:', error);
+      return [];
+    }
+  }
+
+  async getUsers(options: GetUsersOptions): Promise<User[]> {
+    try {
+      let whereClause: any = undefined;
+      const conditions: any[] = [];
+      
+      if (options.search) {
+        conditions.push(or(
+          like(users.username, `%${options.search}%`),
+          like(users.email, `%${options.search}%`),
+          like(users.firstName, `%${options.search}%`),
+          like(users.lastName, `%${options.search}%`)
+        ));
+      }
+      
+      if (options.status) {
+        if (options.status === 'active') {
+          conditions.push(eq(users.isActive, true));
+        } else if (options.status === 'inactive') {
+          conditions.push(eq(users.isActive, false));
+        } else if (options.status === 'verified') {
+          conditions.push(eq(users.isVerified, true));
+        } else if (options.status === 'unverified') {
+          conditions.push(eq(users.isVerified, false));
+        }
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+      }
+      
+      const query = whereClause 
+        ? db.select().from(users).where(whereClause)
+        : db.select().from(users);
+        
+      return await query.limit(options.limit).offset(options.offset);
+    } catch (error) {
+      console.error('Failed to get users:', error);
+      return [];
+    }
+  }
+
+  async getUserCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get user count:', error);
+      return 0;
+    }
+  }
+
+  async getPendingVerificationCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.isVerified, false));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get pending verification count:', error);
+      return 0;
+    }
+  }
+
+  async getRecentRegistrations(limit: number = 10): Promise<User[]> {
+    try {
+      return await db.select()
+        .from(users)
+        .orderBy(desc(users.createdAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('Failed to get recent registrations:', error);
+      return [];
+    }
+  }
+
+  // Notification methods
+  async createNotification(data: {
+    userId: number;
+    type: string;
+    title: string;
+    message: string;
+    relatedEntityType?: string;
+    relatedEntityId?: number;
+    priority?: string;
+    expiresAt?: Date;
+  }): Promise<Notification> {
+    try {
+      const result = await db.insert(notifications).values({
+        userId: data.userId,
+        type: data.type as any,
+        title: data.title,
+        message: data.message,
+        relatedEntityType: data.relatedEntityType,
+        relatedEntityId: data.relatedEntityId,
+        priority: (data.priority as any) || 'medium',
+        expiresAt: data.expiresAt
+      }).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Failed to create notification:', error);
+      throw error;
+    }
+  }
+
+  // Audit log methods
+  async getAuditLogs(options: GetAuditLogsOptions): Promise<AuditLog[]> {
+    try {
+      if (options.action && options.search) {
+        return await db.select().from(auditLogs)
+          .where(and(
+            eq(auditLogs.action, options.action),
+            like(auditLogs.details, `%${options.search}%`)
+          ))
+          .limit(options.limit).offset(options.offset);
+      } else if (options.action) {
+        return await db.select().from(auditLogs)
+          .where(eq(auditLogs.action, options.action))
+          .limit(options.limit).offset(options.offset);
+      } else if (options.search) {
+        return await db.select().from(auditLogs)
+          .where(like(auditLogs.details, `%${options.search}%`))
+          .limit(options.limit).offset(options.offset);
+      } else {
+        return await db.select().from(auditLogs)
+          .limit(options.limit).offset(options.offset);
+      }
+    } catch (error) {
+      console.error('Failed to get audit logs:', error);
+      return [];
+    }
+  }
+
+  async getAuditLogCount(options: { search?: string; action?: string } = {}): Promise<number> {
+    try {
+      let result;
+      if (options.action && options.search) {
+        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs)
+          .where(and(
+            eq(auditLogs.action, options.action),
+            like(auditLogs.details, `%${options.search}%`)
+          ));
+      } else if (options.action) {
+        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs)
+          .where(eq(auditLogs.action, options.action));
+      } else if (options.search) {
+        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs)
+          .where(like(auditLogs.details, `%${options.search}%`));
+      } else {
+        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs);
+      }
+      
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get audit log count:', error);
+      return 0;
+    }
+  }
+
+  async getRecentLogins(limit: number = 10): Promise<AuditLog[]> {
+    try {
+      return await db.select()
+        .from(auditLogs)
+        .where(eq(auditLogs.action, 'login'))
+        .orderBy(desc(auditLogs.createdAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('Failed to get recent logins:', error);
+      return [];
+    }
+  }
+
+  // Visitor tracking methods
+  async getActiveVisitors(): Promise<VisitorTracking[]> {
+    try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return await db.select()
+        .from(visitor_tracking)
+        .where(sql`${visitor_tracking.lastActivity} > ${fiveMinutesAgo}`)
+        .orderBy(desc(visitor_tracking.lastActivity));
+    } catch (error) {
+      console.error('Failed to get active visitors:', error);
+      return [];
+    }
+  }
+
+  // Additional user methods required by auth.ts
+  async getUser(id: number): Promise<User | undefined> {
+    try {
+      const result = await db.select().from(users).where(eq(users.id, id));
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error(`Failed to get user ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    try {
+      const result = await db.select().from(users).where(eq(users.username, username));
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error(`Failed to get user by username ${username}:`, error);
+      return undefined;
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      const result = await db.select().from(users).where(eq(users.email, email));
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error(`Failed to get user by email ${email}:`, error);
+      return undefined;
+    }
+  }
+
+  async createUser(userData: {
+    username: string;
+    password: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role?: "user" | "admin";
+    balance?: string;
+    isActive?: boolean;
+    isVerified?: boolean;
+    twoFactorEnabled?: boolean;
+    referredBy?: number | null;
+    bitcoinAddress?: string | null;
+    bitcoinCashAddress?: string | null;
+    ethereumAddress?: string | null;
+    bnbAddress?: string | null;
+    usdtTrc20Address?: string | null;
+    verificationToken?: string | null;
+    verificationTokenExpiry?: Date | null;
+  }): Promise<User | undefined> {
+    try {
+      const result = await db.insert(users).values({
+        username: userData.username,
+        password: userData.password,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role || "user",
+        balance: userData.balance || "0",
+        isActive: userData.isActive ?? true,
+        isVerified: userData.isVerified ?? false,
+        twoFactorEnabled: userData.twoFactorEnabled ?? false,
+        referredBy: userData.referredBy || null,
+        bitcoinAddress: userData.bitcoinAddress || null,
+        bitcoinCashAddress: userData.bitcoinCashAddress || null,
+        ethereumAddress: userData.ethereumAddress || null,
+        bnbAddress: userData.bnbAddress || null,
+        usdtTrc20Address: userData.usdtTrc20Address || null,
+        verificationToken: userData.verificationToken || null,
+        verificationTokenExpiry: userData.verificationTokenExpiry || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      return undefined;
+    }
+  }
+
+  async updateUser(id: number, updates: Partial<{
+    username: string;
+    password: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: "user" | "admin";
+    balance: string;
+    isActive: boolean;
+    isVerified: boolean;
+    twoFactorEnabled: boolean;
+    verificationToken: string | null;
+    verificationTokenExpiry: Date | null;
+    pendingEmail: string | null;
+  }>): Promise<User | undefined> {
+    try {
+      const result = await db.update(users)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error(`Failed to update user ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      return await db.select().from(users);
+    } catch (error) {
+      console.error('Failed to get all users:', error);
+      return [];
+    }
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    try {
+      // Check if user has associated records that would prevent deletion
+      const userTransactions = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(eq(transactions.userId, id));
+      
+      let auditLogCount = 0;
+      let logsCount = 0;
+      
+      // Check audit_logs table if it exists
+      try {
+        const userAuditLogs = await db.select({ count: sql<number>`count(*)` })
+          .from(auditLogs)
+          .where(eq(auditLogs.userId, id));
+        auditLogCount = userAuditLogs[0].count;
+      } catch (auditError: any) {
+        if (auditError.message?.includes('does not exist') || auditError.code === '42P01') {
+          console.log('Audit logs table does not exist, proceeding without audit log check');
+          auditLogCount = 0;
+        } else {
+          throw auditError;
+        }
+      }
+      
+      // Check for other log tables that might have foreign keys (like 'logs' table)
+      try {
+        const userLogs = await db.execute(sql`SELECT COUNT(*) as count FROM logs WHERE user_id = ${id}`);
+        logsCount = Number(userLogs.rows[0]?.count || 0);
+      } catch (logsError: any) {
+        if (logsError.message?.includes('does not exist') || logsError.code === '42P01') {
+          console.log('Logs table does not exist, proceeding without logs check');
+          logsCount = 0;
+        } else {
+          console.log('Cannot check logs table:', logsError.message);
+          logsCount = 0;
+        }
+      }
+      
+      const transactionCount = userTransactions[0].count;
+      const totalAssociatedRecords = transactionCount + auditLogCount + logsCount;
+      
+      // If user has associated records, deactivate instead of deleting
+      if (totalAssociatedRecords > 0) {
+        console.log(`User ${id} has ${transactionCount} transactions, ${auditLogCount} audit logs, and ${logsCount} log entries. Deactivating instead of deleting.`);
+        
+        const deactivated = await this.updateUser(id, {
+          isActive: false,
+          username: `deleted_user_${id}_${Date.now()}`,
+          email: `deleted_${id}_${Date.now()}@deleted.local`
+        });
+        
+        return deactivated !== undefined;
+      }
+      
+      // If no associated records, attempt to delete
+      await db.delete(users).where(eq(users.id, id));
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete user ${id}:`, error);
+      
+      // If it's any kind of constraint error, try deactivation
+      if (error instanceof Error && (
+        error.message.includes('foreign key') || 
+        error.message.includes('constraint') ||
+        error.message.includes('violates') ||
+        error.message.includes('referenced')
+      )) {
+        console.log(`Constraint violation detected for user ${id}. Attempting deactivation.`);
+        try {
+          const deactivated = await this.updateUser(id, {
+            isActive: false,
+            username: `deleted_user_${id}_${Date.now()}`,
+            email: `deleted_${id}_${Date.now()}@deleted.local`
+          });
+          return deactivated !== undefined;
+        } catch (deactivationError) {
+          console.error(`Failed to deactivate user ${id}:`, deactivationError);
+          return false;
+        }
+      }
+      
+      return false;
+    }
+  }
+
+  async canUserBeDeleted(id: number): Promise<{ canDelete: boolean; reason?: string; associatedRecords: { transactions: number; auditLogs: number; logs: number } }> {
+    try {
+      const userTransactions = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(eq(transactions.userId, id));
+      
+      let auditLogCount = 0;
+      let logsCount = 0;
+      
+      // Check audit_logs table if it exists
+      try {
+        const userAuditLogs = await db.select({ count: sql<number>`count(*)` })
+          .from(auditLogs)
+          .where(eq(auditLogs.userId, id));
+        auditLogCount = userAuditLogs[0].count;
+      } catch (auditError: any) {
+        if (auditError.message?.includes('does not exist') || auditError.code === '42P01') {
+          console.log('Audit logs table does not exist, proceeding without audit log check');
+          auditLogCount = 0;
+        } else {
+          throw auditError;
+        }
+      }
+      
+      // Check for other log tables
+      try {
+        const userLogs = await db.execute(sql`SELECT COUNT(*) as count FROM logs WHERE user_id = ${id}`);
+        logsCount = Number(userLogs.rows[0]?.count || 0);
+      } catch (logsError: any) {
+        if (logsError.message?.includes('does not exist') || logsError.code === '42P01') {
+          console.log('Logs table does not exist, proceeding without logs check');
+          logsCount = 0;
+        } else {
+          console.log('Cannot check logs table:', logsError.message);
+          logsCount = 0;
+        }
+      }
+      
+      const transactionCount = userTransactions[0].count;
+      
+      const associatedRecords = {
+        transactions: transactionCount,
+        auditLogs: auditLogCount,
+        logs: logsCount
+      };
+      
+      const totalAssociatedRecords = transactionCount + auditLogCount + logsCount;
+      
+      if (totalAssociatedRecords > 0) {
+        return {
+          canDelete: false,
+          reason: `User has ${transactionCount} transactions, ${auditLogCount} audit log entries, and ${logsCount} log entries`,
+          associatedRecords
+        };
+      }
+      
+      return {
+        canDelete: true,
+        associatedRecords
+      };
+    } catch (error) {
+      console.error(`Failed to check if user ${id} can be deleted:`, error);
+      return {
+        canDelete: false,
+        reason: 'Error checking user deletion eligibility',
+        associatedRecords: { transactions: 0, auditLogs: 0, logs: 0 }
+      };
+    }
+  }
+
+  // Audit log methods
+  async createLog(logData: {
+    type: string;
+    userId?: number;
+    message: string;
+    details?: any;
+  }): Promise<AuditLog | undefined> {
+    try {
+      const result = await db.insert(auditLogs).values({
+        userId: logData.userId || null,
+        action: logData.type,
+        description: logData.message,
+        details: typeof logData.details === 'object' ? JSON.stringify(logData.details) : logData.details || null,
+        ipAddress: null, // Could be passed in if needed
+        userAgent: null, // Could be passed in if needed
+        createdAt: new Date()
+      }).returning();
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error: any) {
+      // If audit_logs table doesn't exist, just log to console and return undefined
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        console.log('Audit logs table does not exist, logging to console instead:', logData);
+        return undefined;
+      }
+      console.error('Failed to create log:', error);
+      return undefined;
+    }
+  }
+
+  // Database connection check
   async checkDatabaseConnection(): Promise<boolean> {
     try {
-      // Try to execute a simple query to check connection
-      const result = await db.execute(sql`SELECT 1`);
+      // Simple query to test connection
+      await db.select({ count: sql<number>`1` }).from(users).limit(1);
       return true;
     } catch (error) {
       console.error('Database connection check failed:', error);
       return false;
+    }
+  }
+
+  // Additional methods required by routes.ts
+  async getUserTransactions(userId: number): Promise<Transaction[]> {
+    try {
+      return await db.select({
+        id: transactions.id,
+        userId: transactions.userId,
+        type: transactions.type,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        processedBy: transactions.processedBy,
+        rejectionReason: transactions.rejectionReason,
+        transactionHash: transactions.transactionHash,
+        cryptoType: transactions.cryptoType,
+        walletAddress: transactions.walletAddress
+        // Excluding new columns that don't exist yet: planName, planDuration, dailyProfit, totalReturn, expectedCompletionDate
+      })
+        .from(transactions)
+        .where(eq(transactions.userId, userId))
+        .orderBy(desc(transactions.createdAt));
+    } catch (error) {
+      console.error(`Failed to get user transactions for ${userId}:`, error);
+      return [];
+    }
+  }
+
+  async createTransaction(transactionData: {
+    userId: number;
+    type: 'deposit' | 'withdrawal' | 'investment';
+    amount: string;
+    status?: TransactionStatus;
+    description?: string;
+    planName?: string;
+    cryptoType?: string;
+    walletAddress?: string;
+    transactionHash?: string;
+    planDuration?: string;
+    dailyProfit?: number;
+    totalReturn?: number;
+  }): Promise<Transaction | undefined> {
+    try {
+      // Map investment to deposit for now since the DB schema only supports deposit/withdrawal
+      const dbType = transactionData.type === 'investment' ? 'deposit' : transactionData.type;
+      
+      // Only insert fields that exist in the current schema
+      const result = await db.insert(transactions).values({
+        userId: transactionData.userId,
+        type: dbType as any,
+        amount: transactionData.amount,
+        status: transactionData.status || 'pending',
+        description: transactionData.description || '',
+        planName: transactionData.planName || null,
+        cryptoType: transactionData.cryptoType || null,
+        walletAddress: transactionData.walletAddress || null,
+        transactionHash: transactionData.transactionHash || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+        // Note: planDuration, dailyProfit, totalReturn, expectedCompletionDate are not included 
+        // until the database schema is updated
+      }).returning();
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error('Failed to create transaction:', error);
+      return undefined;
+    }
+  }
+
+  async getActiveUserCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.isActive, true));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get active user count:', error);
+      return 0;
+    }
+  }
+
+  async getPendingTransactionCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(eq(transactions.status, 'pending'));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get pending transaction count:', error);
+      return 0;
+    }
+  }
+
+  async getAllTransactions(): Promise<Transaction[]> {
+    try {
+      return await db.select({
+        id: transactions.id,
+        userId: transactions.userId,
+        type: transactions.type,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        processedBy: transactions.processedBy,
+        rejectionReason: transactions.rejectionReason,
+        transactionHash: transactions.transactionHash,
+        cryptoType: transactions.cryptoType,
+        walletAddress: transactions.walletAddress,
+        planName: transactions.planName
+      }).from(transactions).orderBy(desc(transactions.createdAt));
+    } catch (error) {
+      console.error('Failed to get all transactions:', error);
+      return [];
+    }
+  }
+
+  async getDeposits(options: { 
+    limit: number; 
+    offset: number; 
+    status?: string; 
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    method?: string;
+    amountMin?: number;
+    amountMax?: number;
+  }): Promise<any[]> {
+    try {
+      const conditions: any[] = [eq(transactions.type, 'deposit')];
+      
+      if (options.status) {
+        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+      }
+      
+      if (options.search) {
+        conditions.push(or(
+          like(transactions.description, `%${options.search}%`),
+          like(transactions.transactionHash, `%${options.search}%`)
+        ));
+      }
+
+      if (options.dateFrom) {
+        conditions.push(gte(transactions.createdAt, new Date(options.dateFrom)));
+      }
+
+      if (options.dateTo) {
+        conditions.push(lte(transactions.createdAt, new Date(options.dateTo)));
+      }
+
+      if (options.method) {
+        conditions.push(eq(transactions.cryptoType, options.method));
+      }
+
+      if (options.amountMin !== undefined) {
+        conditions.push(gte(transactions.amount, options.amountMin.toString()));
+      }
+
+      if (options.amountMax !== undefined) {
+        conditions.push(lte(transactions.amount, options.amountMax.toString()));
+      }
+      
+      const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+      
+      // Select only existing columns for now
+      const result = await db.select({
+        id: transactions.id,
+        user_id: transactions.userId,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        created_at: transactions.createdAt,
+        updated_at: transactions.updatedAt,
+        crypto_type: transactions.cryptoType,
+        transaction_hash: transactions.transactionHash,
+        wallet_address: transactions.walletAddress,
+        user: {
+          id: users.id,
+          username: users.username,
+          email: users.email
+        }
+      })
+        .from(transactions)
+        .leftJoin(users, eq(transactions.userId, users.id))
+        .where(whereClause)
+        .limit(options.limit)
+        .offset(options.offset)
+        .orderBy(desc(transactions.createdAt));
+
+      return result;
+    } catch (error) {
+      console.error('Failed to get deposits:', error);
+      return [];
+    }
+  }
+
+  async getDepositCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(eq(transactions.type, 'deposit'));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get deposit count:', error);
+      return 0;
+    }
+  }
+
+  async getWithdrawals(options: { limit: number; offset: number; status?: string; search?: string }): Promise<Transaction[]> {
+    try {
+      const conditions: any[] = [eq(transactions.type, 'withdrawal')];
+      
+      if (options.status) {
+        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+      }
+      
+      if (options.search) {
+        conditions.push(or(
+          like(transactions.description, `%${options.search}%`),
+          like(transactions.transactionHash, `%${options.search}%`)
+        ));
+      }
+      
+      const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+      
+      return await db.select({
+        id: transactions.id,
+        userId: transactions.userId,
+        type: transactions.type,
+        amount: transactions.amount,
+        description: transactions.description,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        processedBy: transactions.processedBy,
+        rejectionReason: transactions.rejectionReason,
+        transactionHash: transactions.transactionHash,
+        cryptoType: transactions.cryptoType,
+        walletAddress: transactions.walletAddress
+      })
+        .from(transactions)
+        .where(whereClause)
+        .limit(options.limit)
+        .offset(options.offset)
+        .orderBy(desc(transactions.createdAt));
+    } catch (error) {
+      console.error('Failed to get withdrawals:', error);
+      return [];
+    }
+  }
+
+  async getWithdrawalCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(eq(transactions.type, 'withdrawal'));
+      return result[0].count;
+    } catch (error) {
+      console.error('Failed to get withdrawal count:', error);
+      return 0;
+    }
+  }
+
+  async updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
+    return this.updateTransactionStatus(id, status);
+  }
+
+  async updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
+    return this.updateTransactionStatus(id, status);
+  }
+
+  async deleteTransaction(id: number): Promise<boolean> {
+    try {
+      await db.delete(transactions).where(eq(transactions.id, id));
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete transaction ${id}:`, error);
+      return false;
+    }
+  }
+
+  async getAllUsersForExport(): Promise<User[]> {
+    return this.getAllUsers();
+  }
+
+  async getAllTransactionsForExport(): Promise<Transaction[]> {
+    return this.getAllTransactions();
+  }
+
+  // System settings methods (placeholder implementations)
+  async getMaintenanceSettings(): Promise<any> {
+    try {
+      // Return default maintenance settings
+      return {
+        enabled: false,
+        message: "The system is temporarily under maintenance. Please try again later.",
+        startTime: null,
+        endTime: null
+      };
+    } catch (error) {
+      console.error('Failed to get maintenance settings:', error);
+      return { enabled: false, message: "Maintenance mode disabled" };
+    }
+  }
+
+  async updateMaintenanceSettings(settings: any): Promise<any> {
+    try {
+      // In a real implementation, this would update a settings table
+      // For now, just return the settings as if they were saved
+      return settings;
+    } catch (error) {
+      console.error('Failed to update maintenance settings:', error);
+      return null;
+    }
+  }
+
+  async getSystemSettings(): Promise<any> {
+    try {
+      // Return default system settings
+      return {
+        siteName: "Axix Finance",
+        supportEmail: "support@axixfinance.com",
+        maintenanceMode: false,
+        registrationEnabled: true
+      };
+    } catch (error) {
+      console.error('Failed to get system settings:', error);
+      return {};
+    }
+  }
+
+  async updateSystemSettings(settings: any): Promise<any> {
+    try {
+      // In a real implementation, this would update a settings table
+      // For now, just return the settings as if they were saved
+      return settings;
+    } catch (error) {
+      console.error('Failed to update system settings:', error);
+      return null;
+    }
+  }
+
+  async getAllSettings(): Promise<any[]> {
+    try {
+      // Return placeholder settings
+      return [
+        { name: "siteName", value: "Axix Finance" },
+        { name: "supportEmail", value: "support@axixfinance.com" },
+        { name: "maintenanceMode", value: "false" },
+        { name: "registrationEnabled", value: "true" }
+      ];
+    } catch (error) {
+      console.error('Failed to get all settings:', error);
+      return [];
+    }
+  }
+
+  async getSetting(name: string): Promise<any> {
+    try {
+      const allSettings = await this.getAllSettings();
+      return allSettings.find(setting => setting.name === name);
+    } catch (error) {
+      console.error(`Failed to get setting ${name}:`, error);
+      return null;
+    }
+  }
+
+  async createOrUpdateSetting(name: string, value: string, description?: string): Promise<void> {
+    try {
+      // In a real implementation, this would insert/update a settings table
+      // For now, just log that the setting would be created/updated
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`Setting '${name}' would be set to '${value}'${description ? ` (${description})` : ''}`);
+      }
+    } catch (error) {
+      console.error(`Failed to create/update setting ${name}:`, error);
+      throw error;
     }
   }
 
@@ -145,1069 +1317,7 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
-
-  // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id));
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    try {
-      if (process.env.NODE_ENV !== "production") console.log(`Looking up user by username: ${username}`);
-      const result = await db.select().from(users).where(eq(users.username, username));
-      return result.length > 0 ? mapUserResult(result[0]) : undefined;
-    } catch (error) {
-      console.error('Database error in getUserByUsername:', error);
-      return undefined;
-    }
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.email, email));
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-
-  async getAllUsers(): Promise<User[]> {
-    const result = await db.select().from(users);
-    return result.map(mapUserResult);
-  }  async createUser(user: InsertUser): Promise<User | undefined> {
-    try {
-      const result = await db.insert(users).values(user).returning();
-      return result.length > 0 ? mapUserResult(result[0]) : undefined;
-    } catch (error) {
-      console.error('Error creating user:', error);
-      return undefined;
-    }
-  }
-
-  async updateUserProfile(userId: number, data: Partial<User>): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-    
-    // Remove sensitive fields that shouldn't be updated
-    const { id, password, role, createdAt, ...updateData } = data;
-    
-    const result = await db.update(users)
-      .set({ 
-        ...updateData,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-  
-  async updateUserVerificationStatus(userId: number, isVerified: boolean): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-    
-    const result = await db.update(users)
-      .set({ 
-        isVerified,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-  
-  async updateUserActiveStatus(userId: number, isActive: boolean): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-    
-    const result = await db.update(users)
-      .set({ 
-        isActive,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-  
-  async updateUser2FAStatus(userId: number, enabled: boolean, secret?: string): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-    
-    const result = await db.update(users)
-      .set({ 
-        twoFactorEnabled: enabled,
-        twoFactorSecret: secret,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-  
-  async updateUserVerificationToken(userId: number, token: string): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
-    
-    const result = await db.update(users)
-      .set({ 
-        verificationToken: token,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    
-    return result.length > 0 ? mapUserResult(result[0]) : undefined;
-  }
-  
-  async getUserByVerificationToken(token: string): Promise<User | undefined> {
-    try {
-      const result = await db.select().from(users).where(eq(users.verificationToken, token));
-      return result.length > 0 ? mapUserResult(result[0]) : undefined;
-    } catch (error) {    console.error('Database error in getUserByVerificationToken:', error);
-      return undefined;
-    }
-  }
-  
-  async getUserReferrals(referrerId: number): Promise<User[]> {
-    const result = await db.select().from(users).where(eq(users.referredBy, referrerId));
-    return result.map(mapUserResult);
-  }
-  
-  async searchUsers(query: string): Promise<User[]> {
-    const searchPattern = `%${query}%`;
-    const result = await db.select().from(users)
-      .where(
-        or(
-          like(users.username, searchPattern),
-          like(users.email, searchPattern),
-          like(users.firstName, searchPattern),
-          like(users.lastName, searchPattern)
-        )
-      );
-    return result.map(mapUserResult);
-  }  async getUsers(options: { limit: number; offset: number; search?: string; status?: string }): Promise<User[]> {
-    try {
-      let conditions: any[] = [];
-      
-      // Add search filter
-      if (options.search) {
-        conditions.push(
-          or(
-            like(users.username, `%${options.search}%`),
-            like(users.email, `%${options.search}%`),
-            like(users.firstName, `%${options.search}%`),
-            like(users.lastName, `%${options.search}%`)
-          )
-        );
-      }
-      
-      // Add status filter
-      if (options.status === 'active') {
-        conditions.push(eq(users.isActive, true));
-      } else if (options.status === 'inactive') {
-        conditions.push(eq(users.isActive, false));
-      } else if (options.status === 'verified') {
-        conditions.push(eq(users.isVerified, true));
-      } else if (options.status === 'unverified') {
-        conditions.push(eq(users.isVerified, false));
-      }
-      
-      let result;
-      // Build query based on whether we have conditions
-      if (conditions.length > 0) {
-        result = await db.select()
-          .from(users)
-          .where(and(...conditions))
-          .limit(options.limit)
-          .offset(options.offset)
-          .orderBy(desc(users.createdAt));
-      } else {
-        result = await db.select()
-          .from(users)
-          .limit(options.limit)
-          .offset(options.offset)
-          .orderBy(desc(users.createdAt));
-      }
-      
-      return result.map(mapUserResult);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      return [];
-    }
-  }
-
-  async getUserCount(): Promise<number> {
-    try {
-      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
-      return result[0].count;
-    } catch (error) {
-      console.error('Error getting user count:', error);
-      return 0;
-    }
-  }
-
-  async updateUser(userId: number, data: Partial<User>): Promise<User | undefined> {
-    try {
-      const updateData: any = {};
-      
-      // Only include fields that exist in the users table
-      if (data.username !== undefined) updateData.username = data.username;
-      if (data.email !== undefined) updateData.email = data.email;
-      if (data.firstName !== undefined) updateData.firstName = data.firstName;
-      if (data.lastName !== undefined) updateData.lastName = data.lastName;
-      if (data.role !== undefined) updateData.role = data.role;
-      if (data.isVerified !== undefined) updateData.isVerified = data.isVerified;
-      if (data.isActive !== undefined) updateData.isActive = data.isActive;
-      if (data.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = data.twoFactorEnabled;
-      if (data.twoFactorSecret !== undefined) updateData.twoFactorSecret = data.twoFactorSecret;
-      
-      const result = await db.update(users)
-        .set(updateData)
-        .where(eq(users.id, userId))
-        .returning();
-      
-      return result.length > 0 ? mapUserResult(result[0]) : undefined;
-    } catch (error) {
-      console.error('Error updating user:', error);
-      return undefined;
-    }
-  }  async deleteUser(userId: number): Promise<boolean> {
-    try {
-      // Start a transaction to ensure data consistency
-      await db.transaction(async (tx) => {
-        // First, handle referral relationships - set referredBy to null for users who were referred by this user
-        await tx.update(users)
-          .set({ referredBy: null })
-          .where(eq(users.referredBy, userId));
-        
-        // Delete related records that reference this user
-        // Delete logs associated with this user
-        await tx.delete(logs).where(eq(logs.userId, userId));
-        
-        // Delete transactions associated with this user
-        await tx.delete(transactions).where(eq(transactions.userId, userId));
-        
-        // Delete notifications associated with this user
-        await tx.delete(notifications).where(eq(notifications.userId, userId));
-        
-        // Delete messages where this user is the sender, or set respondedBy to null if this user was the responder
-        await tx.delete(messages).where(eq(messages.userId, userId));
-        await tx.update(messages)
-          .set({ respondedBy: null })
-          .where(eq(messages.respondedBy, userId));
-        
-        // Finally, delete the user
-        await tx.delete(users).where(eq(users.id, userId));
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      return false;
-    }
-  }
-
-  async updateUserBalance(userId: number, amount: number): Promise<boolean> {
-    try {
-      // Get current user balance
-      const user = await this.getUser(userId);
-      if (!user) {
-        console.error('User not found for balance update:', userId);
-        return false;
-      }
-
-      const currentBalance = parseFloat(user.balance as string);
-      const newBalance = currentBalance + amount;
-
-      // Update user balance
-      await db.update(users)
-        .set({ 
-          balance: newBalance.toString(),
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, userId));
-    return true;
-    } catch (error) {
-      console.error('Error updating user balance:', error);
-      return false;
-    }
-  }
-
-  async getActiveUserCount(): Promise<number> {
-    try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(users)
-        .where(eq(users.isActive, true));
-      return result[0].count;
-    } catch (error) {
-      console.error('Error getting active user count:', error);
-      return 0;
-    }
-  }
-
-  // Transaction methods
-  async getTransaction(id: number): Promise<Transaction | undefined> {
-    const result = await db.select().from(transactions).where(eq(transactions.id, id));
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  async getUserTransactions(userId: number): Promise<Transaction[]> {
-    return await db.select().from(transactions).where(eq(transactions.userId, userId));
-  }
-
-  async getAllTransactions(): Promise<Transaction[]> {
-    return await db.select().from(transactions);
-  }
-
-  async getPendingTransactions(): Promise<Transaction[]> {
-    return await db.select().from(transactions).where(eq(transactions.status, "pending"));
-  }
-
-  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    const result = await db.insert(transactions).values({
-      ...insertTransaction,
-    }).returning();
-    
-    return result[0];
-  }
-
-  async getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
-    return await db.select().from(transactions)
-      .where(
-        and(
-          sql`${transactions.createdAt} >= ${startDate}`,
-          sql`${transactions.createdAt} <= ${endDate}`
-        )
-      )
-      .orderBy(desc(transactions.createdAt));
-  }
-  
-  async getTransactionsByStatus(status: TransactionStatus): Promise<Transaction[]> {
-    return await db.select().from(transactions)
-      .where(eq(transactions.status, status))
-      .orderBy(desc(transactions.createdAt));
-  }
-  
-  async getTransactionsByType(type: TransactionType): Promise<Transaction[]> {
-    return await db.select().from(transactions)
-      .where(eq(transactions.type, type))
-      .orderBy(desc(transactions.createdAt));
-  }
-  
-  async searchTransactions(query: string): Promise<Transaction[]> {
-    const searchPattern = `%${query}%`;
-    const queryAsNumber = parseFloat(query);
-    
-    // If query is a number, also search by amount
-    if (!isNaN(queryAsNumber)) {
-      return await db.select().from(transactions)
-        .where(
-          or(
-            like(transactions.description, searchPattern),
-            sql`CAST(${transactions.amount} AS TEXT) LIKE ${searchPattern}`
-          )
-        )
-        .orderBy(desc(transactions.createdAt));
-    }
-    
-    // Otherwise just search by description
-    return await db.select().from(transactions)
-      .where(like(transactions.description, searchPattern))
-      .orderBy(desc(transactions.createdAt));
-  }
-
-  async updateTransactionStatus(
-    id: number, 
-    status: TransactionStatus, 
-    rejectionReason?: string
-  ): Promise<Transaction | undefined> {
-    const transaction = await this.getTransaction(id);
-    if (!transaction) return undefined;
-
-    const updateData: Record<string, any> = { 
-      status, 
-      updatedAt: new Date()
-    };
-    
-    if (status === "rejected" && rejectionReason) {
-      updateData.rejectionReason = rejectionReason;
-    }
-
-    const result = await db.update(transactions)
-      .set(updateData)
-      .where(eq(transactions.id, id))
-      .returning();
-    
-    // If the transaction is completed, update user balance
-    if (status === "completed") {
-      const amount = parseFloat(transaction.amount as string);
-      if (transaction.type === "deposit" || transaction.type === "transfer") {
-        await this.updateUserBalance(transaction.userId, amount);
-      } else if (transaction.type === "withdrawal" || transaction.type === "investment") {
-        await this.updateUserBalance(transaction.userId, -amount);
-      }
-      
-      // Create log entry for completed transaction
-      await this.createLog({
-        type: "audit",
-        message: `Transaction #${id} (${transaction.type}) was completed`,
-        userId: transaction.userId,
-        details: { transactionId: id, amount: transaction.amount }
-      });
-    } else if (status === "rejected") {
-      // Create log entry for rejected transaction
-      await this.createLog({
-        type: "audit",
-        message: `Transaction #${id} (${transaction.type}) was rejected`,
-        userId: transaction.userId,
-        details: { 
-          transactionId: id, 
-          amount: transaction.amount,
-          reason: rejectionReason || "No reason provided" 
-        }
-      });
-    }
-
-    return result.length > 0 ? result[0] : undefined;
-  }
-  
-  // Log methods
-  async createLog(log: InsertLog): Promise<Log> {
-    const result = await db.insert(logs).values(log).returning();
-    return result[0];
-  }
-  
-  async getLogs(limit: number = 100, offset: number = 0): Promise<Log[]> {
-    return await db.select().from(logs)
-      .orderBy(desc(logs.createdAt))
-      .limit(limit)
-      .offset(offset);
-  }
-  
-  async getAllLogs(): Promise<Log[]> {
-    return await db.select().from(logs)
-      .orderBy(desc(logs.createdAt));
-  }
-  
-  async getUserLogs(userId: number): Promise<Log[]> {
-    return await db.select().from(logs)
-      .where(eq(logs.userId, userId))
-      .orderBy(desc(logs.createdAt));
-  }
-  
-  async getLogsByType(type: LogType): Promise<Log[]> {
-    return await db.select().from(logs)
-      .where(eq(logs.type, type))
-      .orderBy(desc(logs.createdAt));
-  }
-  
-  async getLogsByDateRange(startDate: Date, endDate: Date): Promise<Log[]> {
-    return await db.select().from(logs)
-      .where(
-        and(
-          sql`${logs.createdAt} >= ${startDate}`,
-          sql`${logs.createdAt} <= ${endDate}`
-        )
-      )
-      .orderBy(desc(logs.createdAt));
-  }
-  
-  async searchLogs(query: string): Promise<Log[]> {
-    const searchPattern = `%${query}%`;
-    return await db.select().from(logs)
-      .where(like(logs.message, searchPattern))
-      .orderBy(desc(logs.createdAt));
-  }  
-  // Message methods
-  async createMessage(message: InsertMessage): Promise<Message> {
-    const result = await db.insert(messages).values(message).returning();
-    return result[0];
-  }
-  
-  async getMessage(id: number): Promise<Message | undefined> {
-    const result = await db.select().from(messages).where(eq(messages.id, id));
-    return result.length > 0 ? result[0] : undefined;
-  }
-  
-  async getUserMessages(userId: number): Promise<Message[]> {
-    return await db.select().from(messages)
-      .where(eq(messages.userId, userId))
-      .orderBy(desc(messages.createdAt));
-  }
-  
-  async getAllMessages(): Promise<Message[]> {
-    return await db.select().from(messages)
-      .orderBy(desc(messages.createdAt));
-  }
-  
-  async getUnreadMessages(): Promise<Message[]> {
-    return await db.select().from(messages)
-      .where(eq(messages.status, "unread"))
-      .orderBy(desc(messages.createdAt));
-  }
-  
-  async updateMessageStatus(id: number, status: MessageStatus): Promise<Message | undefined> {
-    const message = await this.getMessage(id);
-    if (!message) return undefined;
-
-    const result = await db.update(messages)
-      .set({ 
-        status,
-        updatedAt: new Date()
-      })
-      .where(eq(messages.id, id))
-      .returning();
-    
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  // Notification methods
-  async getUserNotifications(
-    userId: number, 
-    options: {
-      type?: NotificationType;
-      priority?: NotificationPriority;
-      read?: boolean;
-      offset?: number;
-      limit?: number;
-    } = {}
-  ): Promise<{ notifications: Notification[]; total: number }> {
-    try {
-      const { type, priority, read, offset = 0, limit = 20 } = options;
-      
-      // Build the query with filters
-      let query = db.select().from(notifications).where(and(
-        eq(notifications.userId, userId),
-        type ? eq(notifications.type, type) : sql`true`,
-        priority ? eq(notifications.priority, priority) : sql`true`,
-        read !== undefined ? eq(notifications.isRead, read) : sql`true`
-      ));
-      
-      // Get total count (for pagination)
-      let countQuery = db.select({ count: sql<number>`COUNT(*)` }).from(notifications).where(and(
-        eq(notifications.userId, userId),
-        type ? eq(notifications.type, type) : sql`true`,
-        priority ? eq(notifications.priority, priority) : sql`true`,
-        read !== undefined ? eq(notifications.isRead, read) : sql`true`
-      ));
-      
-      const countResult = await countQuery;
-      const [{ count }] = countResult;
-      
-      // Get paginated results
-      const queryResults = await query;
-      const results = queryResults;
-      
-      return {
-        notifications: results,
-        total: count
-      };
-    } catch (error) {
-      console.error('Error in getUserNotifications:', error);
-      return { notifications: [], total: 0 };
-    }
-  }
-  
-  async getNotification(id: number): Promise<Notification | undefined> {
-    try {
-      const result = await db.select().from(notifications).where(eq(notifications.id, id));
-      return result.length > 0 ? result[0] : undefined;
-    } catch (error) {
-      console.error('Error in getNotification:', error);
-      return undefined;
-    }
-  }
-  
-  async createNotification(notification: InsertNotification): Promise<Notification> {
-    try {
-      const result = await db.insert(notifications).values(notification).returning();
-      return result[0];
-    } catch (error) {
-      console.error('Error in createNotification:', error);
-      throw new Error('Failed to create notification');
-    }
-  }
-  
-  async createBulkNotifications(notificationsData: InsertNotification[]): Promise<number> {
-    try {
-      // Use a transaction to ensure all or none are inserted
-      const result = await db.transaction(async (tx) => {
-        const insertedNotifications = await tx.insert(notifications)
-          .values(notificationsData)
-          .returning();
-        
-        return insertedNotifications.length;
-      });
-      
-      return result;
-    } catch (error) {
-      console.error('Error in createBulkNotifications:', error);
-      throw new Error('Failed to create bulk notifications');
-    }
-  }
-  
-  async markNotificationAsRead(id: number): Promise<Notification | undefined> {
-    try {
-      const notification = await this.getNotification(id);
-      if (!notification) return undefined;
-      
-      const result = await db.update(notifications)
-        .set({ 
-          isRead: true 
-        })
-        .where(eq(notifications.id, id))
-        .returning();
-      
-      return result.length > 0 ? result[0] : undefined;
-    } catch (error) {
-      console.error('Error in markNotificationAsRead:', error);
-      return undefined;
-    }
-  }
-  
-  async markAllNotificationsAsRead(userId: number): Promise<number> {
-    try {
-      const result = await db.update(notifications)
-        .set({ isRead: true })
-        .where(
-          and(
-            eq(notifications.userId, userId),
-            eq(notifications.isRead, false)
-          )
-        )
-        .returning();
-      
-      return result.length;
-    } catch (error) {
-      console.error('Error in markAllNotificationsAsRead:', error);
-      return 0;
-    }
-  }
-  
-  async deleteNotification(id: number): Promise<boolean> {
-    try {
-      const result = await db.delete(notifications)
-        .where(eq(notifications.id, id))
-        .returning();
-      
-      return result.length > 0;
-    } catch (error) {
-      console.error('Error in deleteNotification:', error);
-      return false;
-    }
-  }
-  
-  async getUnreadNotificationCount(userId: number): Promise<number> {
-    try {
-      const [{ count }] = await db.select({ 
-        count: sql<number>`count(*)` 
-      })
-      .from(notifications)
-      .where(
-        and(
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, false)
-        )
-      );
-      
-      return count;
-    } catch (error) {
-      console.error('Error in getUnreadNotificationCount:', error);
-      return 0;
-    }
-  }
-  
-  // These methods would typically use a separate table, but for simplicity 
-  // we'll use the settings table to store user preferences
-  async getNotificationPreferences(userId: number): Promise<any | undefined> {
-    try {
-      const prefsSettingName = `notification_preferences_${userId}`;
-      const setting = await this.getSetting(prefsSettingName);
-      
-      if (!setting) {
-        // Return default preferences if none exist
-        return {
-          emailNotifications: true,
-          pushNotifications: true,
-          smsNotifications: false,
-          marketingEmails: true,
-          notificationTypes: {
-            transaction: true,
-            account: true,
-            security: true,
-            marketing: true,
-            system: true,
-            verification: true
-          }
-        };
-      }
-      
-      return JSON.parse(setting.value);
-    } catch (error) {
-      console.error('Error in getNotificationPreferences:', error);
-      return undefined;
-    }
-  }
-  
-  async updateNotificationPreferences(userId: number, preferences: any): Promise<any> {
-    try {
-      const prefsSettingName = `notification_preferences_${userId}`;
-      
-      // Store preferences as JSON string in settings table
-      const setting = await this.createOrUpdateSetting(
-        prefsSettingName,
-        JSON.stringify(preferences),
-        `Notification preferences for user ${userId}`
-      );
-      
-      return preferences;
-    } catch (error) {
-      console.error('Error in updateNotificationPreferences:', error);
-      throw new Error('Failed to update notification preferences');
-    }
-  }
-  
-  // Settings methods
-  async getSetting(name: string): Promise<Setting | undefined> {
-    const result = await db.select().from(settings).where(eq(settings.name, name));
-    return result.length > 0 ? result[0] : undefined;
-  }
-  
-  async getAllSettings(): Promise<Setting[]> {
-    return await db.select().from(settings);
-  }
-  
-  async createOrUpdateSetting(
-    name: string, 
-    value: string, 
-    description?: string
-  ): Promise<Setting> {
-    // Check if setting exists
-    const existingSetting = await this.getSetting(name);
-    
-    if (existingSetting) {
-      // Update existing setting
-      const result = await db.update(settings)
-        .set({ 
-          value,
-          description: description || existingSetting.description,
-          updatedAt: new Date()
-        })
-        .where(eq(settings.name, name))
-        .returning();
-      
-      return result[0];
-    } else {
-      // Create new setting
-      const result = await db.insert(settings)
-        .values({
-          name,
-          value,
-          description
-        })
-        .returning();
-      
-      return result[0];
-    }
-  }
-
-  // Additional admin methods implementation
-  async getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
-    const result = await db.select()
-      .from(transactions)
-      .orderBy(desc(transactions.createdAt))
-      .limit(limit);
-    return result;
-  }
-
-  async getPendingTransactionCount(): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(transactions)
-      .where(eq(transactions.status, 'pending'));
-    return result[0]?.count || 0;
-  }  async getTransactions(options: { 
-    limit: number; 
-    offset: number; 
-    search?: string; 
-    status?: string; 
-    type?: string; 
-    dateFrom?: string; 
-    dateTo?: string 
-  }): Promise<Transaction[]> {
-    let baseQuery = db.select().from(transactions);
-    const conditions = [];
-
-    if (options.search) {
-      conditions.push(like(transactions.description, `%${options.search}%`));
-    }
-
-    if (options.status) {
-      conditions.push(eq(transactions.status, options.status as TransactionStatus));
-    }
-
-    if (options.type) {
-      conditions.push(eq(transactions.type, options.type as TransactionType));
-    }
-
-    if (options.dateFrom && options.dateTo) {
-      conditions.push(
-        between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
-      );
-    }
-
-    const query = conditions.length > 0 
-      ? baseQuery.where(and(...conditions))
-      : baseQuery;
-
-    const result = await query
-      .orderBy(desc(transactions.createdAt))
-      .limit(options.limit)
-      .offset(options.offset);
-
-    return result;
-  }
-
-  async getTransactionCount(): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(transactions);
-    return result[0]?.count || 0;
-  }
-  async getDeposits(options: { 
-    limit: number; 
-    offset: number; 
-    search?: string; 
-    status?: string; 
-    dateFrom?: string; 
-    dateTo?: string; 
-    method?: string; 
-    amountMin?: number; 
-    amountMax?: number 
-  }): Promise<Transaction[]> {
-    let baseQuery = db.select().from(transactions);
-    const conditions = [eq(transactions.type, 'deposit')];
-
-    if (options.search) {
-      conditions.push(like(transactions.description, `%${options.search}%`));
-    }
-
-    if (options.status) {
-      conditions.push(eq(transactions.status, options.status as TransactionStatus));
-    }
-
-    if (options.method) {
-      conditions.push(like(transactions.description, `%${options.method}%`));
-    }
-
-    if (options.amountMin) {
-      conditions.push(sql`${transactions.amount} >= ${options.amountMin}`);
-    }
-
-    if (options.amountMax) {
-      conditions.push(sql`${transactions.amount} <= ${options.amountMax}`);
-    }
-
-    if (options.dateFrom && options.dateTo) {
-      conditions.push(
-        between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
-      );
-    }
-
-    const query = baseQuery.where(and(...conditions));
-
-    const result = await query
-      .orderBy(desc(transactions.createdAt))
-      .limit(options.limit)
-      .offset(options.offset);
-
-    return result;
-  }
-
-  async getDepositCount(): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(transactions)
-      .where(eq(transactions.type, 'deposit'));
-    return result[0]?.count || 0;
-  }
-  async getSystemSettings(): Promise<any> {
-    const result = await db.select()
-      .from(settings);
-    return result;
-  }
-
-  async updateSystemSettings(settingsData: any): Promise<any> {
-    // Update each setting individually by name
-    const results = [];
-    for (const [name, value] of Object.entries(settingsData)) {
-      const result = await db.update(settings)
-        .set({ value: value as string, updatedAt: new Date() })
-        .where(eq(settings.name, name))
-        .returning();
-      results.push(result[0]);
-    }
-    return results;
-  }
-
-  async updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
-    return this.updateTransactionStatus(id, status);
-  }
-  async getWithdrawals(options: { 
-    limit: number; 
-    offset: number; 
-    search?: string; 
-    status?: string; 
-    dateFrom?: string; 
-    dateTo?: string; 
-    method?: string; 
-    amountMin?: number; 
-    amountMax?: number 
-  }): Promise<Transaction[]> {
-    let baseQuery = db.select().from(transactions);
-    const conditions = [eq(transactions.type, 'withdrawal')];
-
-    if (options.search) {
-      conditions.push(like(transactions.description, `%${options.search}%`));
-    }
-
-    if (options.status) {
-      conditions.push(eq(transactions.status, options.status as TransactionStatus));
-    }
-
-    if (options.method) {
-      conditions.push(like(transactions.description, `%${options.method}%`));
-    }
-
-    if (options.amountMin) {
-      conditions.push(sql`${transactions.amount} >= ${options.amountMin}`);
-    }
-
-    if (options.amountMax) {
-      conditions.push(sql`${transactions.amount} <= ${options.amountMax}`);
-    }
-
-    if (options.dateFrom && options.dateTo) {
-      conditions.push(
-        between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
-      );
-    }
-
-    const query = baseQuery.where(and(...conditions));
-
-    const result = await query
-      .orderBy(desc(transactions.createdAt))
-      .limit(options.limit)
-      .offset(options.offset);
-
-    return result;
-  }
-
-  async getWithdrawalCount(): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(transactions)
-      .where(eq(transactions.type, 'withdrawal'));
-    return result[0]?.count || 0;
-  }
-
-  async updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
-    return this.updateTransactionStatus(id, status);
-  }  async getAuditLogs(options: { 
-    limit: number; 
-    offset: number; 
-    search?: string; 
-    action?: string; 
-    dateFrom?: string; 
-    dateTo?: string 
-  }): Promise<Log[]> {
-    let baseQuery = db.select().from(logs);
-    const conditions = [];
-
-    if (options.search) {
-      conditions.push(like(logs.message, `%${options.search}%`));
-    }
-
-    if (options.action) {
-      conditions.push(eq(logs.type, options.action as LogType));
-    }
-
-    if (options.dateFrom && options.dateTo) {
-      conditions.push(
-        between(logs.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
-      );
-    }
-
-    const query = conditions.length > 0 
-      ? baseQuery.where(and(...conditions))
-      : baseQuery;
-
-    const result = await query
-      .orderBy(desc(logs.createdAt))
-      .limit(options.limit)
-      .offset(options.offset);
-
-    return result;
-  }
-
-  async getAuditLogCount(): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` })
-      .from(logs);
-    return result[0]?.count || 0;
-  }
-
-  async getAllUsersForExport(): Promise<User[]> {
-    const result = await db.select().from(users);
-    return result.map(mapUserResult);
-  }
-
-  async getAllTransactionsForExport(): Promise<Transaction[]> {
-    const result = await db.select().from(transactions);
-    return result;
-  }
-
-  async getMaintenanceSettings(): Promise<Setting | undefined> {
-    const result = await db.select()
-      .from(settings)
-      .where(eq(settings.name, 'maintenance'));
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  async updateMaintenanceSettings(enabled: boolean, message?: string): Promise<Setting> {
-    const maintenanceData = {
-      enabled,
-      message: message || 'The system is currently under maintenance. Please try again later.'
-    };
-
-    return this.createOrUpdateSetting(
-      'maintenance', 
-      JSON.stringify(maintenanceData), 
-      'System maintenance settings'
-    );
-  }
 }
 
-// Refactor query result mapping
-const mapUserResult = (result: any): User => ({
-  id: result.id,
-  username: result.username,
-  password: result.password,
-  email: result.email,
-  firstName: result.firstName,
-  lastName: result.lastName,
-  role: result.role,
-  balance: result.balance,
-  isVerified: result.isVerified ?? null,
-  isActive: result.isActive ?? null,
-  createdAt: new Date(result.createdAt), // Ensure date fields are properly converted
-  updatedAt: new Date(result.updatedAt),
-  referredBy: result.referredBy ?? null,
-  twoFactorEnabled: result.twoFactorEnabled ?? false,
-  twoFactorSecret: result.twoFactorSecret ?? null,
-  verificationToken: result.verificationToken ?? null,
-  verificationTokenExpiry: result.verificationTokenExpiry ? new Date(result.verificationTokenExpiry) : null,
-  passwordResetToken: result.passwordResetToken ?? null,
-  passwordResetTokenExpiry: result.passwordResetTokenExpiry ? new Date(result.passwordResetTokenExpiry) : null,
-  bitcoinAddress: result.bitcoinAddress ?? null,
-  bitcoinCashAddress: result.bitcoinCashAddress ?? null,
-  ethereumAddress: result.ethereumAddress ?? null,
-  bnbAddress: result.bnbAddress ?? null,
-  usdtTrc20Address: result.usdtTrc20Address ?? null
-});
+// Export default instance
+export default new DatabaseStorage();

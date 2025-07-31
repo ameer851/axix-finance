@@ -27,8 +27,8 @@ const TradingViewWidget: React.FC = () => {
   }, []);
 
   return (
-    <div className="tradingview-widget" style={{ width: '100%', margin: '0 auto', marginBottom: 24 }}>
-      <div ref={ref} style={{ width: '100%' }}>
+    <div className="w-full mx-auto mb-4 sm:mb-6 overflow-hidden rounded-lg shadow-sm">
+      <div ref={ref} className="w-full min-h-[50px]">
         {/* TradingView Widget will be injected here */}
       </div>
     </div>

@@ -17,7 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   isVerified: boolean;
   login: (username: string, password: string) => Promise<User>;
-  register: (userData: any) => Promise<User>;
+  register: (userData: any) => Promise<any>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
   updateUserBalance: (newBalance: number) => void;
@@ -83,24 +83,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   const refreshUserData = async () => {
     try {
-      // First get the user profile
-      const profileResponse = await apiRequest('GET', '/api/profile', undefined, {
-        throwOnError: false // Don't throw on error, handle manually
-      });
+      // Import api at the top of the file to use our improved client
+      const { api } = await import('@/lib/api');
       
-      if (profileResponse.ok) {
-        const userData = await profileResponse.json();
+      // First get the user profile with our enhanced API client
+      try {
+        // Use enhanced api client
+        const userData = await api.get('/api/profile');
         
         // Then try to get the latest balance - important to have real-time balance
         try {
           if (userData.id) {
-            const balanceResponse = await apiRequest('GET', `/api/users/${userData.id}/balance`);
-            if (balanceResponse.ok) {
-              const balanceData = await balanceResponse.json();
-              // Update the user data with the latest balance
-              if (balanceData.availableBalance) {
-                userData.balance = balanceData.availableBalance.toString();
-              }
+            const balanceData = await api.get(`/api/users/${userData.id}/balance`);
+            // Update the user data with the latest balance
+            if (balanceData.availableBalance) {
+              userData.balance = balanceData.availableBalance.toString();
             }
           }
         } catch (balanceErr) {
@@ -110,23 +107,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
-      } else {
-        // If unauthorized, clear user data
-        if (profileResponse.status === 401) {
+      } catch (error: any) {
+        // Handle specific error codes
+        if (error.status === 401) {
           localStorage.removeItem('user');
           setUser(null);
-          // Show notification about expired session
-          toast({
-            title: "Session expired",
-            description: "Your session has expired. Please log in again.",
-            variant: "destructive",
-          });
+          
+          // Don't show notification during initial page load
+          if (user !== null) {
+            toast({
+              title: "Session expired",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive",
+            });
+          }
+        } else {
+          // For other errors, just log them without disrupting the user experience
+          console.warn('Failed to refresh user data:', error);
         }
       }
     } catch (err: any) {
-      console.error("Failed to refresh user data:", err);
+      // This is our top-level error handler - it should catch any errors not caught above
+      console.error("Failed to refresh user data (top level):", err);
+      
+      // Check if it's a network/offline error
+      const isNetworkError = err.message && (
+        err.message.includes('Network error') || 
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('network') ||
+        err.message.includes('offline')
+      );
+      
       // Show offline notification only if we have a user and it's a network error
-      if (user && (err.isOffline || err.isNetworkError)) {
+      if (user && isNetworkError) {
         toast({
           title: "Offline mode",
           description: "You are working offline with limited functionality.",
@@ -177,19 +190,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (userData: any): Promise<User> => {
+  const register = async (userData: any): Promise<any> => {
     setIsLoading(true);
     setError(null);
     try {
-      const newUser = await registerService(userData);
-      setUser(newUser);
-        toast({
-        title: "Registration successful",
-        description: `Welcome to Axix Finance, ${newUser.firstName || newUser.username}! Check your email for login credentials.`,
-        variant: "default",
-      });
+      const registrationResult = await registerService(userData);
       
-      return newUser;
+      // Don't set user or log them in automatically
+      // The backend now returns registration info instead of user object
+      if ((registrationResult as any)._shouldRedirectToLogin) {
+        toast({
+          title: "Registration successful! 🎉",
+          description: (registrationResult as any)._registrationMessage || "Account created successfully! Check your email for login credentials.",
+          variant: "default",
+        });
+        
+        // Don't set the user in state - they need to login manually
+        return registrationResult;
+      } else {
+        // Fallback for old response format (shouldn't happen with new backend)
+        setUser(registrationResult);
+        toast({
+          title: "Registration successful",
+          description: `Welcome to Axix Finance, ${registrationResult.firstName || registrationResult.username}!`,
+          variant: "default",
+        });
+        return registrationResult;
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to register');
       

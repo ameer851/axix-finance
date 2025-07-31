@@ -59,7 +59,7 @@ const Wallets: React.FC = () => {
 
   // Fetch user transactions
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
-    queryKey: [`/api/users/${userId}/transactions`],
+    queryKey: [`/users/${userId}/transactions`],
     enabled: !!userId
   });
 

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { User } from '@shared/schema';
+import { updateEmail } from '@/services/emailService';
+import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -87,6 +89,8 @@ type PasswordFormValues = z.infer<typeof passwordFormSchema>;
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [emailChangeRequested, setEmailChangeRequested] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -109,9 +113,58 @@ const Settings: React.FC = () => {
   });
 
   // Update profile function
-  const onProfileSubmit = (data: ProfileFormValues) => {
-    // Submit profile data to server
-    // This would call an API to update the user's profile in a real implementation
+  const onProfileSubmit = async (data: ProfileFormValues) => {
+    try {
+      // Check if email is being updated
+      if (data.email !== user?.email) {
+        // Call the email change service
+        const result = await updateEmail(data.email);
+        
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to update email');
+        }
+        
+        // Show success message but don't update UI until verified
+        profileForm.setValue('email', user?.email || ''); // Reset to current email
+        toast({
+          title: "Verification email sent",
+          description: "Please check your inbox and verify your new email address",
+          variant: "default"
+        });
+        setEmailChangeRequested(true);
+        return;
+      }
+      
+      // For other profile fields, update normally
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: data.firstName,
+          lastName: data.lastName,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to update profile');
+      }
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+        variant: "default"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'An error occurred while updating your profile',
+        variant: "destructive"
+      });
+    }
   };
 
   // Update password function
@@ -205,6 +258,11 @@ const Settings: React.FC = () => {
                               <FormControl>
                                 <Input {...field} type="email" />
                               </FormControl>
+                              {emailChangeRequested && (
+                                <p className="text-xs text-amber-500 mt-1">
+                                  Email change requested. Check your inbox to verify your new email address.
+                                </p>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}

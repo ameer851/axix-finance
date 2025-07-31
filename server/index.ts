@@ -4,6 +4,31 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { DatabaseStorage } from "./storage";
 import { checkDatabaseConnection } from "./db"; // Import our enhanced database connection check
+import { setupCookiePolicy } from "./cookiePolicy"; // Import our cookie policy middleware
+import { routeDelay, gracefulAuth } from "./middleware"; // Import our custom middleware
+
+// Initialize Express app
+const app = express();
+
+// Health check endpoint - no rate limiting
+app.get('/health', async (req: Request, res: Response) => {
+  try {
+    const dbConnected = await checkDatabaseConnection();
+    if (!dbConnected) {
+      return res.status(503).json({ status: 'error', message: 'Database connection failed' });
+    }
+    res.status(200).json({ status: 'ok' });
+  } catch (error) {
+    res.status(503).json({ status: 'error', message: 'Health check failed' });
+  }
+});
+import * as emailManager from "./emailManager"; // Import email manager
+import * as resendEmailService from "./resendEmailService"; // Import Resend email service
+import { setupAdminPanel } from "./admin-panel";
+import { applyRoutePatches } from "./route-patches";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 // Declare global variables for TypeScript
 declare global {
@@ -12,65 +37,170 @@ declare global {
 
 // Create a storage instance
 const storage = new DatabaseStorage();
-import helmet from "helmet";
-import cors from "cors";
-import rateLimit from "express-rate-limit";
 
-// Initialize express application
-const app = express();
+// Configure rate limiters
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs
+  message: 'Too many requests, please try again later.'
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // Limit each IP to 50 login attempts per windowMs
+  message: 'Too many login attempts, please try again later.'
+});
+
+const visitorLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 60, // Limit each IP to 60 requests per minute for visitor tracking
+  message: 'Too many visitor tracking requests, please try again later.'
+});
+
+// Apply rate limiters strategically
+app.use('/api/', generalLimiter); // Apply to all API routes as base limiter
+app.use('/api/auth/', authLimiter); // Apply stricter limits to auth routes
+app.use('/api/visitors/', visitorLimiter); // Apply specific limits to visitor tracking routes
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production',
-  crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production',
-  crossOriginOpenerPolicy: process.env.NODE_ENV === 'production',
-  crossOriginResourcePolicy: process.env.NODE_ENV === 'production'
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "https://*.google.com", "https://*.googleapis.com", "https://*.gstatic.com", "wss://*.tradingview.com"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://translate.google.com",
+        "https://translate.googleapis.com",
+        "https://www.google.com",
+        "https://s3.tradingview.com",
+        "https://translate-pa.googleapis.com",
+        "https://*.gstatic.com",
+        "https://www.gstatic.com",
+        "https://www.googletagmanager.com",
+        "https://*.translate.goog",
+        "https://static.tradingview.com",
+        "https://*.tradingview.com",
+        "https://www.tradingview-widget.com",
+        "blob:",
+        "https://www.tradingview.com"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://translate.googleapis.com",
+        "https://www.gstatic.com",
+        "https://fonts.googleapis.com"
+      ],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://translate.googleapis.com",
+        "https://translate.google.com",
+        "https://www.gstatic.com",
+        "https://fonts.gstatic.com",
+        "https://*.google.com"
+      ],
+      connectSrc: [
+        "'self'",
+        "https://translate.googleapis.com",
+        "https://translate.google.com",
+        "https://*.tradingview.com",
+        "wss://*.tradingview.com",
+        "https://translate-pa.googleapis.com",
+        "https://www.tradingview.com",
+        "https://www.tradingview-widget.com"
+      ],
+      frameSrc: [
+        "'self'",
+        "https://translate.google.com",
+        "https://*.tradingview.com",
+        "https://www.tradingview-widget.com",
+        "https://s.tradingview.com"
+      ],
+      fontSrc: [
+        "'self'",
+        "https://fonts.gstatic.com",
+        "https://translate.googleapis.com"
+      ],
+      mediaSrc: ["'self'", "data:", "https://*.google.com"],
+      objectSrc: ["'none'"],
+      manifestSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
 }));
 // For all environments, use the standard cors middleware with appropriate settings
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // Development origins
-    const developmentOrigins = [
-      'http://localhost:4000',
-      'http://localhost:5173',
-      'http://127.0.0.1:4000',
-      'http://127.0.0.1:5173'
-    ];
-    
-    // Production and ngrok origins
-    const allowedOrigins = [
-      ...developmentOrigins,
-      process.env.CORS_ORIGIN || 'https://your-production-domain.com'
-    ];
-    
-    // Allow ngrok tunnels (they follow the pattern *.ngrok.io or *.ngrok-free.app)
-    if (origin.includes('.ngrok.io') || origin.includes('.ngrok-free.app') || origin.includes('.ngrok.app')) {
-      return callback(null, true);
+
+    // For development and testing
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true); // Allow all origins in development
     }
-    
-    // Check if origin is in allowed list
+
+    const allowedOrigins = [
+      // Production domains
+      process.env.CORS_ORIGIN,
+      process.env.CLIENT_URL,
+      // Specific domains that need access
+      'https://translate.googleapis.com',
+      'https://translate.google.com'
+    ].filter(Boolean); // Remove undefined/null values
+
+    // Check if the origin is in our allowed origins
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+
+    // List of trusted third-party domains
+    const trustedDomains = [
+      'coin360.com',
+      'tradingview.com',
+      'coinmarketcap.com',
+      'translate.googleapis.com',
+      'translate.google.com',
+      'googleapis.com',
+      'googleusercontent.com',
+      'gstatic.com'
+    ];
     
-    // For development, be more permissive
-    if (process.env.NODE_ENV !== 'production') {
+    // Check if it's a third-party trusted domain
+    if (trustedDomains.some(domain => origin.includes(domain))) {
       return callback(null, true);
     }
-    
+
+    // Log rejected origins to help with debugging
+    console.log(`Rejected Origin: ${origin}`);
     callback(new Error('Not allowed by CORS'));
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+  exposedHeaders: ['Set-Cookie']
 }));
+
+// Apply our custom cookie policy middleware
+app.use(setupCookiePolicy);
 
 // Body parsers
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false }));
+
+// Apply our custom middleware for better auth handling and stability
+app.use(routeDelay);
+// app.use(gracefulAuth); // Temporarily disabled to fix authentication issues
 
 // Rate limiting to prevent brute force attacks
 const apiLimiter = rateLimit({
@@ -123,9 +253,8 @@ app.use((req, res, next) => {
             storage.createLog({
               type: res.statusCode >= 400 ? "error" : "info",
               message: `${req.method} ${path} ${res.statusCode}`,
-              details: logData,
-              userId: req.user?.id,
-              ipAddress: ip as string
+              details: { ...logData, ipAddress: ip },
+              userId: req.user?.id
             }).catch(err => console.error('Failed to log to database:', err));
           }
           
@@ -224,12 +353,25 @@ app.use((req, res, next) => {
     }
   });
 
+  // ===== CRITICAL: Set up dedicated admin panel BEFORE setting up Vite =====
+  // This ensures our admin API routes are registered before any catch-all routes
+  
+  // Set up the dedicated admin panel routes
+  setupAdminPanel(app);
+  console.log('🔄 Admin panel routes registered - order is critical for proper API functionality');
+  
+  // Also apply any existing route patches for compatibility
+  applyRoutePatches(app);
+  console.log('🔄 Legacy route patches applied for compatibility');
+  
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
+    console.log('🔄 Setting up Vite middleware AFTER API routes');
     await setupVite(app, server);
   } else {
+    console.log('🔄 Setting up static file serving AFTER API routes');
     serveStatic(app);
   }
 
@@ -247,6 +389,34 @@ app.use((req, res, next) => {
       console.warn('⚠️ Database connection issues detected. Server will start but some features may be limited.');
       // Set a global flag that can be used to show a maintenance message in the UI
       global.dbConnectionIssues = true;
+    }
+    
+    // Initialize email services (Resend preferred, SMTP as fallback)
+    try {
+      // Check if email services are configured
+      const emailConfigured = emailManager.isEmailServiceConfigured();
+      
+      if (!emailConfigured) {
+        console.warn('⚠️ No email service is configured. Email functionality will not work.');
+        console.warn('⚠️ Make sure to set the RESEND_API_KEY in your environment variables.');
+      } else {
+        // Initialize email services
+        const initialized = await emailManager.initializeEmailServices();
+        
+        if (initialized) {
+          console.log(`📧 Email service initialized: ${emailManager.getActiveEmailService()}`);
+          
+          // Test email services if needed
+          if (process.env.TEST_EMAIL_ON_STARTUP === 'true') {
+            console.log('Running email test at startup as requested...');
+            // Add test email functionality here if needed
+          }
+        } else {
+          console.warn('⚠️ Email services are configured but failed to initialize properly.');
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Error initializing email services:', error);
     }
     
     // Start the server
