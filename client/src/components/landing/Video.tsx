@@ -1,29 +1,11 @@
-import React, { useState } from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import React from 'react';
+import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import axixVideo from '@/assets/video/axixvid.mp4';
 
 const VideoSection: React.FC = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
+  const handleWatchDemo = () => {
+    // You can add a link to an external video or demo here
+    console.log('Demo video clicked');
   };
 
   return (
@@ -38,41 +20,29 @@ const VideoSection: React.FC = () => {
           </p>
         </div>
 
-        <div className="relative rounded-xl overflow-hidden shadow-2xl mx-auto max-w-4xl">
-          <video 
-            ref={videoRef}
-            className="w-full h-auto"
-            poster="/src/assets/images/video-poster.jpg"
-            muted
-            playsInline
-          >
-            <source src={axixVideo} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-          
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 flex justify-between items-center">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={togglePlay}
-              className="text-white hover:bg-white/20"
-            >
-              {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={toggleMute}
-              className="text-white hover:bg-white/20"
-            >
-              {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-            </Button>
+        <div className="relative rounded-xl overflow-hidden shadow-2xl mx-auto max-w-4xl bg-gradient-to-br from-blue-600 to-purple-700">
+          <div className="aspect-video flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="mb-6">
+                <div className="w-20 h-20 mx-auto bg-white/20 rounded-full flex items-center justify-center mb-4">
+                  <Play className="h-8 w-8 ml-1" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Watch Our Demo</h3>
+                <p className="text-white/80 mb-6">See how Axix Finance can transform your investment journey</p>
+              </div>
+              <Button 
+                onClick={handleWatchDemo}
+                className="bg-white text-blue-600 hover:bg-white/90 px-8 py-3"
+              >
+                Watch Demo Video
+              </Button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
+};
 };
 
 export default VideoSection;
