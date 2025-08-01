@@ -1,0 +1,17 @@
+server/
+scripts/
+migrations/
+docs/
+logs/
+*.log
+.env.local
+.env.development
+node_modules/
+.git/
+*.md
+!README.md
+supabase/
+ngrok.exe
+ngrok.zip
+*.backup*
+*.bak
