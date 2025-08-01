@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 
 const pool = new Client({
-  connectionString: 'postgresql://postgres:postgrespassword@localhost:5432/postgres'
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password_placeholder@localhost:5432/postgres'
 });
 
 (async () => {

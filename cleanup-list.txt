@@ -1,0 +1,16 @@
+# Files to Remove or Clean for Production
+
+## Test Files
+- test-deposit-email.js
+- test-email.mjs
+- scripts/test-admin-api.js
+
+## Documentation (Review before removal)
+- setup-resend.md (If it contains sensitive information)
+
+## Temporary or Debug Files
+- scripts/api-debug.js
+- scripts/api-debug-utils.js
+
+## Deployment Configuration to Update
+- vercel.json (Already updated)

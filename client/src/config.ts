@@ -1,16 +1,19 @@
 // Application configuration
 const config = {
-  // API base URL - Local Express server in development, Supabase in production
+  // API base URL - Use Supabase API in production
   apiUrl: import.meta.env.VITE_API_URL 
     ? import.meta.env.VITE_API_URL
-    : (import.meta.env.DEV ? 'http://localhost:4000' : 'https://your-project.supabase.co/functions/v1'),
+    : (import.meta.env.DEV ? 'http://localhost:4000' : import.meta.env.VITE_SUPABASE_URL),
   
   // Frontend URL - environment dependent
-  frontendUrl: import.meta.env.VITE_FRONTEND_URL || (import.meta.env.DEV ? 'http://localhost:4000' : 'https://your-domain.vercel.app'),
+  frontendUrl: import.meta.env.VITE_FRONTEND_URL || 
+    (import.meta.env.DEV 
+      ? 'http://localhost:4000' 
+      : 'https://axix-finance-mtgf.vercel.app'),
   
   // Supabase configuration
   supabase: {
-    url: import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co',
+    url: import.meta.env.VITE_SUPABASE_URL || 'https://wvnyiinrmfysabsfztii.supabase.co',
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
   },
   

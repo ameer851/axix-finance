@@ -9,6 +9,38 @@ A modern financial management platform built with React, TypeScript, and Node.js
 - **Transaction Management**: Deposit, withdraw, transfer, and invest funds
 - **Real-time Notifications**: Stay updated on account activity and important alerts
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
+
+## Deployment Guide
+
+### Prerequisites
+- Supabase account (for database and authentication)
+- Vercel account (for hosting)
+- Resend API key (for email services)
+
+### Deployment Steps
+
+1. **Set up Supabase**
+   - Create a new Supabase project
+   - Run the migration scripts in the `migrations` folder
+   - Note your Supabase URL and anon key
+
+2. **Deploy to Vercel**
+   - Connect your GitHub repository to Vercel
+   - Set the following environment variables:
+     ```
+     SUPABASE_PROJECT_URL=https://your-project.supabase.co
+     SUPABASE_ANON_KEY=your-anon-key
+     RESEND_API_KEY=your-resend-api-key
+     EMAIL_FROM=noreply@yourdomain.com
+     EMAIL_FROM_NAME=Axix Finance
+     ```
+   - Deploy using the provided `vercel.json` configuration
+
+3. **Post-Deployment**
+   - Verify database connections
+   - Test authentication flows
+   - Check email functionality
+
 ## Technology Stack
 
 ### Frontend
