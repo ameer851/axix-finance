@@ -3,16 +3,7 @@
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
-  "functions": {
-    "api/*.ts": {
-      "@vercel/node": "3.0.23"
-    }
-  },
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
     {
       "handle": "filesystem"
     },
