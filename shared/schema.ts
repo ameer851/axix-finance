@@ -19,7 +19,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  role: roleEnum("role").notNull().default("user"),
+  role: text("role").notNull().default("user"),
   balance: numeric("balance").notNull().default("0"),
   isVerified: boolean("is_verified").default(true), // Users are verified by default
   isActive: boolean("is_active").default(true), // Accounts are active by default
@@ -45,10 +45,10 @@ export const users = pgTable("users", {
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  type: transactionTypeEnum("type").notNull(),
+  type: text("type").notNull(),
   amount: numeric("amount").notNull(),
   description: text("description"),
-  status: transactionStatusEnum("status").notNull().default("pending"),
+  status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   processedBy: integer("processed_by").references(() => users.id),
@@ -68,7 +68,7 @@ export const transactions = pgTable("transactions", {
 // System logs table
 export const logs = pgTable("logs", {
   id: serial("id").primaryKey(),
-  type: logTypeEnum("type").notNull(),
+  type: text("type").notNull(),
   message: text("message").notNull(),
   details: jsonb("details"),
   userId: integer("user_id").references(() => users.id),
@@ -82,7 +82,7 @@ export const messages = pgTable("messages", {
   userId: integer("user_id").notNull().references(() => users.id),
   subject: text("subject").notNull(),
   content: text("content").notNull(),
-  status: messageStatusEnum("status").notNull().default("unread"),
+  status: text("status").notNull().default("unread"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   respondedBy: integer("responded_by").references(() => users.id),
@@ -93,11 +93,11 @@ export const messages = pgTable("messages", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  type: notificationTypeEnum("type").notNull(),
+  type: text("type").notNull(),
   title: text("title").notNull(),
   message: text("message").notNull(),
   isRead: boolean("is_read").default(false),
-  priority: notificationPriorityEnum("priority").notNull().default("medium"),
+  priority: text("priority").notNull().default("medium"),
   relatedEntityType: text("related_entity_type"),
   relatedEntityId: integer("related_entity_id"),
   createdAt: timestamp("created_at").defaultNow(),

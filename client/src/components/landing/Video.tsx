@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import axixVid from '@/assets/video/axixvid.mp4';
 
 const VideoSection: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -66,7 +65,7 @@ const VideoSection: React.FC = () => {
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
               >
-                <source src={axixVid} type="video/mp4" />
+                <source src="/video/axixvid.mp4" type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

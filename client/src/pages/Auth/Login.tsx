@@ -39,7 +39,7 @@ const Login: React.FC = () => {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const response = await fetch('/health', { 
+        const response = await fetch('/api/health', { 
           signal: AbortSignal.timeout(3000)
         });
         setIsServerAvailable(response.ok);
