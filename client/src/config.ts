@@ -3,13 +3,13 @@ const config = {
   // API base URL - Use the correct production API URL
   apiUrl: import.meta.env.VITE_API_URL 
     ? import.meta.env.VITE_API_URL
-    : (import.meta.env.DEV ? 'http://localhost:4000' : 'https://axix-finance-mtgf.vercel.app'),
+    : (import.meta.env.DEV ? 'http://localhost:4000' : 'https://axix-finance.vercel.app'),
   
   // Frontend URL - environment dependent
   frontendUrl: import.meta.env.VITE_FRONTEND_URL || 
     (import.meta.env.DEV 
       ? 'http://localhost:4000' 
-      : 'https://axix-finance-mtgf.vercel.app'),
+      : 'https://axix-finance.vercel.app'),
   
   // Supabase configuration
   supabase: {
