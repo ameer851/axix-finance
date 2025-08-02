@@ -3,7 +3,16 @@
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node"
+    }
+  },
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
     {
       "handle": "filesystem"
     },
@@ -13,8 +22,6 @@
     }
   ],
   "env": {
-    "VITE_SUPABASE_URL": "@vite_supabase_url",
-    "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
-    "VITE_FRONTEND_URL": "@vite_frontend_url"
+    "NODE_ENV": "production"
   }
 }

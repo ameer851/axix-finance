@@ -39,11 +39,11 @@ supabase/.branches/
 supabase/.output/
 
 # Large files (use alternative hosting for large assets)
-*.mp4
-*.mov
-*.avi
-*.mkv
-*.webm
+# *.mp4  # Allow video files for demo
+# *.mov
+# *.avi  
+# *.mkv
+# *.webm  # Allow webm files for demo
 *.zip
 *.rar
 *.7z
