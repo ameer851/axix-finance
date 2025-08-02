@@ -64,10 +64,14 @@ const VideoSection: React.FC = () => {
                 onClick={handleVideoClick}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
-                poster="/images/video-poster.jpg"
+                onError={(e) => {
+                  console.error('Video failed to load:', e);
+                  // Fallback: show message instead of video
+                  setShowVideo(false);
+                }}
               >
                 <source src="/video/axixvid.mp4" type="video/mp4" />
-                <source src="/video/axixvid.webm" type="video/webm" />
+                <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
