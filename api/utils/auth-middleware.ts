@@ -91,17 +91,19 @@ export function requireAuth(handler: (req: AuthenticatedRequest, res: VercelResp
 export function requireEmailVerification(handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>) {
   return requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
     if (!req.user?.isVerified) {
-      return res.status(403).json({ error: 'Email verification required' });
+      res.status(403).json({ error: 'Email verification required' });
+      return;
     }
-    return handler(req, res);
+    await handler(req, res);
   });
 }
 
 export function requireAdmin(handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>) {
   return requireEmailVerification(async (req: AuthenticatedRequest, res: VercelResponse) => {
     if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
+      res.status(403).json({ error: 'Admin access required' });
+      return;
     }
-    return handler(req, res);
+    await handler(req, res);
   });
 }
