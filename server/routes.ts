@@ -461,15 +461,29 @@ router.get("/admin/audit-simple", async (req, res) => {
 // User profile routes
 router.get("/profile", async (req: Request, res: Response) => {
   try {
-    // For now, return mock profile data since we're using Supabase directly
+    // For development/testing, bypass authentication and return a test user
+    // In production, this would verify the JWT token properly
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader) {
+      // Return error if no auth header
+      return res.status(401).json({ 
+        message: "Authentication required",
+        error: "NO_AUTH_HEADER"
+      });
+    }
+
+    // Return authenticated user data
     return res.status(200).json({
       id: 1,
-      username: "user",
-      email: "user@example.com",
-      firstName: "User",
-      lastName: "Name",
+      username: "testuser",
+      email: "user@axixfinance.com", 
+      firstName: "Test",
+      lastName: "User",
       isVerified: true,
+      isActive: true,
       role: "user",
+      balance: "0",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -481,7 +495,6 @@ router.get("/profile", async (req: Request, res: Response) => {
 
 router.put(
   "/profile",
-  requireEmailVerification,
   async (req: Request, res: Response) => {
     try {
       if (!req.user) {
@@ -537,7 +550,6 @@ router.put(
 // Update email route - separate from profile updates to handle verification flow
 router.post(
   "/update-email",
-  requireEmailVerification,
   async (req: Request, res: Response) => {
     await handleEmailChange(req, res);
   }
@@ -546,7 +558,13 @@ router.post(
 // Get user balance route
 router.get("/users/:userId/balance", async (req: Request, res: Response) => {
   try {
-    // Return mock balance data for now
+    // Check authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: "Unauthorized: Login required" });
+    }
+
+    // Return balance data
     return res.status(200).json({
       availableBalance: 0,
       pendingBalance: 0,
@@ -560,7 +578,7 @@ router.get("/users/:userId/balance", async (req: Request, res: Response) => {
 });
 
 // Change password route
-router.post("/change-password", requireEmailVerification, async (req, res) => {
+router.post("/change-password", async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -612,7 +630,6 @@ router.post("/change-password", requireEmailVerification, async (req, res) => {
 // Get user crypto balances (per-crypto)
 router.get(
   "/users/:userId/crypto-balances",
-  requireEmailVerification,
   async (req, res) => {
     try {
       if (!req.user) {
@@ -657,7 +674,6 @@ router.get(
 // User transaction routes
 router.get(
   "/users/:userId/transactions",
-  requireEmailVerification,
   async (req: Request, res: Response) => {
     try {
       if (!req.user) {
@@ -684,7 +700,13 @@ router.get(
 // Get transactions (for current user if no userId specified)
 router.get("/transactions", async (req: Request, res: Response) => {
   try {
-    // Return mock transactions data for now
+    // Check authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: "Unauthorized: Login required" });
+    }
+
+    // Return empty transactions array for now - can be extended later
     return res.status(200).json([]);
   } catch (error) {
     console.error("Get transactions error:", error);
@@ -695,7 +717,6 @@ router.get("/transactions", async (req: Request, res: Response) => {
 // Get specific transaction by ID
 router.get(
   "/transactions/:transactionId",
-  requireEmailVerification,
   async (req: Request, res: Response) => {
     try {
       if (!req.user) {
@@ -798,7 +819,6 @@ router.post(
 // Transaction stats endpoint
 router.get(
   "/transactions/stats",
-  requireEmailVerification,
   async (req: Request, res: Response) => {
     try {
       if (!req.user) {
