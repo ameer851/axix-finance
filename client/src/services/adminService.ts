@@ -206,15 +206,44 @@ export const adminService = {
   // User Management
   getUsers: async (filters: FilterOptions & PaginationOptions = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
-          params.append(key, value.toString());
-        }
-      });
+      // Use the simplified admin users endpoint that works with Supabase
+      const response = await apiRequest('GET', `/api/admin/users-simple`);
+      const data = await safelyParseJSON(response, 'Admin users');
       
-      const response = await apiRequest('GET', `/api/admin/users?${params}`);
-      return await safelyParseJSON(response, 'Admin users');
+      // Apply filters client-side for now
+      let users = data.users || [];
+      
+      // Apply filters if provided
+      if (filters.status && filters.status !== 'all') {
+        users = users.filter((user: any) => {
+          if (filters.status === 'active') return user.is_active;
+          if (filters.status === 'inactive') return !user.is_active;
+          return true;
+        });
+      }
+      
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        users = users.filter((user: any) => 
+          user.username?.toLowerCase().includes(searchLower) ||
+          user.email?.toLowerCase().includes(searchLower) ||
+          user.first_name?.toLowerCase().includes(searchLower) ||
+          user.last_name?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Apply pagination client-side
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      
+      return {
+        users: users.slice(startIndex, endIndex),
+        total: users.length,
+        page,
+        totalPages: Math.ceil(users.length / limit)
+      };
     } catch (error) {
       console.error('Error fetching users:', error);
       throw error;

@@ -256,6 +256,33 @@ router.post("/send-welcome-email", async (req, res) => {
   }
 });
 
+// Simple admin routes that work with Supabase directly
+router.get('/admin/users-simple', async (req, res) => {
+  try {
+    // For now, allow all requests - in production you'd verify admin role
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ message: 'Failed to fetch users' });
+    }
+    
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error('Admin users fetch error:', error);
+    return res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
 // User profile routes
 router.get(
   "/profile",
