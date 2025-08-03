@@ -35,8 +35,8 @@ export async function login(username: string, password: string): Promise<User> {
               role: "admin",
               password: "Axix-Admin@123", // In production, this would be hashed
               balance: "0",
-              isActive: true,
-              isVerified: true
+              "isActive": true,
+              "isVerified": true,
             },
           ],
           {
@@ -116,8 +116,8 @@ export async function register(
           username: userData.username,
           email: userData.email,
           password: userData.password, // Temporary - in production this would be hashed
-          isVerified: true,
-          isActive: true,
+          "isVerified": true,
+          "isActive": true,
           role: "user",
           balance: "0",
         },
