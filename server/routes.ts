@@ -223,27 +223,17 @@ router.post("/send-welcome-email", async (req, res) => {
     }
 
     // Create a minimal user object for the email
-    const userData: User = {
+    const userData: BaseUser = {
       id: 0, // Not needed for email template
       email,
       username: email.split("@")[0],
       firstName: firstName || "User",
       lastName: lastName || "",
       role: "user",
-      balance: "0",
       isVerified: true,
       isActive: true,
-      password: "", // Not needed for email
-      referredBy: null,
       createdAt: new Date(),
       updatedAt: new Date(),
-      twoFactorEnabled: false,
-      twoFactorSecret: null,
-      verificationToken: null,
-      verificationTokenExpiry: null,
-      passwordResetToken: null,
-      passwordResetTokenExpiry: null,
-      pendingEmail: null,
       bitcoinAddress: null,
       bitcoinCashAddress: null,
       ethereumAddress: null,
