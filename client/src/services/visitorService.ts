@@ -34,14 +34,10 @@ export interface VisitorStats {
  */
 export async function getActiveVisitors(): Promise<VisitorData[]> {
   try {
-    const response = await apiRequest('GET', '/api/admin/visitors/active');
+    const response = await apiRequest('GET', '/api/admin/visitors/active-simple');
     const result = await response.json();
     
-    if (Array.isArray(result)) {
-      return result;
-    } else {
-      throw new Error('Invalid data format received');
-    }
+    return result.visitors || [];
   } catch (error: any) {
     console.error('Error fetching active visitors:', error);
     throw new Error(error.message || 'Failed to fetch active visitors');
@@ -53,7 +49,7 @@ export async function getActiveVisitors(): Promise<VisitorData[]> {
  */
 export async function getVisitorStats(): Promise<VisitorStats> {
   try {
-    const response = await apiRequest('GET', '/api/admin/visitors/stats');
+    const response = await apiRequest('GET', '/api/admin/visitors/stats-simple');
     return await response.json();
   } catch (error: any) {
     console.error('Error fetching visitor stats:', error);

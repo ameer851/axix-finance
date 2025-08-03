@@ -283,6 +283,37 @@ router.get('/admin/users-simple', async (req, res) => {
   }
 });
 
+// Simple visitor stats endpoints
+router.get('/admin/visitors/active-simple', async (req, res) => {
+  try {
+    // Return mock data for now - in production you'd query your visitor tracking system
+    return res.status(200).json({ 
+      visitors: [],
+      count: 0 
+    });
+  } catch (error) {
+    console.error('Active visitors fetch error:', error);
+    return res.status(500).json({ message: 'Failed to fetch active visitors' });
+  }
+});
+
+router.get('/admin/visitors/stats-simple', async (req, res) => {
+  try {
+    // Return mock stats for now - in production you'd query your analytics
+    return res.status(200).json({ 
+      totalVisitors: 0,
+      activeVisitors: 0,
+      pageViews: 0,
+      bounceRate: 0,
+      avgSessionDuration: 0,
+      topPages: []
+    });
+  } catch (error) {
+    console.error('Visitor stats fetch error:', error);
+    return res.status(500).json({ message: 'Failed to fetch visitor stats' });
+  }
+});
+
 // User profile routes
 router.get(
   "/profile",
