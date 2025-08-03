@@ -21,48 +21,62 @@ export async function checkServerConnection(): Promise<boolean> {
 
 export async function login(username: string, password: string): Promise<User> {
   try {
-    // For the admin user with default credentials, use direct database lookup
+    // For the admin user with default credentials
     if (username === 'admin' && password === 'Axix-Admin@123') {
-      const { data: userData, error } = await supabase
+      const result = await supabase
         .from('users')
-        .select('*')
-        .eq('username', username)
+        .upsert([{
+          username: 'admin',
+          email: 'admin@axixfinance.com',
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+          password: 'Axix-Admin@123', // In production, this would be hashed
+          balance: '0',
+          isActive: true,
+          isVerified: true,
+          twoFactorEnabled: false,
+          referredBy: null,
+          bitcoinAddress: null,
+          bitcoinCashAddress: null,
+          ethereumAddress: null,
+          bnbAddress: null,
+          usdtTrc20Address: null
+        }], {
+          onConflict: 'username',
+          ignoreDuplicates: true
+        })
+        .select()
         .single();
 
-      if (error) {
-        console.error('Database query error:', error);
+      if (result.error || !result.data) {
+        console.error('Failed to find or create admin user:', result.error);
         throw new Error('Failed to authenticate. Please try again.');
       }
 
-      if (!userData) {
-        throw new Error('Invalid username or password.');
-      }
-
-      // Store the user in localStorage for persistent login
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      return userData as User;
+      // Store the authenticated user in localStorage
+      localStorage.setItem('user', JSON.stringify(result.data));
+      return result.data as User;
     }
 
-    // For other users, we would typically use Supabase Auth
-    // But for now, let's check the database directly
-    const { data: userData, error } = await supabase
+    // For other users, check the database directly
+    const result = await supabase
       .from('users')
       .select('*')
       .eq('username', username)
       .single();
 
-    if (error || !userData) {
+    if (result.error || !result.data) {
       throw new Error('Invalid username or password.');
     }
 
     // In a real implementation, you'd verify the password hash here
     // For now, we'll accept any password for existing users (development only)
-    
-    // Store the user in localStorage for persistent login
-    localStorage.setItem('user', JSON.stringify(userData));
-    
-    return userData as User;
+
+    // Store the authenticated user in localStorage
+    localStorage.setItem('user', JSON.stringify(result.data));
+    return result.data as User;
+
   } catch (error: any) {
     console.error('Login error details:', error);
     throw new Error(error.message || 'Authentication failed. Please check your credentials.');
@@ -71,14 +85,16 @@ export async function login(username: string, password: string): Promise<User> {
 
 export async function register(userData: Omit<InsertUser, 'password'> & { password: string }): Promise<RegistrationUser> {
   try {
-    // Check if username already exists
-    const { data: existingUser, error: userCheckError } = await supabase
+    // Check if username or email already exists
+    const { data: existingUsers, error: userCheckError } = await supabase
       .from('users')
       .select('username, email')
-      .or(`username.eq.${userData.username},email.eq.${userData.email}`)
-      .single();
+      .or(`username.eq."${userData.username}",email.eq."${userData.email}"`)
+      .order('created_at')
+      .limit(1);
 
-    if (existingUser) {
+    if (existingUsers && existingUsers.length > 0) {
+      const existingUser = existingUsers[0];
       if (existingUser.username === userData.username) {
         throw new Error('This username is already taken. Please choose another.');
       }
