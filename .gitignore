@@ -81,3 +81,4 @@ ngrok
 ngrok.exe
 ngrok.yml
 ngrok.authtoken
+.vercel

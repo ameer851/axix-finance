@@ -184,7 +184,7 @@ export const adminService = {
     }
 
     try {
-      const response = await apiRequest('GET', '/api/admin/stats');
+      const response = await apiRequest('GET', '/api/admin/stats-simple');
       const data = await safelyParseJSON(response, 'Admin stats');
       
       // Cache the result for 30 seconds
@@ -287,7 +287,7 @@ export const adminService = {
         }
       });
       
-      const response = await apiRequest('GET', `/api/admin/deposits?${params}`);
+      const response = await apiRequest('GET', `/api/admin/deposits-simple?${params}`);
       
       // Check if response is ok and has content
       if (!response.ok) {
@@ -420,7 +420,7 @@ export const adminService = {
     console.log('Fetching withdrawals with params:', Object.fromEntries(params.entries()));
     
     try {
-      const response = await apiRequest('GET', `/api/admin/withdrawals?${params}`);
+      const response = await apiRequest('GET', `/api/admin/withdrawals-simple?${params}`);
       const data = await response.json();
       console.log('Withdrawal API raw response:', data);
       return data;
@@ -534,7 +534,7 @@ export const adminService = {
       }
     });
     
-    const response = await apiRequest('GET', `/api/admin/audit-logs?${params}`);
+    const response = await apiRequest('GET', `/api/admin/audit-logs-simple?${params}`);
     return await response.json();
   },
 
