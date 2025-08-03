@@ -145,9 +145,9 @@ export async function register(
         email: newUser.email,
         username: newUser.username,
         first_name: newUser.first_name,
-        last_name: newUser.last_name
+        last_name: newUser.last_name,
       });
-      
+
       if (emailResult.success) {
         console.log("Welcome email sent successfully:", emailResult.message);
       } else {
