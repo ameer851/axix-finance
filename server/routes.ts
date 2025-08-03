@@ -464,12 +464,12 @@ router.get("/profile", async (req: Request, res: Response) => {
     // For development/testing, bypass authentication and return a test user
     // In production, this would verify the JWT token properly
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
       // Return error if no auth header
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: "Authentication required",
-        error: "NO_AUTH_HEADER"
+        error: "NO_AUTH_HEADER",
       });
     }
 
@@ -477,7 +477,7 @@ router.get("/profile", async (req: Request, res: Response) => {
     return res.status(200).json({
       id: 1,
       username: "testuser",
-      email: "user@axixfinance.com", 
+      email: "user@axixfinance.com",
       firstName: "Test",
       lastName: "User",
       isVerified: true,
@@ -493,74 +493,66 @@ router.get("/profile", async (req: Request, res: Response) => {
   }
 });
 
-router.put(
-  "/profile",
-  async (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const userId = req.user.id;
-      const { firstName, lastName, username } = req.body;
-
-      if (username && username.length < 3) {
-        return res
-          .status(400)
-          .json({ message: "Username must be at least 3 characters long" });
-      }
-
-      if (username) {
-        const existingUser = await storage.getUserByUsername(username);
-        if (existingUser && existingUser.id !== userId) {
-          return res.status(400).json({ message: "Username is already taken" });
-        }
-      }
-
-      const updatedUser = await storage.updateUser(userId, {
-        firstName,
-        lastName,
-        username,
-      });
-
-      if (!updatedUser) {
-        return res
-          .status(404)
-          .json({ message: "Failed to update user profile" });
-      }
-
-      return res.status(200).json({
-        id: updatedUser.id,
-        username: updatedUser.username,
-        email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        isVerified: updatedUser.isVerified,
-        role: updatedUser.role,
-        createdAt: updatedUser.createdAt,
-        updatedAt: updatedUser.updatedAt,
-      });
-    } catch (error) {
-      console.error("Update profile error:", error);
-      return res.status(500).json({ message: "Failed to update user profile" });
+router.put("/profile", async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+
+    const userId = req.user.id;
+    const { firstName, lastName, username } = req.body;
+
+    if (username && username.length < 3) {
+      return res
+        .status(400)
+        .json({ message: "Username must be at least 3 characters long" });
+    }
+
+    if (username) {
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ message: "Username is already taken" });
+      }
+    }
+
+    const updatedUser = await storage.updateUser(userId, {
+      firstName,
+      lastName,
+      username,
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Failed to update user profile" });
+    }
+
+    return res.status(200).json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      isVerified: updatedUser.isVerified,
+      role: updatedUser.role,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    return res.status(500).json({ message: "Failed to update user profile" });
   }
-);
+});
 
 // Update email route - separate from profile updates to handle verification flow
-router.post(
-  "/update-email",
-  async (req: Request, res: Response) => {
-    await handleEmailChange(req, res);
-  }
-);
+router.post("/update-email", async (req: Request, res: Response) => {
+  await handleEmailChange(req, res);
+});
 
 // Get user balance route
 router.get("/users/:userId/balance", async (req: Request, res: Response) => {
   try {
     // Check authentication
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Unauthorized: Login required" });
     }
 
@@ -628,48 +620,45 @@ router.post("/change-password", async (req, res) => {
 });
 
 // Get user crypto balances (per-crypto)
-router.get(
-  "/users/:userId/crypto-balances",
-  async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = parseInt(req.params.userId, 10);
-      if (req.user.role !== "admin" && req.user.id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      // For demo, all balances are 0, but you can extend this to use real data
-      const cryptos = [
-        { key: "bitcoin", label: "BITCOIN", address: user.bitcoinAddress },
-        {
-          key: "bitcoinCash",
-          label: "Bitcoin cash",
-          address: user.bitcoinCashAddress,
-        },
-        { key: "ethereum", label: "Ethereum", address: user.ethereumAddress },
-        { key: "usdt", label: "Usdt trc20", address: user.usdtTrc20Address },
-        { key: "bnb", label: "BNB", address: user.bnbAddress },
-      ];
-      const balances = cryptos.map((crypto) => ({
-        key: crypto.key,
-        label: crypto.label,
-        processing: 0, // TODO: Replace with real processing amount if available
-        available: 0, // TODO: Replace with real available amount if available
-        pending: 0, // TODO: Replace with real pending amount if available
-        account: crypto.address || "not set",
-      }));
-      return res.status(200).json(balances);
-    } catch (error) {
-      console.error("Get crypto balances error:", error);
-      return res.status(500).json({ message: "Failed to get crypto balances" });
+router.get("/users/:userId/crypto-balances", async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+    const userId = parseInt(req.params.userId, 10);
+    if (req.user.role !== "admin" && req.user.id !== userId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    // For demo, all balances are 0, but you can extend this to use real data
+    const cryptos = [
+      { key: "bitcoin", label: "BITCOIN", address: user.bitcoinAddress },
+      {
+        key: "bitcoinCash",
+        label: "Bitcoin cash",
+        address: user.bitcoinCashAddress,
+      },
+      { key: "ethereum", label: "Ethereum", address: user.ethereumAddress },
+      { key: "usdt", label: "Usdt trc20", address: user.usdtTrc20Address },
+      { key: "bnb", label: "BNB", address: user.bnbAddress },
+    ];
+    const balances = cryptos.map((crypto) => ({
+      key: crypto.key,
+      label: crypto.label,
+      processing: 0, // TODO: Replace with real processing amount if available
+      available: 0, // TODO: Replace with real available amount if available
+      pending: 0, // TODO: Replace with real pending amount if available
+      account: crypto.address || "not set",
+    }));
+    return res.status(200).json(balances);
+  } catch (error) {
+    console.error("Get crypto balances error:", error);
+    return res.status(500).json({ message: "Failed to get crypto balances" });
   }
-);
+});
 
 // User transaction routes
 router.get(
@@ -702,7 +691,7 @@ router.get("/transactions", async (req: Request, res: Response) => {
   try {
     // Check authentication
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Unauthorized: Login required" });
     }
 
@@ -817,44 +806,39 @@ router.post(
 );
 
 // Transaction stats endpoint
-router.get(
-  "/transactions/stats",
-  async (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      // For now, return basic mock stats
-      // In a real implementation, you'd calculate these from the database
-      return res.status(200).json({
-        totalTransactions: 0,
-        pendingTransactions: 0,
-        completedTransactions: 0,
-        failedTransactions: 0,
-        totalVolume: "0",
-        averageTransactionAmount: "0",
-        transactionsByType: [
-          { type: "deposit", count: 0 },
-          { type: "withdrawal", count: 0 },
-          { type: "transfer", count: 0 },
-          { type: "investment", count: 0 },
-        ],
-        transactionsByStatus: [
-          { status: "pending", count: 0 },
-          { status: "completed", count: 0 },
-          { status: "rejected", count: 0 },
-        ],
-        transactionTrend: [],
-      });
-    } catch (error) {
-      console.error("Get transaction stats error:", error);
-      return res
-        .status(500)
-        .json({ message: "Failed to get transaction stats" });
+router.get("/transactions/stats", async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+
+    // For now, return basic mock stats
+    // In a real implementation, you'd calculate these from the database
+    return res.status(200).json({
+      totalTransactions: 0,
+      pendingTransactions: 0,
+      completedTransactions: 0,
+      failedTransactions: 0,
+      totalVolume: "0",
+      averageTransactionAmount: "0",
+      transactionsByType: [
+        { type: "deposit", count: 0 },
+        { type: "withdrawal", count: 0 },
+        { type: "transfer", count: 0 },
+        { type: "investment", count: 0 },
+      ],
+      transactionsByStatus: [
+        { status: "pending", count: 0 },
+        { status: "completed", count: 0 },
+        { status: "rejected", count: 0 },
+      ],
+      transactionTrend: [],
+    });
+  } catch (error) {
+    console.error("Get transaction stats error:", error);
+    return res.status(500).json({ message: "Failed to get transaction stats" });
   }
-);
+});
 
 // Health check endpoint
 router.get("/health", (req: Request, res: Response) => {
