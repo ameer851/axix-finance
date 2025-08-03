@@ -14,10 +14,8 @@ import { pool } from "./db";
 import { handleEmailChange } from "./emailChangeService";
 import {
   sendDepositApprovedEmail,
-  sendDepositRequestEmail,
   sendWelcomeEmail,
   sendWithdrawalApprovedEmail,
-  sendWithdrawalRequestEmail,
 } from "./emailManager";
 import { sendTestEmail } from "./emailTestingService";
 import logRoutes from "./logRoutes";
@@ -267,155 +265,159 @@ router.post("/send-welcome-email", async (req, res) => {
 });
 
 // Simple admin routes that work with Supabase directly
-router.get('/admin/users-simple', async (req, res) => {
+router.get("/admin/users-simple", async (req, res) => {
   try {
     // For now, allow all requests - in production you'd verify admin role
-    const { createClient } = await import('@supabase/supabase-js');
+    const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
+
     const { data: users, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false });
+
     if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json({ message: 'Failed to fetch users' });
+      console.error("Supabase error:", error);
+      return res.status(500).json({ message: "Failed to fetch users" });
     }
-    
+
     return res.status(200).json({ users });
   } catch (error) {
-    console.error('Admin users fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch users' });
+    console.error("Admin users fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch users" });
   }
 });
 
 // Simple visitor stats endpoints
-router.get('/admin/visitors/active-simple', async (req, res) => {
+router.get("/admin/visitors/active-simple", async (req, res) => {
   try {
     // Return mock data for now - in production you'd query your visitor tracking system
-    return res.status(200).json({ 
+    return res.status(200).json({
       visitors: [],
-      count: 0 
+      count: 0,
     });
   } catch (error) {
-    console.error('Active visitors fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch active visitors' });
+    console.error("Active visitors fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch active visitors" });
   }
 });
 
-router.get('/admin/visitors/stats-simple', async (req, res) => {
+router.get("/admin/visitors/stats-simple", async (req, res) => {
   try {
     // Return mock stats for now - in production you'd query your analytics
-    return res.status(200).json({ 
+    return res.status(200).json({
       totalVisitors: 0,
       activeVisitors: 0,
       pageViews: 0,
       bounceRate: 0,
       avgSessionDuration: 0,
-      topPages: []
+      topPages: [],
     });
   } catch (error) {
-    console.error('Visitor stats fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch visitor stats' });
+    console.error("Visitor stats fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch visitor stats" });
   }
 });
 
 // Simple admin deposits endpoint
-router.get('/admin/deposits-simple', async (req, res) => {
+router.get("/admin/deposits-simple", async (req, res) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
+    const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
+
     const { data: deposits, error } = await supabase
-      .from('transactions')
-      .select(`
+      .from("transactions")
+      .select(
+        `
         *,
         users!inner(id, username, email, first_name, last_name)
-      `)
-      .eq('type', 'deposit')
-      .order('created_at', { ascending: false });
-    
+      `
+      )
+      .eq("type", "deposit")
+      .order("created_at", { ascending: false });
+
     if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json({ message: 'Failed to fetch deposits' });
+      console.error("Supabase error:", error);
+      return res.status(500).json({ message: "Failed to fetch deposits" });
     }
-    
-    return res.status(200).json({ 
+
+    return res.status(200).json({
       deposits: deposits || [],
-      totalDeposits: deposits?.length || 0 
+      totalDeposits: deposits?.length || 0,
     });
   } catch (error) {
-    console.error('Admin deposits fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch deposits' });
+    console.error("Admin deposits fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch deposits" });
   }
 });
 
 // Simple admin withdrawals endpoint
-router.get('/admin/withdrawals-simple', async (req, res) => {
+router.get("/admin/withdrawals-simple", async (req, res) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
+    const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
+
     const { data: withdrawals, error } = await supabase
-      .from('transactions')
-      .select(`
+      .from("transactions")
+      .select(
+        `
         *,
         users!inner(id, username, email, first_name, last_name)
-      `)
-      .eq('type', 'withdrawal')
-      .order('created_at', { ascending: false });
-    
+      `
+      )
+      .eq("type", "withdrawal")
+      .order("created_at", { ascending: false });
+
     if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json({ message: 'Failed to fetch withdrawals' });
+      console.error("Supabase error:", error);
+      return res.status(500).json({ message: "Failed to fetch withdrawals" });
     }
-    
-    return res.status(200).json({ 
+
+    return res.status(200).json({
       withdrawals: withdrawals || [],
-      totalWithdrawals: withdrawals?.length || 0 
+      totalWithdrawals: withdrawals?.length || 0,
     });
   } catch (error) {
-    console.error('Admin withdrawals fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch withdrawals' });
+    console.error("Admin withdrawals fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch withdrawals" });
   }
 });
 
 // Simple admin stats endpoint
-router.get('/admin/stats-simple', async (req, res) => {
+router.get("/admin/stats-simple", async (req, res) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
+    const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
+
     // Get user count
     const { count: totalUsers } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
-    
+      .from("users")
+      .select("*", { count: "exact", head: true });
+
     // Get active users count (is_active = true)
     const { count: activeUsers } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true);
-    
+      .from("users")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true);
+
     // Get pending transactions
     const { count: pendingTransactions } = await supabase
-      .from('transactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
-    
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending");
+
     return res.status(200).json({
       totalUsers: totalUsers || 0,
       activeUsers: activeUsers || 0,
@@ -437,48 +439,45 @@ router.get('/admin/stats-simple', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Admin stats fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch admin stats' });
+    console.error("Admin stats fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch admin stats" });
   }
 });
 
 // Simple audit logs endpoint
-router.get('/admin/audit-simple', async (req, res) => {
+router.get("/admin/audit-simple", async (req, res) => {
   try {
     // Return mock audit data for now
-    return res.status(200).json({ 
+    return res.status(200).json({
       logs: [],
-      totalLogs: 0 
+      totalLogs: 0,
     });
   } catch (error) {
-    console.error('Admin audit fetch error:', error);
-    return res.status(500).json({ message: 'Failed to fetch audit logs' });
+    console.error("Admin audit fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch audit logs" });
   }
 });
 
 // User profile routes
-router.get(
-  "/profile",
-  async (req: Request, res: Response) => {
-    try {
-      // For now, return mock profile data since we're using Supabase directly
-      return res.status(200).json({
-        id: 1,
-        username: "user",
-        email: "user@example.com",
-        firstName: "User",
-        lastName: "Name",
-        isVerified: true,
-        role: "user",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    } catch (error) {
-      console.error("Get profile error:", error);
-      return res.status(500).json({ message: "Failed to get user profile" });
-    }
+router.get("/profile", async (req: Request, res: Response) => {
+  try {
+    // For now, return mock profile data since we're using Supabase directly
+    return res.status(200).json({
+      id: 1,
+      username: "user",
+      email: "user@example.com",
+      firstName: "User",
+      lastName: "Name",
+      isVerified: true,
+      role: "user",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Get profile error:", error);
+    return res.status(500).json({ message: "Failed to get user profile" });
   }
-);
+});
 
 router.put(
   "/profile",
@@ -545,23 +544,20 @@ router.post(
 );
 
 // Get user balance route
-router.get(
-  "/users/:userId/balance",
-  async (req: Request, res: Response) => {
-    try {
-      // Return mock balance data for now
-      return res.status(200).json({
-        availableBalance: 0,
-        pendingBalance: 0,
-        totalBalance: 0,
-        lastUpdated: new Date(),
-      });
-    } catch (error) {
-      console.error("Get balance error:", error);
-      return res.status(500).json({ message: "Failed to get user balance" });
-    }
+router.get("/users/:userId/balance", async (req: Request, res: Response) => {
+  try {
+    // Return mock balance data for now
+    return res.status(200).json({
+      availableBalance: 0,
+      pendingBalance: 0,
+      totalBalance: 0,
+      lastUpdated: new Date(),
+    });
+  } catch (error) {
+    console.error("Get balance error:", error);
+    return res.status(500).json({ message: "Failed to get user balance" });
   }
-);
+});
 
 // Change password route
 router.post("/change-password", requireEmailVerification, async (req, res) => {
@@ -686,18 +682,15 @@ router.get(
 );
 
 // Get transactions (for current user if no userId specified)
-router.get(
-  "/transactions",
-  async (req: Request, res: Response) => {
-    try {
-      // Return mock transactions data for now
-      return res.status(200).json([]);
-    } catch (error) {
-      console.error("Get transactions error:", error);
-      return res.status(500).json({ message: "Failed to get transactions" });
-    }
+router.get("/transactions", async (req: Request, res: Response) => {
+  try {
+    // Return mock transactions data for now
+    return res.status(200).json([]);
+  } catch (error) {
+    console.error("Get transactions error:", error);
+    return res.status(500).json({ message: "Failed to get transactions" });
   }
-);
+});
 
 // Get specific transaction by ID
 router.get(
@@ -730,49 +723,46 @@ router.get(
 );
 
 // Create new transaction (deposit/withdrawal)
-router.post(
-  "/transactions",
-  async (req: Request, res: Response) => {
-    try {
-      const {
-        type,
-        amount,
-        description,
-        cryptoType,
-        walletAddress,
-        transactionHash,
-        planName,
-      } = req.body;
+router.post("/transactions", async (req: Request, res: Response) => {
+  try {
+    const {
+      type,
+      amount,
+      description,
+      cryptoType,
+      walletAddress,
+      transactionHash,
+      planName,
+    } = req.body;
 
-      if (!type || !amount) {
-        return res
-          .status(400)
-          .json({ message: "Transaction type and amount are required" });
-      }
-
-      // For now, return mock transaction data
-      const mockTransaction = {
-        id: Date.now(),
-        userId: 1,
-        type,
-        amount: amount.toString(),
-        status: "pending",
-        description: description || `${type} transaction`,
-        cryptoType: cryptoType || null,
-        walletAddress: walletAddress || null,
-        transactionHash: transactionHash || null,
-        planName: planName || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      return res.status(201).json(mockTransaction);
-    } catch (error) {
-      console.error("Create transaction error:", error);
-      return res.status(500).json({ message: "Failed to create transaction" });
+    if (!type || !amount) {
+      return res
+        .status(400)
+        .json({ message: "Transaction type and amount are required" });
     }
+
+    // For now, return mock transaction data
+    const mockTransaction = {
+      id: Date.now(),
+      userId: 1,
+      type,
+      amount: amount.toString(),
+      status: "pending",
+      description: description || `${type} transaction`,
+      cryptoType: cryptoType || null,
+      walletAddress: walletAddress || null,
+      transactionHash: transactionHash || null,
+      planName: planName || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return res.status(201).json(mockTransaction);
+  } catch (error) {
+    console.error("Create transaction error:", error);
+    return res.status(500).json({ message: "Failed to create transaction" });
   }
-);
+});
 
 // Deposit confirmation endpoint
 router.post(
@@ -783,12 +773,10 @@ router.post(
         req.body;
 
       if (!amount || !cryptoType || !walletAddress || !transactionHash) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Amount, crypto type, wallet address, and transaction hash are required",
-          });
+        return res.status(400).json({
+          message:
+            "Amount, crypto type, wallet address, and transaction hash are required",
+        });
       }
 
       // Return mock success response
@@ -904,14 +892,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         console.log(
           "Admin stats - Sample transactions:",
-          allTransactions
-            .slice(0, 3)
-            .map((t) => ({
-              id: t.id,
-              type: t.type,
-              status: t.status,
-              amount: t.amount,
-            }))
+          allTransactions.slice(0, 3).map((t) => ({
+            id: t.id,
+            type: t.type,
+            status: t.status,
+            amount: t.amount,
+          }))
         );
 
         // Calculate deposit statistics
@@ -919,14 +905,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Admin stats - Deposits found:", allDeposits.length);
         console.log(
           "Admin stats - Sample deposits:",
-          allDeposits
-            .slice(0, 3)
-            .map((t) => ({
-              id: t.id,
-              type: t.type,
-              status: t.status,
-              amount: t.amount,
-            }))
+          allDeposits.slice(0, 3).map((t) => ({
+            id: t.id,
+            type: t.type,
+            status: t.status,
+            amount: t.amount,
+          }))
         );
         const pendingDeposits = allDeposits.filter(
           (t) => t.status === "pending"
@@ -1156,11 +1140,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const deleted = await storage.deleteUser(userId);
 
         if (!deleted) {
-          return res
-            .status(500)
-            .json({
-              message: "Failed to delete user due to database constraints",
-            });
+          return res.status(500).json({
+            message: "Failed to delete user due to database constraints",
+          });
         }
 
         // Determine what actually happened and provide appropriate response
@@ -3756,11 +3738,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Only allow users to access their own transactions
         if (req.user?.id !== userId) {
-          return res
-            .status(403)
-            .json({
-              message: "You do not have permission to view these transactions",
-            });
+          return res.status(403).json({
+            message: "You do not have permission to view these transactions",
+          });
         }
 
         const transactions = await storage.getUserTransactions(userId);
@@ -3902,12 +3882,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Password reset requested for ${email}`);
       }
 
-      return res
-        .status(200)
-        .json({
-          message:
-            "If this email is associated with an account, you will receive password reset instructions.",
-        });
+      return res.status(200).json({
+        message:
+          "If this email is associated with an account, you will receive password reset instructions.",
+      });
     } catch (error) {
       console.error("Error in forgot-password:", error);
       return res
@@ -3951,42 +3929,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Validate required fields
         if (!currentPassword || !newPassword || !confirmPassword) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Current password, new password, and confirm password are required",
-            });
+          return res.status(400).json({
+            message:
+              "Current password, new password, and confirm password are required",
+          });
         }
 
         // Check if new password matches confirmation
         if (newPassword !== confirmPassword) {
-          return res
-            .status(400)
-            .json({
-              message: "New password and confirm password do not match",
-            });
+          return res.status(400).json({
+            message: "New password and confirm password do not match",
+          });
         }
 
         // Validate new password strength
         if (newPassword.length < 8) {
-          return res
-            .status(400)
-            .json({
-              message: "New password must be at least 8 characters long",
-            });
+          return res.status(400).json({
+            message: "New password must be at least 8 characters long",
+          });
         }
 
         // Check for password complexity (at least one number, one letter)
         const hasNumber = /\d/.test(newPassword);
         const hasLetter = /[a-zA-Z]/.test(newPassword);
         if (!hasNumber || !hasLetter) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "New password must contain at least one letter and one number",
-            });
+          return res.status(400).json({
+            message:
+              "New password must contain at least one letter and one number",
+          });
         }
 
         // Get the current logged-in admin user
@@ -5398,11 +5368,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Validate input
         if (!currentPassword || !newPassword) {
-          return res
-            .status(400)
-            .json({
-              message: "Current password and new password are required",
-            });
+          return res.status(400).json({
+            message: "Current password and new password are required",
+          });
         }
 
         // Get current user password

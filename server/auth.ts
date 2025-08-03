@@ -530,21 +530,14 @@ export function setupAuth(app: Express) {
 
   // Add a health check endpoint for client connectivity testing
   app.get("/api/health", (req, res) => {
-    // Set CORS headers explicitly for the health endpoint
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET');
+    // Don't set CORS headers manually - let the global CORS middleware handle it
     
     // Return a simple health status
     return res.status(200).json({ status: 'ok', serverTime: new Date().toISOString() });
   });
 
   app.post("/api/login", async (req, res, next) => {
-    // Set CORS headers explicitly for the login endpoint
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'POST');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // Don't set CORS headers manually - let the global CORS middleware handle it
     
     // Handle preflight OPTIONS request
     if (req.method === 'OPTIONS') {

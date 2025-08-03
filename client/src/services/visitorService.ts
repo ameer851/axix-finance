@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest } from "@/lib/queryClient";
 
 export interface VisitorData {
   id: string;
@@ -7,7 +7,7 @@ export interface VisitorData {
   country: string;
   city: string;
   region: string;
-  deviceType: 'desktop' | 'mobile' | 'tablet';
+  deviceType: "desktop" | "mobile" | "tablet";
   browser: string;
   os: string;
   currentPage: string;
@@ -34,13 +34,16 @@ export interface VisitorStats {
  */
 export async function getActiveVisitors(): Promise<VisitorData[]> {
   try {
-    const response = await apiRequest('GET', '/api/admin/visitors/active-simple');
+    const response = await apiRequest(
+      "GET",
+      "/api/admin/visitors/active-simple"
+    );
     const result = await response.json();
-    
+
     return result.visitors || [];
   } catch (error: any) {
-    console.error('Error fetching active visitors:', error);
-    throw new Error(error.message || 'Failed to fetch active visitors');
+    console.error("Error fetching active visitors:", error);
+    throw new Error(error.message || "Failed to fetch active visitors");
   }
 }
 
@@ -49,11 +52,14 @@ export async function getActiveVisitors(): Promise<VisitorData[]> {
  */
 export async function getVisitorStats(): Promise<VisitorStats> {
   try {
-    const response = await apiRequest('GET', '/api/admin/visitors/stats-simple');
+    const response = await apiRequest(
+      "GET",
+      "/api/admin/visitors/stats-simple"
+    );
     return await response.json();
   } catch (error: any) {
-    console.error('Error fetching visitor stats:', error);
-    throw new Error(error.message || 'Failed to fetch visitor statistics');
+    console.error("Error fetching visitor stats:", error);
+    throw new Error(error.message || "Failed to fetch visitor statistics");
   }
 }
 
@@ -62,13 +68,13 @@ export async function getVisitorStats(): Promise<VisitorStats> {
  */
 export async function trackPageView(page: string): Promise<void> {
   try {
-    await apiRequest('POST', '/api/visitors/track', {
+    await apiRequest("POST", "/api/visitors/track", {
       page,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     // Silently fail for tracking to not disrupt user experience
-    console.warn('Failed to track page view:', error);
+    console.warn("Failed to track page view:", error);
   }
 }
 
@@ -77,12 +83,12 @@ export async function trackPageView(page: string): Promise<void> {
  */
 export async function updateVisitorActivity(): Promise<void> {
   try {
-    await apiRequest('PUT', '/api/visitors/activity', {
-      timestamp: new Date().toISOString()
+    await apiRequest("PUT", "/api/visitors/activity", {
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     // Silently fail for activity tracking
-    console.warn('Failed to update visitor activity:', error);
+    console.warn("Failed to update visitor activity:", error);
   }
 }
 
@@ -98,17 +104,17 @@ export async function initializeVisitorSession(): Promise<void> {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       screen: {
         width: screen.width,
-        height: screen.height
+        height: screen.height,
       },
       viewport: {
         width: window.innerWidth,
-        height: window.innerHeight
-      }
+        height: window.innerHeight,
+      },
     };
 
-    await apiRequest('POST', '/api/visitors/session', visitorInfo);
+    await apiRequest("POST", "/api/visitors/session", visitorInfo);
   } catch (error: any) {
-    console.warn('Failed to initialize visitor session:', error);
+    console.warn("Failed to initialize visitor session:", error);
   }
 }
 
@@ -117,8 +123,8 @@ export async function initializeVisitorSession(): Promise<void> {
  */
 export async function endVisitorSession(): Promise<void> {
   try {
-    await apiRequest('DELETE', '/api/visitors/session');
+    await apiRequest("DELETE", "/api/visitors/session");
   } catch (error: any) {
-    console.warn('Failed to end visitor session:', error);
+    console.warn("Failed to end visitor session:", error);
   }
 }
