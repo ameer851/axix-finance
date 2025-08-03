@@ -179,6 +179,57 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// Email sending routes
+router.post('/send-welcome-email', async (req, res) => {
+  try {
+    const { email, firstName, lastName } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    // Create a minimal user object for the email
+    const userData: User = {
+      id: 0, // Not needed for email template
+      email,
+      username: email.split('@')[0],
+      firstName: firstName || 'User',
+      lastName: lastName || '',
+      role: 'user',
+      balance: '0',
+      isVerified: true,
+      isActive: true,
+      password: '', // Not needed for email
+      referredBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+      passwordResetToken: null,
+      passwordResetTokenExpiry: null,
+      pendingEmail: null,
+      bitcoinAddress: null,
+      bitcoinCashAddress: null,
+      ethereumAddress: null,
+      bnbAddress: null,
+      usdtTrc20Address: null
+    };
+    
+    const emailSent = await sendWelcomeEmail(userData);
+    
+    if (emailSent) {
+      return res.status(200).json({ message: 'Welcome email sent successfully' });
+    } else {
+      return res.status(500).json({ message: 'Failed to send welcome email' });
+    }
+  } catch (error) {
+    console.error('Send welcome email error:', error);
+    return res.status(500).json({ message: 'Failed to send welcome email' });
+  }
+});
+
 // User profile routes
 router.get('/profile', requireEmailVerification, async (req: Request, res: Response) => {
   try {

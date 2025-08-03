@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { InsertUser, User } from "@shared/schema";
+import { sendWelcomeEmail } from "./emailService";
 
 // Extended User type for registration responses
 interface RegistrationUser extends User {
@@ -25,10 +26,18 @@ export async function login(username: string, password: string): Promise<User> {
   try {
     // For the admin user with default credentials
     if (username === "admin" && password === "Axix-Admin@123") {
-      const result = await supabase
+      // First check if admin user exists
+      let result = await supabase
         .from("users")
-        .upsert(
-          [
+        .select("*")
+        .eq("username", "admin")
+        .single();
+
+      // If admin user doesn't exist, create it
+      if (result.error && result.error.code === "PGRST116") {
+        result = await supabase
+          .from("users")
+          .insert([
             {
               username: "admin",
               email: "admin@axixfinance.com",
@@ -40,14 +49,10 @@ export async function login(username: string, password: string): Promise<User> {
               is_active: true,
               is_verified: true,
             },
-          ],
-          {
-            onConflict: "username",
-            ignoreDuplicates: true,
-          }
-        )
-        .select()
-        .single();
+          ])
+          .select()
+          .single();
+      }
 
       if (result.error || !result.data) {
         console.error("Failed to find or create admin user:", result.error);
@@ -132,6 +137,25 @@ export async function register(
     if (insertError) {
       console.error("Registration error:", insertError);
       throw new Error("Failed to create account. Please try again.");
+    }
+
+    // Send welcome email (don't let email failure prevent registration success)
+    try {
+      const emailResult = await sendWelcomeEmail({
+        email: newUser.email,
+        username: newUser.username,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name
+      });
+      
+      if (emailResult.success) {
+        console.log("Welcome email sent successfully:", emailResult.message);
+      } else {
+        console.error("Failed to send welcome email:", emailResult.message);
+      }
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError);
+      // Don't throw error here - registration was successful
     }
 
     // Return user object with registration success message
