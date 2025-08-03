@@ -32,11 +32,13 @@ export async function login(username: string, password: string): Promise<User> {
             {
               username: "admin",
               email: "admin@axixfinance.com",
+              first_name: "Admin",
+              last_name: "User",
               role: "admin",
               password: "Axix-Admin@123", // In production, this would be hashed
               balance: "0",
-              "isActive": true,
-              "isVerified": true,
+              is_active: true,
+              is_verified: true,
             },
           ],
           {
@@ -115,9 +117,11 @@ export async function register(
         {
           username: userData.username,
           email: userData.email,
+          first_name: userData.firstName || "User",
+          last_name: userData.lastName || "Name",
           password: userData.password, // Temporary - in production this would be hashed
-          "isVerified": true,
-          "isActive": true,
+          is_verified: true,
+          is_active: true,
           role: "user",
           balance: "0",
         },
