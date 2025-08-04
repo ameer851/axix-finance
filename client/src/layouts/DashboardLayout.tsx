@@ -1,7 +1,6 @@
 import CustomerSupport from "@/components/CustomerSupport";
 import GoogleTranslate from "@/components/GoogleTranslate";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import VerificationBanner from "@/components/VerificationBanner";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {

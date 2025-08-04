@@ -6,7 +6,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  */
 export default function handler(req: VercelRequest, res: VercelResponse) {
   const timestamp = new Date().toISOString();
-  
+
   // Basic endpoint response
   res.status(200).json({
     status: "ok",
@@ -14,6 +14,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     message: "Axix Finance API is responding",
     endpoint: req.url,
     method: req.method,
-    environment: process.env.NODE_ENV || "production"
+    environment: process.env.NODE_ENV || "production",
   });
 }

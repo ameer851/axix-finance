@@ -3,27 +3,15 @@
   "buildCommand": "node vercel-build-helper.cjs && npm run build",
   "outputDirectory": "dist/public",
   "installCommand": "npm install --legacy-peer-deps",
-  "functions": {
-    "api/**/*": {
-      "runtime": "@vercel/node@2.15.3"
-    }
+  "env": {
+    "VITE_SUPABASE_URL": "@vite_supabase_url",
+    "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
   },
   "routes": [
     {
-      "src": "/api/health",
-      "dest": "/api/health"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/server",
-      "continue": true
-    },
-    {
       "handle": "filesystem"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/fallback"
     },
     {
       "src": "/(.*)",

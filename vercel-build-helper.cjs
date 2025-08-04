@@ -8,6 +8,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
 
 console.log("🔧 Preparing Axix Finance for Vercel build...");
 
@@ -17,7 +18,17 @@ if (!fs.existsSync("package.json")) {
   process.exit(1);
 }
 
-// Read package.json
+// Install Rollup dependencies to fix build issues
+try {
+  console.log("📦 Installing Rollup dependencies for the current platform...");
+  execSync("npm install --no-save @rollup/rollup-linux-x64-gnu", {
+    stdio: "inherit",
+  });
+  console.log("✅ Rollup dependencies installed");
+} catch (error) {
+  console.warn("⚠️ Failed to install Rollup dependencies:", error.message);
+  console.log("Continuing with build anyway...");
+}
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
 // Fix build script if needed

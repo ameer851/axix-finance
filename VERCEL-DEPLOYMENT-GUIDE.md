@@ -38,6 +38,7 @@ Make sure to set these environment variables in the Vercel dashboard:
 ## Rollback Procedure
 
 If issues are encountered after deployment:
+
 1. Go to the Vercel dashboard
 2. Find your project
 3. Navigate to the "Deployments" tab

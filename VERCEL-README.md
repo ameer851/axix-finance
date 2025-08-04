@@ -5,12 +5,14 @@
 ### Quick Start
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/ameer851/axix-finance.git
    cd axix-finance
    ```
 
 2. **Run the Vercel setup script**
+
    ```bash
    node setup-vercel.js
    ```
@@ -26,12 +28,14 @@
 If you prefer to set up manually or encounter issues:
 
 1. **Install dependencies**
+
    ```bash
    npm install
    npm install --save-dev @vercel/node@2.15.3
    ```
 
 2. **Create/Update vercel.json**
+
    ```json
    {
      "version": 2,

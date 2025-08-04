@@ -3,7 +3,7 @@
 /**
  * Pre-deployment Check Script
  * This script verifies that the project is ready for Vercel deployment
- * 
+ *
  * Usage: node scripts/pre-deployment-check.cjs
  * Run this before deploying to Vercel to ensure all requirements are met
  */
