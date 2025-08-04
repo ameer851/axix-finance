@@ -1,14 +1,15 @@
 // cors-middleware.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { NextFunction, Request, Response } from "express";
 
 /**
- * CORS middleware for Vercel serverless functions
+ * CORS middleware for Vercel serverless functions and Express
  * This adds proper CORS headers to allow requests from your frontend domain
  */
 export function corsMiddleware(
-  req: VercelRequest,
-  res: VercelResponse,
-  next: Function
+  req: VercelRequest | Request,
+  res: VercelResponse | Response,
+  next: NextFunction | Function
 ) {
   // Get allowed origins from environment or use defaults
   const allowedOrigins = [

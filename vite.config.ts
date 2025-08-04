@@ -1,33 +1,40 @@
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from "url";
+import { defineConfig } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(async () => {
-  const plugins = [
-    react(),
-  ];
+  const plugins = [react()];
 
-  // Conditionally add Replit-specific plugins only if they're available
+  // Optionally add Replit-specific plugins if available (for Replit dev only)
+  // These are not required for local or production builds and will be skipped if missing
   if (process.env.NODE_ENV !== "production") {
     try {
       // Only import Replit plugins if they exist
-      const runtimeErrorOverlay = await import("@replit/vite-plugin-runtime-error-modal");
-      plugins.push(runtimeErrorOverlay.default());
+      // @ts-ignore
+      const runtimeErrorOverlay = await import(
+        "@replit/vite-plugin-runtime-error-modal"
+      );
+      if (runtimeErrorOverlay && runtimeErrorOverlay.default) {
+        plugins.push(runtimeErrorOverlay.default());
+      }
     } catch (error) {
-      // Runtime error overlay not available - continue without it
-      console.log("Replit runtime error overlay not available, continuing without it");
+      // Ignore missing module error
     }
 
-    // Conditionally add cartographer plugin in development
     if (process.env.REPL_ID !== undefined) {
       try {
-        const cartographerModule = await import("@replit/vite-plugin-cartographer");
-        plugins.push(cartographerModule.cartographer());
+        // @ts-ignore
+        const cartographerModule = await import(
+          "@replit/vite-plugin-cartographer"
+        );
+        if (cartographerModule && cartographerModule.cartographer) {
+          plugins.push(cartographerModule.cartographer());
+        }
       } catch (error) {
-        // Cartographer plugin not available - continue without it
+        // Ignore missing module error
       }
     }
   }
@@ -38,22 +45,31 @@ export default defineConfig(async () => {
       alias: {
         "@": path.resolve(__dirname, "client", "src"),
         "@shared": path.resolve(__dirname, "shared"),
-        "@assets": path.resolve(__dirname, "attached_assets"),
+        "@assets": path.resolve(__dirname, "client", "src", "assets"),
       },
     },
     root: path.resolve(__dirname, "client"),
+    publicDir: path.resolve(__dirname, "client", "public"),
     build: {
-      outDir: path.resolve(__dirname, "dist/public"),
+      outDir: path.resolve(__dirname, "public"),
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ["react", "react-dom"],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1500,
     },
     server: {
       proxy: {
-        '/api': {
-          target: 'http://localhost:3000',
+        "/api": {
+          target: "http://localhost:3000",
           changeOrigin: true,
           secure: false,
-        }
-      }
-    }
+        },
+      },
+    },
   };
 });

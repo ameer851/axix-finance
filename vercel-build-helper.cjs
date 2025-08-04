@@ -34,7 +34,7 @@ const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 // Fix build script if needed
 if (packageJson.scripts.build.includes("esbuild server/index.ts")) {
   console.log("⚠️ Fixing build script...");
-  packageJson.scripts.build = "vite build";
+  packageJson.scripts.build = "vite build --outDir public";
   fs.writeFileSync("package.json", JSON.stringify(packageJson, null, 2));
   console.log("✅ Build script fixed");
 }

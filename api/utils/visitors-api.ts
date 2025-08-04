@@ -1,6 +1,6 @@
 // visitors-api.ts
 import type { Express, Request, Response } from "express";
-import { corsMiddleware } from "./utils/cors-middleware";
+import { corsMiddleware } from "../utils/cors-middleware";
 
 /**
  * Register visitors tracking endpoints
@@ -8,7 +8,9 @@ import { corsMiddleware } from "./utils/cors-middleware";
  */
 export function registerVisitorsApi(app: Express) {
   // Apply CORS middleware specifically for visitors endpoints
-  app.use("/api/visitors/*", corsMiddleware);
+  app.all("/api/visitors/*", (req, res, next) =>
+    corsMiddleware(req, res, next)
+  );
 
   // Handle visitor tracking
   app.get("/api/visitors/track", (req: Request, res: Response) => {
