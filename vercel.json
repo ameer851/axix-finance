@@ -5,13 +5,13 @@
   "installCommand": "npm install --legacy-peer-deps",
   "functions": {
     "api/server.ts": {
-      "runtime": "@vercel/node@2.15.10"
+      "runtime": "nodejs18.x"
     },
     "api/auth.ts": {
-      "runtime": "@vercel/node@2.15.10"
+      "runtime": "nodejs18.x"
     },
     "api/health.ts": {
-      "runtime": "@vercel/node@2.15.10"
+      "runtime": "nodejs18.x"
     }
   },
   "rewrites": [
