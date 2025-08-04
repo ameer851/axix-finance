@@ -4,14 +4,8 @@
   "outputDirectory": "dist/public",
   "installCommand": "npm install --legacy-peer-deps",
   "functions": {
-    "api/server.ts": {
-      "runtime": "nodejs18.x"
-    },
-    "api/auth.ts": {
-      "runtime": "nodejs18.x"
-    },
-    "api/health.ts": {
-      "runtime": "nodejs18.x"
+    "api/**/*": {
+      "runtime": "vercel-node@2.15.3"
     }
   },
   "rewrites": [

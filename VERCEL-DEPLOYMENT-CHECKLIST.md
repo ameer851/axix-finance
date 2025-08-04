@@ -35,5 +35,30 @@ If you encounter issues:
 2. **CORS Issues**: Check your API response headers
 3. **Missing Environment Variables**: Verify all required variables are set in Vercel
 4. **Database Connection Errors**: Check database credentials and connection strings
+5. **Runtime Configuration Errors**: If you see "Function Runtimes must have a valid version", check your `vercel.json` file and make sure you're using the correct format:
+
+   ```json
+   "functions": {
+     "api/**/*": {
+       "runtime": "vercel-node@2.15.3"
+     }
+   }
+   ```
 
 Remember to check the serverless function logs in the Vercel dashboard for detailed error information.
+
+## 6. Required Environment Variables
+
+Make sure these environment variables are set in your Vercel project settings:
+
+1. `DATABASE_URL` - Your PostgreSQL connection string
+2. `JWT_SECRET` - Secret key for JWT token generation
+3. `VITE_API_URL` - The URL of your API (typically `https://your-domain.vercel.app/api`)
+4. `NODE_ENV` - Set to `production` for production deployments
+
+## 7. Deployment Best Practices
+
+1. **Use GitHub Integration**: Set up automatic deployments from your GitHub repository
+2. **Preview Deployments**: Test changes in preview deployments before merging to main
+3. **Environment Variables**: Use different values for production and preview environments
+4. **Monitoring**: Set up monitoring to be alerted of deployment failures
