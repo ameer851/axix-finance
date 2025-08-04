@@ -1,0 +1,138 @@
+// supabase-test.html // Save this file and open it in a browser to test
+Supabase connectivity
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supabase Connection Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      pre {
+        background-color: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .result {
+        margin-top: 20px;
+        border: 1px solid #ddd;
+        padding: 15px;
+        border-radius: 4px;
+      }
+      button {
+        padding: 8px 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      input {
+        padding: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+      }
+      label {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Supabase Connection Test</h1>
+
+    <div>
+      <label for="supabaseUrl">Supabase URL:</label>
+      <input
+        type="text"
+        id="supabaseUrl"
+        value="https://wvnyiinrmfysabsfztii.supabase.co"
+      />
+
+      <label for="supabaseKey">Supabase Anon Key:</label>
+      <input
+        type="text"
+        id="supabaseKey"
+        value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k"
+      />
+
+      <button onclick="testConnection()">Test Connection</button>
+    </div>
+
+    <div class="result" id="result">
+      <h2>Results will appear here</h2>
+    </div>
+
+    <script>
+      async function testConnection() {
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = "<h2>Testing connection...</h2>";
+
+        const supabaseUrl = document.getElementById("supabaseUrl").value.trim();
+        const supabaseKey = document.getElementById("supabaseKey").value.trim();
+
+        if (!supabaseUrl || !supabaseKey) {
+          resultDiv.innerHTML =
+            "<h2>Error</h2><p>Please enter both Supabase URL and API key</p>";
+          return;
+        }
+
+        try {
+          const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+          // Try to fetch public data - something that anon key should have access to
+          resultDiv.innerHTML += "<p>Testing anon key access...</p>";
+
+          // Test 1: Check if we can fetch users table
+          try {
+            const { data: users, error } = await supabase
+              .from("users")
+              .select("*")
+              .limit(1);
+
+            if (error) {
+              resultDiv.innerHTML += `<p>Error fetching users: ${error.message}</p>`;
+              resultDiv.innerHTML += `<pre>${JSON.stringify(error, null, 2)}</pre>`;
+            } else {
+              resultDiv.innerHTML += `<p>✅ Successfully fetched users</p>`;
+              resultDiv.innerHTML += `<pre>${JSON.stringify(users, null, 2)}</pre>`;
+            }
+          } catch (err) {
+            resultDiv.innerHTML += `<p>Error fetching users: ${err.message}</p>`;
+          }
+
+          // Test 2: Check auth status
+          try {
+            const { data: authData, error: authError } =
+              await supabase.auth.getSession();
+
+            if (authError) {
+              resultDiv.innerHTML += `<p>Error checking auth: ${authError.message}</p>`;
+            } else {
+              resultDiv.innerHTML += `<p>✅ Auth check successful</p>`;
+              resultDiv.innerHTML += `<pre>${JSON.stringify(authData, null, 2)}</pre>`;
+            }
+          } catch (err) {
+            resultDiv.innerHTML += `<p>Error checking auth: ${err.message}</p>`;
+          }
+
+          // Show detailed connection info
+          resultDiv.innerHTML += "<h3>Connection Details</h3>";
+          resultDiv.innerHTML += `<p>URL: ${supabaseUrl}</p>`;
+          resultDiv.innerHTML += `<p>Key: ${supabaseKey.substring(0, 10)}...</p>`;
+        } catch (err) {
+          resultDiv.innerHTML = `<h2>Error</h2><p>${err.message}</p>`;
+        }
+      }
+    </script>
+  </body>
+</html>

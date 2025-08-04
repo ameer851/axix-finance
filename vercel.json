@@ -1,33 +1,46 @@
 {
   "version": 2,
-  "buildCommand": "node vercel-build-helper.cjs && npm run build",
-  "outputDirectory": "dist/public",
+  "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "env": {
-    "VITE_SUPABASE_URL": "https://wvnyiinrmfysabsfztii.supabase.co",
-    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://wvnyiinrmfysabsfztii.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k",
-    "SUPABASE_URL": "https://wvnyiinrmfysabsfztii.supabase.co",
-    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzA5NDM2NywiZXhwIjoyMDY4NjcwMzY3fQ.zLhFm0aPCDfbUQHWWdPJeRfXaI06JP1sHzfGdHM0n9g",
-    "DATABASE_URL": "postgresql://postgres.wvnyiinrmfysabsfztii:iOsIwZAOpNz0CN4B@aws-0-us-east-2.pooler.supabase.com:6543/postgres",
-    "RESEND_API_KEY": "re_7EPnqe1x_GbWWRKim85XJjxwAp1cHx2ET",
-    "EMAIL_FROM": "Admin@axixfinance.com",
-    "EMAIL_FROM_NAME": "AxixFinance",
-    "JWT_SECRET": "TQzqPABJNY5aQNe3/1F5jLgOxwmI/wQZrFEJpFPp8vUIaBqEqEs6utgpjfVzeISAEbzREk7ASFwN7UJOvBcoAA==",
-    "SESSION_SECRET": "z+7MUZsDoFDg7f7g9/grQ4zEsn+fpUTFj1L7lfhyxrMJ4RET7LUiUQFUmC2YdjRRXkbXCSLjqFm2THvRwKlBpfNrmLA=="
+  "outputDirectory": "client/dist",
+  "framework": "vite",
+  "functions": {
+    "api/*.ts": {
+      "runtime": "@vercel/node@2.15.10",
+      "memory": 1024
+    }
   },
-  "routes": [
+  "headers": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/client/dist/$1"
     }
   ]
 }

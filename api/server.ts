@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import express from "express";
 import { registerRoutes } from "./routes";
+import { corsMiddleware } from "./utils/cors-middleware";
 
 const app = express();
 
@@ -9,6 +10,10 @@ let serverInitialized = false;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!serverInitialized) {
+    // Apply CORS middleware first
+    app.use(corsMiddleware);
+
+    // Register all routes
     await registerRoutes(app);
     serverInitialized = true;
   }

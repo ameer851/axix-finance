@@ -1,19 +1,35 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Attempt to get from env variables first
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+// If env variables are not available, use hardcoded values
+const fallbackUrl = "https://wvnyiinrmfysabsfztii.supabase.co";
+const fallbackKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k";
+
+// Use fallback values if env variables are missing
+const finalUrl = supabaseUrl || fallbackUrl;
+const finalKey = supabaseAnonKey || fallbackKey;
+
+// Log what's being used (only in development)
+if (import.meta.env.DEV || import.meta.env.MODE === "development") {
+  console.log("Supabase Configuration:");
+  console.log("URL:", finalUrl);
+  console.log(
+    "ANON KEY (first 10 chars):",
+    finalKey ? finalKey.substring(0, 10) + "..." : "undefined"
+  );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(finalUrl, finalKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
-  }
-})
+    detectSessionInUrl: true,
+  },
+});
 
 // Database types for TypeScript
 export interface Database {
@@ -21,79 +37,79 @@ export interface Database {
     Tables: {
       users: {
         Row: {
-          id: number
-          email: string
-          username: string
-          role: string
-          balance: string
-          isActive: boolean
-          isVerified: boolean
-          createdAt: string
-          updatedAt: string
-        }
+          id: number;
+          email: string;
+          username: string;
+          role: string;
+          balance: string;
+          isActive: boolean;
+          isVerified: boolean;
+          createdAt: string;
+          updatedAt: string;
+        };
         Insert: {
-          email: string
-          username: string
-          role?: string
-          balance?: string
-          isActive?: boolean
-          isVerified?: boolean
-        }
+          email: string;
+          username: string;
+          role?: string;
+          balance?: string;
+          isActive?: boolean;
+          isVerified?: boolean;
+        };
         Update: {
-          email?: string
-          username?: string
-          role?: string
-          balance?: string
-          isActive?: boolean
-          isVerified?: boolean
-        }
-      }
+          email?: string;
+          username?: string;
+          role?: string;
+          balance?: string;
+          isActive?: boolean;
+          isVerified?: boolean;
+        };
+      };
       transactions: {
         Row: {
-          id: number
-          userId: number
-          type: string
-          amount: string
-          status: string
-          description: string
-          createdAt: string
-          updatedAt: string
-        }
+          id: number;
+          userId: number;
+          type: string;
+          amount: string;
+          status: string;
+          description: string;
+          createdAt: string;
+          updatedAt: string;
+        };
         Insert: {
-          userId: number
-          type: string
-          amount: string
-          status?: string
-          description?: string
-        }
+          userId: number;
+          type: string;
+          amount: string;
+          status?: string;
+          description?: string;
+        };
         Update: {
-          status?: string
-          description?: string
-        }
-      }
+          status?: string;
+          description?: string;
+        };
+      };
       notifications: {
         Row: {
-          id: number
-          userId: number
-          title: string
-          message: string
-          type: string
-          isRead: boolean
-          createdAt: string
-        }
+          id: number;
+          userId: number;
+          title: string;
+          message: string;
+          type: string;
+          isRead: boolean;
+          createdAt: string;
+        };
         Insert: {
-          userId: number
-          title: string
-          message: string
-          type?: string
-          isRead?: boolean
-        }
+          userId: number;
+          title: string;
+          message: string;
+          type?: string;
+          isRead?: boolean;
+        };
         Update: {
-          isRead?: boolean
-        }
-      }
-    }
-  }
+          isRead?: boolean;
+        };
+      };
+    };
+  };
 }
 
 // Auth helper functions
@@ -103,131 +119,145 @@ export const authHelpers = {
       email,
       password,
       options: {
-        data: userData
-      }
-    })
-    return { data, error }
+        data: userData,
+      },
+    });
+    return { data, error };
   },
 
   signIn: async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password
-    })
-    return { data, error }
+      password,
+    });
+    return { data, error };
   },
 
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
+    const { error } = await supabase.auth.signOut();
+    return { error };
   },
 
   getCurrentUser: async () => {
-    const { data: { user }, error } = await supabase.auth.getUser()
-    return { user, error }
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    return { user, error };
   },
 
   getCurrentSession: async () => {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    return { session, error }
-  }
-}
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+    return { session, error };
+  },
+};
 
 // Database helper functions
 export const dbHelpers = {
   // Users
   getUserProfile: async (userId: string) => {
     const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    return { data, error }
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    return { data, error };
   },
 
   updateUserProfile: async (userId: string, updates: any) => {
     const { data, error } = await supabase
-      .from('users')
+      .from("users")
       .update(updates)
-      .eq('id', userId)
+      .eq("id", userId)
       .select()
-      .single()
-    return { data, error }
+      .single();
+    return { data, error };
   },
 
   // Transactions
   getUserTransactions: async (userId: string, limit = 50, offset = 0) => {
     const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('userId', userId)
-      .order('createdAt', { ascending: false })
-      .range(offset, offset + limit - 1)
-    return { data, error }
+      .from("transactions")
+      .select("*")
+      .eq("userId", userId)
+      .order("createdAt", { ascending: false })
+      .range(offset, offset + limit - 1);
+    return { data, error };
   },
 
-  createTransaction: async (transaction: Database['public']['Tables']['transactions']['Insert']) => {
+  createTransaction: async (
+    transaction: Database["public"]["Tables"]["transactions"]["Insert"]
+  ) => {
     const { data, error } = await supabase
-      .from('transactions')
+      .from("transactions")
       .insert(transaction)
       .select()
-      .single()
-    return { data, error }
+      .single();
+    return { data, error };
   },
 
   // Notifications
   getUserNotifications: async (userId: string, limit = 20) => {
     const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('userId', userId)
-      .order('createdAt', { ascending: false })
-      .limit(limit)
-    return { data, error }
+      .from("notifications")
+      .select("*")
+      .eq("userId", userId)
+      .order("createdAt", { ascending: false })
+      .limit(limit);
+    return { data, error };
   },
 
   markNotificationAsRead: async (notificationId: number) => {
     const { data, error } = await supabase
-      .from('notifications')
+      .from("notifications")
       .update({ isRead: true })
-      .eq('id', notificationId)
+      .eq("id", notificationId)
       .select()
-      .single()
-    return { data, error }
-  }
-}
+      .single();
+    return { data, error };
+  },
+};
 
 // Real-time subscriptions
 export const subscriptions = {
-  subscribeToUserTransactions: (userId: string, callback: (payload: any) => void) => {
+  subscribeToUserTransactions: (
+    userId: string,
+    callback: (payload: any) => void
+  ) => {
     return supabase
-      .channel('transactions')
+      .channel("transactions")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'transactions',
-          filter: `userId=eq.${userId}`
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `userId=eq.${userId}`,
         },
         callback
       )
-      .subscribe()
+      .subscribe();
   },
 
-  subscribeToUserNotifications: (userId: string, callback: (payload: any) => void) => {
+  subscribeToUserNotifications: (
+    userId: string,
+    callback: (payload: any) => void
+  ) => {
     return supabase
-      .channel('notifications')
+      .channel("notifications")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `userId=eq.${userId}`
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `userId=eq.${userId}`,
         },
         callback
       )
-      .subscribe()
-  }
-}
+      .subscribe();
+  },
+};

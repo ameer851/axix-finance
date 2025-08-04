@@ -9,6 +9,8 @@ import {
   getUserDeposits,
   getUserWithdrawals,
 } from "./supabase";
+import { registerDebugRoutes } from "./utils/debug-env";
+import { registerVisitorsApi } from "./utils/visitors-api";
 
 /**
  * Registers minimal routes for the Vercel serverless function
@@ -17,6 +19,14 @@ import {
 export async function registerRoutes(app: Express) {
   // Use JSON middleware
   app.use(express.json());
+
+  // Register visitors API to fix CORS issues
+  registerVisitorsApi(app);
+
+  // Register debug routes if not in production
+  if (process.env.NODE_ENV !== "production") {
+    registerDebugRoutes(app);
+  }
 
   // Basic health check endpoint
   app.get("/api/health", (req, res) => {

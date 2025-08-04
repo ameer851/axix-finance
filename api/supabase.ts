@@ -16,13 +16,15 @@ export async function getUserBalance(userId: string | number) {
     // Get user data including balance and profile
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         balance,
         profiles (
           is_verified
         )
-      `)
+      `
+      )
       .eq("id", userId)
       .single();
 
@@ -33,7 +35,9 @@ export async function getUserBalance(userId: string | number) {
 
     // Check if user is verified
     // Check if user is verified (profiles is an array but we expect one profile)
-    const profile = Array.isArray(userData.profiles) ? userData.profiles[0] : userData.profiles;
+    const profile = Array.isArray(userData.profiles)
+      ? userData.profiles[0]
+      : userData.profiles;
     if (!profile?.is_verified) {
       throw new Error("User verification required");
     }
@@ -121,14 +125,14 @@ export async function getAdminDashboardData() {
     // Get users count
     const { count: usersCount, error: usersError } = await supabase
       .from("users")
-      .select("*", { count: 'exact' });
+      .select("*", { count: "exact" });
 
     if (usersError) throw usersError;
 
     // Get visitors count (from audit_logs)
     const { count: visitorsCount, error: visitorsError } = await supabase
       .from("audit_logs")
-      .select("*", { count: 'exact' })
+      .select("*", { count: "exact" })
       .eq("action", "visit");
 
     if (visitorsError) throw visitorsError;
@@ -136,7 +140,8 @@ export async function getAdminDashboardData() {
     // Get recent withdrawals
     const { data: withdrawals, error: withdrawalsError } = await supabase
       .from("withdrawals")
-      .select(`
+      .select(
+        `
         *,
         users (
           email,
@@ -144,7 +149,8 @@ export async function getAdminDashboardData() {
             full_name
           )
         )
-      `)
+      `
+      )
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -153,7 +159,8 @@ export async function getAdminDashboardData() {
     // Get recent deposits
     const { data: deposits, error: depositsError } = await supabase
       .from("deposits")
-      .select(`
+      .select(
+        `
         *,
         users (
           email,
@@ -161,7 +168,8 @@ export async function getAdminDashboardData() {
             full_name
           )
         )
-      `)
+      `
+      )
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -170,7 +178,8 @@ export async function getAdminDashboardData() {
     // Get recent audit logs
     const { data: auditLogs, error: auditError } = await supabase
       .from("audit_logs")
-      .select(`
+      .select(
+        `
         *,
         users (
           email,
@@ -178,7 +187,8 @@ export async function getAdminDashboardData() {
             full_name
           )
         )
-      `)
+      `
+      )
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -189,7 +199,7 @@ export async function getAdminDashboardData() {
       visitorsCount: visitorsCount || 0,
       withdrawals,
       deposits,
-      auditLogs
+      auditLogs,
     };
   } catch (error) {
     console.error("Error fetching admin dashboard data:", error);
