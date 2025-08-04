@@ -9,15 +9,56 @@ interface FetchOptions extends RequestInit {
 }
 
 /**
- * Safely parses JSON with error handling
+ * Safely parses JSON with enhanced error handling
  */
 function safeJsonParse(text: string) {
+  // Check for empty responses
+  if (!text || text.trim() === "") {
+    return {
+      data: null,
+      error: new Error("Empty response received from server"),
+    };
+  }
+
+  // Check if response is HTML (common server error pages)
+  if (
+    text.trim().startsWith("<!DOCTYPE html>") ||
+    text.trim().startsWith("<html") ||
+    text.includes("<body") ||
+    text.includes("<head")
+  ) {
+    console.warn("HTML response received when expecting JSON");
+
+    // Try to extract a useful message from the HTML (e.g., from the title)
+    let htmlMessage = "Server returned HTML instead of JSON";
+    try {
+      const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch && titleMatch[1]) {
+        htmlMessage += `: ${titleMatch[1]}`;
+      }
+    } catch (e) {
+      // Ignore extraction errors
+    }
+
+    return { data: null, error: new Error(htmlMessage) };
+  }
+
+  // Try to parse as JSON
   try {
     return { data: JSON.parse(text), error: null };
   } catch (error) {
-    console.error('Error parsing JSON:', error);
-    console.debug('Raw response text:', text);
-    return { data: null, error: new Error('Invalid JSON response from server') };
+    console.error("Error parsing JSON:", error);
+    console.debug(
+      "Raw response text (first 500 chars):",
+      text.substring(0, 500)
+    );
+
+    // Include a part of the response in the error for debugging
+    const snippet = text.length > 50 ? text.substring(0, 50) + "..." : text;
+    return {
+      data: null,
+      error: new Error(`Invalid JSON response from server: ${snippet}`),
+    };
   }
 }
 
@@ -25,20 +66,20 @@ function safeJsonParse(text: string) {
  * Enhanced fetch with timeout, retry, and error handling
  */
 export async function apiFetch<T = any>(
-  url: string, 
+  url: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  const { 
+  const {
     timeout = 30000,
     retries = 2,
     retryDelay = 1000,
-    ...fetchOptions 
+    ...fetchOptions
   } = options;
-  
+
   // Add default headers
   const headers = {
-    'Accept': 'application/json',
-    ...(fetchOptions.headers || {})
+    Accept: "application/json",
+    ...(fetchOptions.headers || {}),
   };
 
   // Create abort controller for timeout
@@ -52,8 +93,10 @@ export async function apiFetch<T = any>(
     try {
       if (attempt > 0) {
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        console.log(`Retrying request to ${url} (attempt ${attempt} of ${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        console.log(
+          `Retrying request to ${url} (attempt ${attempt} of ${retries})`
+        );
       }
 
       const response = await fetch(url, {
@@ -71,29 +114,49 @@ export async function apiFetch<T = any>(
       }
 
       // Check if response is HTML instead of JSON (server error)
-      const contentType = response.headers.get('content-type');
+      const contentType = response.headers.get("content-type");
       const text = await response.text();
 
       // Empty response handling
-      if (!text || text.trim() === '') {
-        throw new Error('Empty response received from server');
+      if (!text || text.trim() === "") {
+        throw new Error("Empty response received from server");
+      }
+
+      // If the response is HTML (often from error pages) instead of JSON
+      if (
+        contentType?.includes("text/html") ||
+        text.trim().startsWith("<!DOCTYPE html>")
+      ) {
+        console.error("HTML response received when expecting JSON");
+        // Return empty data to prevent JSON parse errors
+        if (response.ok) {
+          return {} as T;
+        } else {
+          throw new Error(
+            "Server returned HTML instead of JSON. Please try again later."
+          );
+        }
       }
 
       // Parse JSON safely
       const { data, error } = safeJsonParse(text);
-      
+
       if (error) {
         // Handle HTML responses (likely server error pages)
-        if (contentType && contentType.includes('text/html')) {
-          throw new Error('Server returned an HTML page instead of JSON. The server might be experiencing issues.');
+        if (contentType && contentType.includes("text/html")) {
+          throw new Error(
+            "Server returned an HTML page instead of JSON. The server might be experiencing issues."
+          );
         }
         throw error;
       }
 
       // Handle API errors indicated by status codes
       if (!response.ok) {
-        const message = data?.message || response.statusText || 'Unknown error';
-        const apiError = new Error(`API Error (${response.status}): ${message}`);
+        const message = data?.message || response.statusText || "Unknown error";
+        const apiError = new Error(
+          `API Error (${response.status}): ${message}`
+        );
         (apiError as any).status = response.status;
         (apiError as any).data = data;
         throw apiError;
@@ -102,58 +165,58 @@ export async function apiFetch<T = any>(
       return data as T;
     } catch (error) {
       lastError = error as Error;
-      
+
       // Don't retry on certain errors
       if (
-        error instanceof TypeError && 
-        error.message.includes('NetworkError') ||
-        (error as any).name === 'AbortError'
+        (error instanceof TypeError &&
+          error.message.includes("NetworkError")) ||
+        (error as any).name === "AbortError"
       ) {
         clearTimeout(timeoutId);
-        throw new Error('Network error: Please check your connection');
+        throw new Error("Network error: Please check your connection");
       }
-      
+
       // Last attempt failed, throw the error
       if (attempt === retries) {
         clearTimeout(timeoutId);
         throw lastError;
       }
-      
+
       attempt++;
     }
   }
 
   // This shouldn't happen, but TypeScript wants a return statement
-  throw lastError || new Error('Unknown error occurred');
+  throw lastError || new Error("Unknown error occurred");
 }
 
 // Shorthand methods for common HTTP methods
 export const api = {
-  get: <T = any>(url: string, options: FetchOptions = {}) => 
-    apiFetch<T>(url, { ...options, method: 'GET' }),
-    
+  get: <T = any>(url: string, options: FetchOptions = {}) =>
+    apiFetch<T>(url, { ...options, method: "GET" }),
+
   post: <T = any>(url: string, data: any, options: FetchOptions = {}) =>
     apiFetch<T>(url, {
       ...options,
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     }),
-    
+
   put: <T = any>(url: string, data: any, options: FetchOptions = {}) =>
     apiFetch<T>(url, {
       ...options,
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     }),
-    
+
   delete: <T = any>(url: string, options: FetchOptions = {}) =>
-    apiFetch<T>(url, { ...options, method: 'DELETE' })
+    apiFetch<T>(url, { ...options, method: "DELETE" }),
 };

@@ -1,27 +1,33 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, Mail, CheckCircle2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { resendVerificationEmail } from '@/services/authService';
-import { useAuth } from '@/context/AuthContext';
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { resendVerificationEmail } from "@/services/authService";
+import { AlertCircle, CheckCircle2, Mail } from "lucide-react";
+import React, { useState } from "react";
 
 const VerificationBanner: React.FC = () => {
   const [isResending, setIsResending] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
   const { toast } = useToast();
   const { user, refreshUserData } = useAuth();
-  
+
+  // Don't show verification banner at all - all users are considered verified
+  return null;
+
+  // Original code - commented out
+  /*
   // Safety check - don't render if user is verified or not logged in
   if (!user || user.isVerified) {
     return null;
   }
+  */
 
-  const userEmail = user.email || '';
+  const userEmail = user.email || "";
 
   const handleResendClick = async () => {
     setIsResending(true);
-    setSuccessMessage('');
-    
+    setSuccessMessage("");
+
     try {
       const result = await resendVerificationEmail();
       if (result.success) {
@@ -35,15 +41,17 @@ const VerificationBanner: React.FC = () => {
       } else {
         toast({
           title: "Failed to send verification email",
-          description: result.message || "Please try again later or contact support.",
-          variant: "destructive"
+          description:
+            result.message || "Please try again later or contact support.",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
         title: "Failed to send verification email",
-        description: error.message || "Please try again later or contact support.",
-        variant: "destructive"
+        description:
+          error.message || "Please try again later or contact support.",
+        variant: "destructive",
       });
     } finally {
       setIsResending(false);
@@ -58,9 +66,12 @@ const VerificationBanner: React.FC = () => {
         </div>
         <div className="ml-3 flex-1">
           <div className="text-sm text-yellow-700 dark:text-yellow-300">
-            <p className="font-medium mb-1">Your email address is not verified</p>
+            <p className="font-medium mb-1">
+              Your email address is not verified
+            </p>
             <p className="mb-3">
-              Please verify your email address to unlock all features. We've sent a verification link to <strong>{userEmail}</strong>.
+              Please verify your email address to unlock all features. We've
+              sent a verification link to <strong>{userEmail}</strong>.
             </p>
             {successMessage ? (
               <div className="flex items-center text-green-600 dark:text-green-400 mb-3">
@@ -77,13 +88,15 @@ const VerificationBanner: React.FC = () => {
                 disabled={isResending}
               >
                 <Mail className="mr-1 h-4 w-4" />
-                {isResending ? 'Sending...' : 'Resend Verification Email'}
+                {isResending ? "Sending..." : "Resend Verification Email"}
               </Button>
               <Button
                 variant="link"
                 size="sm"
                 className="text-yellow-700 dark:text-yellow-300 hover:text-yellow-800 dark:hover:text-yellow-200"
-                onClick={() => window.open('mailto:support@axixfinance.com', '_blank')}
+                onClick={() =>
+                  window.open("mailto:support@axixfinance.com", "_blank")
+                }
               >
                 Contact Support
               </Button>
