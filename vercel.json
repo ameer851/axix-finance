@@ -8,6 +8,7 @@
       "runtime": "@vercel/node@2.15.3"
     }
   },
+  "nodeVersion": "18.x",
   "rewrites": [
     {
       "source": "/api/health",
@@ -23,25 +24,25 @@
     }
   ],
   "routes": [
-    { 
-      "src": "/api/health", 
-      "dest": "/api/health" 
+    {
+      "src": "/api/health",
+      "dest": "/api/health"
     },
-    { 
-      "src": "/api/(.*)", 
+    {
+      "src": "/api/(.*)",
       "dest": "/api/server",
       "continue": true
     },
-    { 
-      "handle": "filesystem" 
+    {
+      "handle": "filesystem"
     },
-    { 
-      "src": "/api/(.*)", 
-      "dest": "/api/fallback" 
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/fallback"
     },
-    { 
-      "src": "/(.*)", 
-      "dest": "/index.html" 
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
