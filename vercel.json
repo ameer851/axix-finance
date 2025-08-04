@@ -1,4 +1,5 @@
 {
+  "__comment": "Updated vercel configuration - August 4, 2025",
   "version": 2,
   "buildCommand": "node vercel-build-helper.cjs && npm run build",
   "outputDirectory": "dist/public",
@@ -8,7 +9,6 @@
       "runtime": "@vercel/node@2.15.3"
     }
   },
-  "nodeVersion": "18.x",
   "rewrites": [
     {
       "source": "/api/health",
