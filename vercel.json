@@ -8,20 +8,6 @@
       "runtime": "@vercel/node@2.15.3"
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/health",
-      "destination": "/api/health"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/server"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
   "routes": [
     {
       "src": "/api/health",
