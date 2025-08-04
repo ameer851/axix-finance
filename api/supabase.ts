@@ -196,22 +196,6 @@ export async function getAdminDashboardData() {
     throw error;
   }
 }
-      .from("withdrawals")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching user withdrawals:", error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error("Error in getUserWithdrawals function:", error);
-    return null;
-  }
-}
 
 // Function to create a new deposit
 export async function createDeposit(
