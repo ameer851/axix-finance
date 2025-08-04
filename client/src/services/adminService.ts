@@ -28,10 +28,24 @@ interface ErrorResponse {
 export const adminService = {
   getDashboardStats: async (): Promise<AdminDashboardStats> => {
     try {
-      const response = await apiRequest("GET", "/api/admin/stats");
+      const response = await apiRequest("GET", "/api/admin/dashboard");
       const data = await response.json();
-      return data as AdminDashboardStats;
+      return {
+        ...data,
+        transactionVolume: data.deposits.reduce(
+          (sum: number, deposit: any) => sum + Number(deposit.amount),
+          0
+        ),
+        totalUsers: data.usersCount,
+        activeUsers: data.usersCount, // We can refine this later
+        totalTransactions: data.deposits.length + data.withdrawals.length,
+        conversionRate:
+          ((data.deposits.length / (data.visitorsCount || 1)) * 100).toFixed(
+            2
+          ) + "%",
+      } as AdminDashboardStats;
     } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
       throw new Error("Failed to fetch dashboard stats");
     }
   },

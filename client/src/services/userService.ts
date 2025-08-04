@@ -116,34 +116,57 @@ export async function getUserActivity(
 /**
  * Get user balance
  */
-export async function getUserBalance(userId?: number | string): Promise<any> {
+export async function getUserBalance(userId?: number | string): Promise<{
+  availableBalance: number;
+  pendingBalance: number;
+  totalBalance: number;
+  lastUpdated: string;
+}> {
   if (!userId) {
-    // Return a default balance to prevent errors
-    return {
-      availableBalance: "0.00",
-      pendingBalance: "0.00",
-      totalBalance: "0.00",
-      lastUpdated: new Date().toISOString(),
-    };
+    throw new Error("User ID is required to fetch balance");
   }
 
   try {
-    const response = await apiFetch(
-      `${import.meta.env.VITE_API_URL || ""}/api/users/${userId}/balance`,
-      {
-        credentials: "include",
-      }
-    );
-    return response;
+    const response = await apiRequest("GET", `/users/${userId}/balance`);
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const {
+      availableBalance = 0,
+      pendingBalance = 0,
+      totalBalance,
+      lastUpdated,
+    } = data;
+
+    return {
+      availableBalance: Number(availableBalance),
+      pendingBalance: Number(pendingBalance),
+      totalBalance: Number(totalBalance || availableBalance + pendingBalance),
+      lastUpdated: lastUpdated || new Date().toISOString(),
+    };
   } catch (error: any) {
     console.error("Error fetching user balance:", error);
-    // Return a default balance object to prevent UI errors
-    return {
-      availableBalance: "0.00",
-      pendingBalance: "0.00",
-      totalBalance: "0.00",
-      lastUpdated: new Date().toISOString(),
-    };
+
+    // Try to get balance from localStorage as fallback
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user?.balance) {
+        const balance = Number(user.balance);
+        return {
+          availableBalance: balance,
+          pendingBalance: 0,
+          totalBalance: balance,
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+    }
+
+    throw new Error(error.message || "Failed to fetch balance");
   }
 }
 

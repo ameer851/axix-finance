@@ -203,7 +203,6 @@ export class DatabaseStorage {
 
   async getTransactions(options: GetTransactionsOptions): Promise<Transaction[]> {
     try {
-      let whereClause: any = undefined;
       const conditions: any[] = [];
       
       if (options.status) {
@@ -219,13 +218,16 @@ export class DatabaseStorage {
           between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
         );
       }
-      
-      if (conditions.length > 0) {
-        whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+      if (options.search) {
+        conditions.push(or(
+          like(transactions.description, `%${options.search}%`),
+          like(transactions.transactionHash, `%${options.search}%`)
+        ));
       }
       
-      const query = whereClause 
-        ? db.select({
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      const query = db.select({
             id: transactions.id,
             userId: transactions.userId,
             type: transactions.type,
@@ -265,9 +267,45 @@ export class DatabaseStorage {
     }
   }
 
-  async getTransactionCount(): Promise<number> {
+  async getTransactionCount(options: {
+    search?: string;
+    status?: string;
+    type?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` }).from(transactions);
+      const conditions: any[] = [];
+      
+      if (options.status) {
+        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+      }
+      
+      if (options.type) {
+        conditions.push(eq(transactions.type, options.type as any));
+      }
+      
+      if (options.dateFrom && options.dateTo) {
+        conditions.push(
+          between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
+        );
+      }
+
+      if (options.search) {
+        conditions.push(or(
+          like(transactions.description, `%${options.search}%`),
+          like(transactions.transactionHash, `%${options.search}%`)
+        ));
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      const query = db.select({ count: sql<number>`count(*)` }).from(transactions);
+      
+      if (whereClause) {
+        query.where(whereClause);
+      }
+      
+      const result = await query;
       return result[0].count;
     } catch (error) {
       console.error('Failed to get transaction count:', error);

@@ -24,6 +24,9 @@ export async function checkServerConnection(): Promise<boolean> {
 
 export async function login(username: string, password: string): Promise<User> {
   try {
+    // All users are considered verified by default
+    const isVerified = true;
+
     // For the admin user with default credentials
     if (username === "admin" && password === "Axix-Admin@123") {
       // First check if admin user exists

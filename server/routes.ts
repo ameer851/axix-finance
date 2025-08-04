@@ -18,11 +18,15 @@ import {
   sendWithdrawalApprovedEmail,
 } from "./emailManager";
 import { sendTestEmail } from "./emailTestingService";
+import { setupAdminPanel } from "./fixed-admin-panel";
 import logRoutes from "./logRoutes";
 import { DatabaseStorage } from "./storage";
 
-// Create a storage instance
+// Create storage instances
 const storage = new DatabaseStorage();
+
+// Set up admin panel first
+setupAdminPanel(app);
 
 // Define base user interface to avoid recursion
 interface BaseUser {
@@ -358,7 +362,7 @@ router.get("/admin/deposits-simple", async (req, res) => {
 });
 
 // Simple admin withdrawals endpoint
-router.get("/admin/withdrawals-simple", async (req, res) => {
+router.get("/admin/transactions", async (req, res) => {
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -366,29 +370,59 @@ router.get("/admin/withdrawals-simple", async (req, res) => {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data: withdrawals, error } = await supabase
+    // Get query parameters
+    const type = req.query.type as string;
+    const status = req.query.status as string;
+    const search = req.query.search as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
+    // Build query
+    let query = supabase
       .from("transactions")
       .select(
         `
         *,
         users!inner(id, username, email, first_name, last_name)
-      `
+      `,
+        { count: "exact" }
       )
-      .eq("type", "withdrawal")
       .order("created_at", { ascending: false });
+
+    // Apply filters
+    if (type) {
+      query = query.eq("type", type);
+    }
+    if (status) {
+      query = query.eq("status", status);
+    }
+    if (search) {
+      query = query.or(
+        `description.ilike.%${search}%,users.email.ilike.%${search}%`
+      );
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    // Execute query
+    const { data: transactions, error, count } = await query;
 
     if (error) {
       console.error("Supabase error:", error);
-      return res.status(500).json({ message: "Failed to fetch withdrawals" });
+      return res.status(500).json({ message: "Failed to fetch transactions" });
     }
 
     return res.status(200).json({
-      withdrawals: withdrawals || [],
-      totalWithdrawals: withdrawals?.length || 0,
+      transactions: transactions || [],
+      total: count || 0,
+      page,
+      totalPages: Math.ceil((count || 0) / limit),
     });
   } catch (error) {
-    console.error("Admin withdrawals fetch error:", error);
-    return res.status(500).json({ message: "Failed to fetch withdrawals" });
+    console.error("Admin transactions fetch error:", error);
+    return res.status(500).json({ message: "Failed to fetch transactions" });
   }
 });
 
@@ -401,42 +435,89 @@ router.get("/admin/stats-simple", async (req, res) => {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Get user count
+    // Get user counts
     const { count: totalUsers } = await supabase
       .from("users")
       .select("*", { count: "exact", head: true });
 
-    // Get active users count (is_active = true)
     const { count: activeUsers } = await supabase
       .from("users")
       .select("*", { count: "exact", head: true })
       .eq("is_active", true);
 
-    // Get pending transactions
-    const { count: pendingTransactions } = await supabase
+    // Get transaction counts and totals
+    const { data: transactionStats } = await supabase
       .from("transactions")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending");
+      .select("type, status, amount")
+      .in("type", ["deposit", "withdrawal"]);
+
+    const stats = transactionStats?.reduce(
+      (acc: any, tx) => {
+        const amount = parseFloat(tx.amount) || 0;
+        if (tx.type === "deposit") {
+          acc.totalDeposits += amount;
+          if (tx.status === "pending") acc.deposits.pending++;
+          if (tx.status === "completed") acc.deposits.approved++;
+          acc.deposits.total++;
+
+          // Check if transaction is from current month
+          const txDate = new Date(tx.created_at);
+          const now = new Date();
+          if (
+            txDate.getMonth() === now.getMonth() &&
+            txDate.getFullYear() === now.getFullYear()
+          ) {
+            acc.deposits.thisMonth += amount;
+          }
+        } else if (tx.type === "withdrawal") {
+          acc.totalWithdrawals += amount;
+          if (tx.status === "pending") acc.withdrawals.pending++;
+          if (tx.status === "completed") acc.withdrawals.approved++;
+          acc.withdrawals.total++;
+
+          // Check if transaction is from current month
+          const txDate = new Date(tx.created_at);
+          const now = new Date();
+          if (
+            txDate.getMonth() === now.getMonth() &&
+            txDate.getFullYear() === now.getFullYear()
+          ) {
+            acc.withdrawals.thisMonth += amount;
+          }
+        }
+        if (tx.status === "pending") acc.pendingTransactions++;
+        return acc;
+      },
+      {
+        totalDeposits: 0,
+        totalWithdrawals: 0,
+        pendingTransactions: 0,
+        deposits: {
+          total: 0,
+          pending: 0,
+          approved: 0,
+          thisMonth: 0,
+        },
+        withdrawals: {
+          total: 0,
+          pending: 0,
+          approved: 0,
+          thisMonth: 0,
+        },
+      }
+    ) || {
+      totalDeposits: 0,
+      totalWithdrawals: 0,
+      pendingTransactions: 0,
+      deposits: { total: 0, pending: 0, approved: 0, thisMonth: 0 },
+      withdrawals: { total: 0, pending: 0, approved: 0, thisMonth: 0 },
+    };
 
     return res.status(200).json({
       totalUsers: totalUsers || 0,
       activeUsers: activeUsers || 0,
-      pendingTransactions: pendingTransactions || 0,
-      totalDeposits: 0,
-      totalWithdrawals: 0,
+      ...stats,
       maintenanceMode: false,
-      deposits: {
-        total: 0,
-        pending: 0,
-        approved: 0,
-        thisMonth: 0,
-      },
-      withdrawals: {
-        total: 0,
-        pending: 0,
-        approved: 0,
-        thisMonth: 0,
-      },
     });
   } catch (error) {
     console.error("Admin stats fetch error:", error);
@@ -849,6 +930,8 @@ router.get("/health", (req: Request, res: Response) => {
 export default router;
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up admin panel routes first
+  setupAdminPanel(app);
   setupAuth(app);
 
   // Apply the router to the app

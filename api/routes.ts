@@ -4,6 +4,7 @@ import express from "express";
 import {
   createDeposit,
   createWithdrawal,
+  getAdminDashboardData,
   getUserBalance,
   getUserDeposits,
   getUserWithdrawals,
@@ -43,6 +44,25 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Get balance error:", error);
       return res.status(500).json({ message: "Failed to get user balance" });
+    }
+  });
+
+  // Admin dashboard data endpoint
+  app.get("/api/admin/dashboard", async (req: Request, res: Response) => {
+    try {
+      // Verify admin role here
+      const user = (req as any).user;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const dashboardData = await getAdminDashboardData();
+      return res.status(200).json(dashboardData);
+    } catch (error) {
+      console.error("Admin dashboard error:", error);
+      return res
+        .status(500)
+        .json({ message: "Failed to fetch admin dashboard data" });
     }
   });
 

@@ -13,48 +13,52 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 // Function to get user balance
 export async function getUserBalance(userId: string | number) {
   try {
-    // First try to get user data including balance
+    // Get user data including balance and profile
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("balance, pending_balance")
+      .select(`
+        id,
+        balance,
+        profiles (
+          is_verified
+        )
+      `)
       .eq("id", userId)
       .single();
 
     if (userError) {
       console.error("Error fetching user data:", userError);
-      return null;
+      throw new Error("Failed to fetch user data");
     }
 
-    // Next, get deposit and withdrawal data to calculate total balance
-    const { data: deposits, error: depositError } = await supabase
-      .from("deposits")
-      .select("amount")
-      .eq("user_id", userId)
-      .eq("status", "approved");
-
-    const { data: withdrawals, error: withdrawalError } = await supabase
-      .from("withdrawals")
-      .select("amount")
-      .eq("user_id", userId)
-      .eq("status", "approved");
-
-    if (depositError || withdrawalError) {
-      console.error(
-        "Error fetching transaction data:",
-        depositError || withdrawalError
-      );
+    // Check if user is verified
+    // Check if user is verified (profiles is an array but we expect one profile)
+    const profile = Array.isArray(userData.profiles) ? userData.profiles[0] : userData.profiles;
+    if (!profile?.is_verified) {
+      throw new Error("User verification required");
     }
 
-    // Calculate totals
-    const totalDeposits =
-      deposits?.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) || 0;
-    const totalWithdrawals =
-      withdrawals?.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) ||
-      0;
+    // Get pending transactions to calculate pending balance
+    const { data: pendingTxns, error: pendingError } = await supabase
+      .from("transactions")
+      .select("amount, type, status")
+      .eq("user_id", userId)
+      .eq("status", "pending");
 
-    // Calculate available and total balance
-    const availableBalance = userData?.balance || 0;
-    const pendingBalance = userData?.pending_balance || 0;
+    if (pendingError) {
+      console.error("Error fetching pending transactions:", pendingError);
+    }
+
+    // Calculate pending balance from transactions
+    const pendingBalance =
+      pendingTxns?.reduce((sum, txn) => {
+        const amount = Number(txn.amount) || 0;
+        // Add deposits, subtract withdrawals
+        return sum + (txn.type === "deposit" ? amount : -amount);
+      }, 0) || 0;
+
+    // Get available balance from user data
+    const availableBalance = Number(userData?.balance || 0);
     const totalBalance = availableBalance + pendingBalance;
 
     return {
@@ -94,6 +98,104 @@ export async function getUserDeposits(userId: string | number) {
 export async function getUserWithdrawals(userId: string | number) {
   try {
     const { data, error } = await supabase
+      .from("withdrawals")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user withdrawals:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getUserWithdrawals function:", error);
+    return null;
+  }
+}
+
+// Admin Functions
+export async function getAdminDashboardData() {
+  try {
+    // Get users count
+    const { count: usersCount, error: usersError } = await supabase
+      .from("users")
+      .select("*", { count: 'exact' });
+
+    if (usersError) throw usersError;
+
+    // Get visitors count (from audit_logs)
+    const { count: visitorsCount, error: visitorsError } = await supabase
+      .from("audit_logs")
+      .select("*", { count: 'exact' })
+      .eq("action", "visit");
+
+    if (visitorsError) throw visitorsError;
+
+    // Get recent withdrawals
+    const { data: withdrawals, error: withdrawalsError } = await supabase
+      .from("withdrawals")
+      .select(`
+        *,
+        users (
+          email,
+          profiles (
+            full_name
+          )
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (withdrawalsError) throw withdrawalsError;
+
+    // Get recent deposits
+    const { data: deposits, error: depositsError } = await supabase
+      .from("deposits")
+      .select(`
+        *,
+        users (
+          email,
+          profiles (
+            full_name
+          )
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (depositsError) throw depositsError;
+
+    // Get recent audit logs
+    const { data: auditLogs, error: auditError } = await supabase
+      .from("audit_logs")
+      .select(`
+        *,
+        users (
+          email,
+          profiles (
+            full_name
+          )
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (auditError) throw auditError;
+
+    return {
+      usersCount: usersCount || 0,
+      visitorsCount: visitorsCount || 0,
+      withdrawals,
+      deposits,
+      auditLogs
+    };
+  } catch (error) {
+    console.error("Error fetching admin dashboard data:", error);
+    throw error;
+  }
+}
       .from("withdrawals")
       .select("*")
       .eq("user_id", userId)

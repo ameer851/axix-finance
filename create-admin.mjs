@@ -31,7 +31,7 @@ async function createAdminUser() {
       role: 'admin',
       balance: '0',
       isActive: true,
-      isVerified: true,
+      isVerified: true, // Always verified
       twoFactorEnabled: false,
       referredBy: null,
       bitcoinAddress: null,
