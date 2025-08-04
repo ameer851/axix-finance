@@ -89,11 +89,13 @@ export default function ProtectedRoute({
   // When verification is required but not done yet, show banner but still allow access
   return (
     <>
+      {/* Verification banner disabled 
       {(requireVerified && !isVerified) && (
         <Suspense fallback={<div className="h-12 bg-yellow-100 dark:bg-yellow-900"></div>}>
           <VerificationBanner />
         </Suspense>
       )}
+      */}
       {children}
     </>
   );

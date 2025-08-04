@@ -562,8 +562,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              {/* Verification Banner - only show for unverified users */}
-              {user && !user.isVerified && <VerificationBanner />}
+              {/* Verification Banner - disabled for all users */}
+              {/* {user && !user.isVerified && <VerificationBanner />} */}
 
               {/* Welcome message */}
               <div className="mb-6 bg-white dark:bg-neutral-800 rounded-lg shadow p-6">
