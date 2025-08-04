@@ -1,6 +1,7 @@
 // Import minimal routes for Vercel serverless function
 import type { Express, Request, Response } from "express";
 import express from "express";
+import { getUserBalance, getUserDeposits, getUserWithdrawals, createDeposit, createWithdrawal } from "./supabase";
 
 /**
  * Registers minimal routes for the Vercel serverless function
@@ -9,30 +10,119 @@ import express from "express";
 export async function registerRoutes(app: Express) {
   // Use JSON middleware
   app.use(express.json());
-  
+
   // Basic health check endpoint
   app.get("/api/health", (req, res) => {
     res.status(200).json({
       status: "ok",
       message: "API is up and running",
       timestamp: new Date().toISOString(),
-      version: "1.0.0"
+      version: "1.0.0",
     });
   });
 
-  // Add user balance endpoint
-  app.get("/api/users/:userId/balance", (req: Request, res: Response) => {
+  // Get user balance endpoint - fetches real data from Supabase
+  app.get("/api/users/:userId/balance", async (req: Request, res: Response) => {
     try {
-      // Return dummy balance data for all users
-      return res.status(200).json({
-        availableBalance: 10000,
-        pendingBalance: 0,
-        totalBalance: 10000,
-        lastUpdated: new Date().toISOString()
-      });
+      const userId = req.params.userId;
+      
+      // Get actual balance from database
+      const balanceData = await getUserBalance(userId);
+      
+      if (!balanceData) {
+        return res.status(404).json({ message: "User or balance not found" });
+      }
+      
+      return res.status(200).json(balanceData);
     } catch (error) {
       console.error("Get balance error:", error);
       return res.status(500).json({ message: "Failed to get user balance" });
+    }
+  });
+
+  // Get user deposits endpoint
+  app.get("/api/users/:userId/deposits", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      
+      // Get deposits from database
+      const deposits = await getUserDeposits(userId);
+      
+      if (!deposits) {
+        return res.status(404).json({ message: "User deposits not found" });
+      }
+      
+      return res.status(200).json(deposits);
+    } catch (error) {
+      console.error("Get deposits error:", error);
+      return res.status(500).json({ message: "Failed to get user deposits" });
+    }
+  });
+
+  // Get user withdrawals endpoint
+  app.get("/api/users/:userId/withdrawals", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      
+      // Get withdrawals from database
+      const withdrawals = await getUserWithdrawals(userId);
+      
+      if (!withdrawals) {
+        return res.status(404).json({ message: "User withdrawals not found" });
+      }
+      
+      return res.status(200).json(withdrawals);
+    } catch (error) {
+      console.error("Get withdrawals error:", error);
+      return res.status(500).json({ message: "Failed to get user withdrawals" });
+    }
+  });
+
+  // Create deposit endpoint
+  app.post("/api/users/:userId/deposits", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const { amount, method, reference } = req.body;
+      
+      if (!amount || !method) {
+        return res.status(400).json({ message: "Amount and method are required" });
+      }
+      
+      // Create deposit in database
+      const deposit = await createDeposit(userId, Number(amount), method, reference || '');
+      
+      if (!deposit) {
+        return res.status(500).json({ message: "Failed to create deposit" });
+      }
+      
+      return res.status(201).json(deposit);
+    } catch (error) {
+      console.error("Create deposit error:", error);
+      return res.status(500).json({ message: "Failed to create deposit" });
+    }
+  });
+
+  // Create withdrawal endpoint
+  app.post("/api/users/:userId/withdrawals", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const { amount, method, address } = req.body;
+      
+      if (!amount || !method || !address) {
+        return res.status(400).json({ message: "Amount, method, and address are required" });
+      }
+      
+      // Create withdrawal in database
+      const withdrawal = await createWithdrawal(userId, Number(amount), method, address);
+      
+      if (!withdrawal) {
+        return res.status(500).json({ message: "Failed to create withdrawal" });
+      }
+      
+      return res.status(201).json(withdrawal);
+    } catch (error) {
+      console.error("Create withdrawal error:", error);
+      return res.status(500).json({ message: "Failed to create withdrawal" });
     }
   });
 
@@ -43,18 +133,7 @@ export async function registerRoutes(app: Express) {
       message: "Axix Finance API",
       endpoint: req.originalUrl || req.url,
       method: req.method,
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Default route handler
-  app.use("*", (req, res) => {
-    res.status(200).json({
-      status: "ok",
-      message: "Axix Finance API",
-      endpoint: req.originalUrl || req.url,
-      method: req.method,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   });
 }
