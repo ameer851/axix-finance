@@ -40,7 +40,7 @@ If you encounter issues:
    ```json
    "functions": {
      "api/**/*": {
-       "runtime": "vercel-node@2.15.3"
+       "runtime": "@vercel/node@2.15.3"
      }
    }
    ```
