@@ -10,12 +10,38 @@
   },
   "rewrites": [
     {
+      "source": "/api/health",
+      "destination": "/api/health"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/server"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "routes": [
+    { 
+      "src": "/api/health", 
+      "dest": "/api/health" 
+    },
+    { 
+      "src": "/api/(.*)", 
+      "dest": "/api/server",
+      "continue": true
+    },
+    { 
+      "handle": "filesystem" 
+    },
+    { 
+      "src": "/api/(.*)", 
+      "dest": "/api/fallback" 
+    },
+    { 
+      "src": "/(.*)", 
+      "dest": "/index.html" 
     }
   ]
 }
