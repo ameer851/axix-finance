@@ -1,25 +1,58 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
+import { VercelResponse } from "@vercel/node";
+import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { Pool } from "pg";
 
-// Initialize database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
-});
-
-export interface AuthenticatedRequest extends VercelRequest {
+export interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
     email: string;
     role: string;
-    isVerified: boolean;
+    isVerified?: boolean;
   };
-  headers: VercelRequest["headers"];
-  method: string;
+  isAuthenticated(): boolean;
+}eClient } from "@supabase/supabase-js";
+import { VercelResponse } from "@vercel/node";
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+
+export type AuthenticatedRequest = Request & {
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+    isVerified?: boolean;
+  };
+  isAuthenticated(): boolean;
+};
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+    isVerified?: boolean;
+  };
+  isAuthenticated(): boolean;
+};
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL || "",
+  process.env.SUPABASE_ANON_KEY || ""
+);
+
+// Add types to Express Request
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: {
+      id: number;
+      email: string;
+      role: string;
+      isVerified?: boolean;
+    };
+    isAuthenticated(): boolean;
+  }
 }
 
 export const corsHeaders = {
@@ -37,91 +70,82 @@ export function setCorsHeaders(res: VercelResponse) {
   });
 }
 
-export async function authenticateUser(
-  req: AuthenticatedRequest
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { success: false, error: "No token provided" };
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "fallback-secret"
-    ) as any;
-
-    // Get user from database to ensure they still exist and are active
-    const userQuery = await pool.query(
-      "SELECT id, email, first_name, last_name, role, is_verified, is_active FROM users WHERE id = $1",
-      [decoded.userId]
-    );
-
-    if (userQuery.rows.length === 0) {
-      return { success: false, error: "User not found" };
-    }
-
-    const user = userQuery.rows[0];
-    if (!user.is_active) {
-      return { success: false, error: "Account deactivated" };
-    }
-
-    req.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      isVerified: user.is_verified,
-    };
-
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: "Invalid token" };
-  }
-}
-
-export function requireAuth(
-  handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>
-) {
+export function requireAuth(handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>) {
   return async (req: AuthenticatedRequest, res: VercelResponse) => {
-    setCorsHeaders(res);
+    try {
+      setCorsHeaders(res);
 
-    if (req.method === "OPTIONS") {
-      res.status(200).end();
-      return;
+      if (req.method === "OPTIONS") {
+        res.status(200).end();
+        return;
+      }
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        req.isAuthenticated = () => false;
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(
+          token,
+          process.env.JWT_SECRET || "fallback-secret"
+        ) as any;
+
+        // Get user from Supabase to ensure they still exist and are active
+        const { data: user, error } = await supabase
+          .from("users")
+          .select("id, email, first_name, last_name, role, is_verified, is_active")
+          .eq("id", decoded.userId)
+          .single();
+
+        if (error || !user) {
+          return res.status(401).json({ error: "User not found" });
+        }
+
+        if (!user.is_active) {
+          return res.status(403).json({ error: "Account deactivated" });
+        }
+
+        // Set user data and isAuthenticated
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          isVerified: user.is_verified,
+        };
+        req.isAuthenticated = () => true;
+
+        // Call the handler with the authenticated request
+        return handler(req, res);
+      } catch (error) {
+        console.error("Token verification error:", error);
+        return res.status(401).json({ error: "Invalid token" });
+      }
+    } catch (error) {
+      console.error("Auth middleware error:", error);
+      return res.status(500).json({ error: "Internal server error in auth middleware" });
     }
-
-    const authResult = await authenticateUser(req);
-    if (!authResult.success) {
-      return res.status(401).json({ error: authResult.error });
-    }
-
-    return handler(req, res);
   };
 }
 
-export function requireEmailVerification(
-  handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>
-) {
+export function requireEmailVerification(handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void | VercelResponse>) {
   return requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
     if (!req.user?.isVerified) {
       res.status(403).json({ error: "Email verification required" });
       return;
     }
-    await handler(req, res);
+    return handler(req, res);
   });
 }
 
-export function requireAdmin(
-  handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>
-) {
-  return requireEmailVerification(
-    async (req: AuthenticatedRequest, res: VercelResponse) => {
-      if (req.user?.role !== "admin") {
-        res.status(403).json({ error: "Admin access required" });
-        return;
-      }
-      await handler(req, res);
+export function requireAdmin(handler: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void | VercelResponse>) {
+  return requireEmailVerification(async (req: AuthenticatedRequest, res: VercelResponse) => {
+    if (req.user?.role !== "admin") {
+      res.status(403).json({ error: "Admin access required" });
+      return;
     }
-  );
+    return handler(req, res);
+  });
 }

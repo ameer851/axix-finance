@@ -7,9 +7,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 export type UserFilters = {
   role?: UserRole;
-  isVerified?: boolean;
-  isActive?: boolean;
-  status?: "active" | "inactive" | "suspended";
+  is_admin?: boolean;
   search?: string;
   page?: number;
   limit?: number;
@@ -426,9 +424,8 @@ export async function getUsers(filters: UserFilters = {}): Promise<{
   try {
     const queryParams = new URLSearchParams();
     if (filters.role) queryParams.append("role", filters.role);
-    if (filters.isVerified !== undefined)
-      queryParams.append("isVerified", String(filters.isVerified));
-    if (filters.status) queryParams.append("status", filters.status);
+    if (filters.is_admin !== undefined)
+      queryParams.append("is_admin", String(filters.is_admin));
     if (filters.search) queryParams.append("search", filters.search);
     if (filters.page) queryParams.append("page", String(filters.page));
     if (filters.limit) queryParams.append("limit", String(filters.limit));

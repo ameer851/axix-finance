@@ -14,21 +14,17 @@ async function throwIfResNotOk(res: Response) {
       // Special handling for 401 Unauthorized responses
       if (res.status === 401) {
         console.warn("Authentication required - redirecting to login");
-        // Force refresh token if applicable
-        try {
-          // Optional: Try to refresh the token
-          // const refreshed = await refreshToken();
-          // if (refreshed) return; // If token refresh successful, don't throw
-        } catch (refreshError) {
-          console.error("Token refresh failed:", refreshError);
-        }
+
+        // Clear auth data
+        localStorage.removeItem("user");
+        localStorage.removeItem("authToken");
 
         // Redirect to login after a brief delay to allow this error to be handled
         setTimeout(() => {
-          window.location.href = "/login";
+          window.location.href = "/login?reason=session-expired";
         }, 100);
 
-        errorMessage = "Authentication required - please log in";
+        errorMessage = "Authentication required - please log in again";
         throw new Error(errorMessage);
       }
 

@@ -13,7 +13,8 @@ const BRAND_COLORS = {
 } as const;
 
 const COMMON_STYLES = {
-  container: "font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;",
+  container:
+    "font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;",
   header: `background-color: ${BRAND_COLORS.primary}; padding: 20px; text-align: center;`,
   headerText: "color: #ffffff; margin: 0;",
   body: `padding: 20px; border: 1px solid #e5e7eb; border-top: none; color: ${BRAND_COLORS.text};`,
@@ -64,7 +65,7 @@ function generateDepositApprovalEmailHTML(
   `;
 }
 
-function generateWelcomeEmailHTML(user: User, password: string): string {
+function generateWelcomeEmailHTML(user: User): string {
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
@@ -72,8 +73,8 @@ function generateWelcomeEmailHTML(user: User, password: string): string {
       </div>
       <div style="${COMMON_STYLES.body}">
         <h2>Welcome to AxixFinance!</h2>
-        <p>Hello ${user.firstName || user.username},</p>
-        <p>Thank you for joining AxixFinance. Your account is now fully activated and ready to use.</p>
+        <p>Hello ${user.full_name || user.email},</p>
+        <p>Thank you for joining AxixFinance. Your account is now ready to use.</p>
         
         <div style="text-align: center; margin: 30px 0;">
           <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1753823823/ChatGPT_Image_Jul_23_2025_05_18_19_PM_sfaaml.png" 
@@ -82,11 +83,10 @@ function generateWelcomeEmailHTML(user: User, password: string): string {
         </div>
 
         <div style="${COMMON_STYLES.infoBox}">
-          <h3 style="margin: 0 0 15px 0; color: ${BRAND_COLORS.primary};">Your Login Credentials</h3>
-          <p style="margin: 0;"><strong>Username:</strong> ${user.username}</p>
-          <p style="margin: 10px 0;"><strong>Password:</strong> ${password}</p>
-          <p style="margin: 10px 0 0 0; color: ${BRAND_COLORS.danger};">
-            <strong>Important:</strong> Please change your password immediately after logging in.
+          <h3 style="margin: 0 0 15px 0; color: ${BRAND_COLORS.primary};">Login Information</h3>
+          <p style="margin: 0;"><strong>Email:</strong> ${user.email}</p>
+          <p style="margin: 10px 0 0 0; color: ${BRAND_COLORS.info};">
+            <strong>Note:</strong> You can sign in using your Supabase auth credentials.
           </p>
         </div>
 
@@ -254,7 +254,7 @@ function generateNotificationEmailHTML(
   subject: string,
   message: string,
   buttonText?: string,
-  buttonUrl?: string,
+  buttonUrl?: string
 ): string {
   return `
     <div style="${COMMON_STYLES.container}">
@@ -267,13 +267,17 @@ function generateNotificationEmailHTML(
         <div style="margin: 20px 0;">
           ${message}
         </div>
-        ${buttonUrl && buttonText ? `
+        ${
+          buttonUrl && buttonText
+            ? `
           <div style="text-align: center; margin: 30px 0; padding: 12px 24px;">
             <a href="${buttonUrl}" style="${COMMON_STYLES.button}">
               ${buttonText}
             </a>
           </div>
-        ` : ""}
+        `
+            : ""
+        }
         <p>Best regards,<br>The AxixFinance Team</p>
       </div>
       <div style="${COMMON_STYLES.footer}">
@@ -321,10 +325,7 @@ function generateVerificationEmailHTML(
   `;
 }
 
-function generatePasswordResetEmailHTML(
-  user: User,
-  resetUrl: string
-): string {
+function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
@@ -360,12 +361,11 @@ function generatePasswordResetEmailHTML(
 
 export {
   generateDepositApprovalEmailHTML,
-  generateWelcomeEmailHTML,
   generateDepositConfirmationEmailHTML,
-  generateWithdrawalRequestEmailHTML,
-  generateWithdrawalConfirmationEmailHTML,
   generateNotificationEmailHTML,
-  generateVerificationEmailHTML,
   generatePasswordResetEmailHTML,
+  generateVerificationEmailHTML,
+  generateWelcomeEmailHTML,
+  generateWithdrawalConfirmationEmailHTML,
+  generateWithdrawalRequestEmailHTML,
 };
-

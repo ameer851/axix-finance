@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { InsertUser, User } from "@shared/schema";
+import { User } from "@shared/schema";
 import { sendWelcomeEmail } from "./emailService";
 
 // Extended User type for registration responses
@@ -11,75 +11,83 @@ interface RegistrationUser extends User {
 // Check if Supabase is available
 export async function checkServerConnection(): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("count")
-      .limit(1);
-    return !error;
+    console.log("Testing Supabase connection...");
+
+    // Try a simple query to test the connection
+    const { data, error } = await supabase.from("users").select("id").limit(1);
+
+    if (error) {
+      console.error("Supabase connection error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      });
+      return false;
+    }
+
+    console.log("Supabase connection successful");
+    return true;
   } catch (error) {
     console.error("Supabase connection check failed:", error);
     return false;
   }
 }
 
-export async function login(username: string, password: string): Promise<User> {
+export async function login(email: string, password: string): Promise<User> {
   try {
-    // All users are considered verified by default
-    const isVerified = true;
+    console.log("Attempting login for:", email);
 
-    // For the admin user with default credentials
-    if (username === "admin" && password === "Axix-Admin@123") {
-      // First check if admin user exists
-      let result = await supabase
-        .from("users")
-        .select("*")
-        .eq("username", "admin")
-        .single();
-
-      // If admin user doesn't exist, create it
-      if (result.error && result.error.code === "PGRST116") {
-        result = await supabase
-          .from("users")
-          .insert([
-            {
-              username: "admin",
-              email: "admin@axixfinance.com",
-              first_name: "Admin",
-              last_name: "User",
-              role: "admin",
-              password: "Axix-Admin@123", // In production, this would be hashed
-              balance: "0",
-              is_active: true,
-              is_verified: true,
-            },
-          ])
-          .select()
-          .single();
-      }
-
-      if (result.error || !result.data) {
-        console.error("Failed to find or create admin user:", result.error);
-        throw new Error("Failed to authenticate. Please try again.");
-      }
-
-      // Store the authenticated user in localStorage
-      localStorage.setItem("user", JSON.stringify(result.data));
-      return result.data as User;
+    // Check Supabase connection first
+    const isConnected = await checkServerConnection();
+    if (!isConnected) {
+      throw new Error("Cannot connect to authentication service.");
     }
 
-    // For other users, check the database directly
+    // Use Supabase Auth for all users including admin
+    const { data: auth, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    console.log("Auth response:", authError ? "Failed" : "Success");
+    if (authError) {
+      console.error("Auth error:", authError);
+      throw new Error("Invalid email or password.");
+    }
+
+    if (!auth?.user) {
+      console.error("No user data in auth response");
+      throw new Error("Authentication failed - no user data.");
+    }
+
+    console.log("Fetching user profile for uid:", auth.user.id);
+
+    // Get user profile from our users table
     const result = await supabase
       .from("users")
       .select("*")
-      .eq("username", username)
+      .eq("email", auth.user.email)
       .single();
 
     if (result.error || !result.data) {
-      throw new Error("Invalid username or password.");
+      throw new Error("User profile not found.");
     }
 
-    // In a real implementation, you'd verify the password hash here
-    // For now, we'll accept any password for existing users (development only)
+    // Update uid if it doesn't match (handles existing users)
+    if (result.data.uid !== auth.user.id) {
+      await supabase
+        .from("users")
+        .update({ uid: auth.user.id })
+        .eq("id", result.data.id);
+      result.data.uid = auth.user.id;
+    }
+
+    // Store auth token
+    const session = await supabase.auth.getSession();
+    if (session.data.session?.access_token) {
+      localStorage.setItem("authToken", session.data.session.access_token);
+    }
 
     // Store the authenticated user in localStorage
     localStorage.setItem("user", JSON.stringify(result.data));
@@ -92,46 +100,55 @@ export async function login(username: string, password: string): Promise<User> {
   }
 }
 
-export async function register(
-  userData: Omit<InsertUser, "password"> & { password: string }
-): Promise<RegistrationUser> {
+export async function register(userData: {
+  email: string;
+  password: string;
+  fullName: string;
+}): Promise<RegistrationUser> {
   try {
-    // Check if username or email already exists
+    // First check Supabase connection
+    const isConnected = await checkServerConnection();
+    if (!isConnected) {
+      throw new Error("Unable to connect to the service. Please try again.");
+    }
+
+    // Check for existing users
     const { data: existingUsers, error: userCheckError } = await supabase
       .from("users")
-      .select("username, email")
-      .or(`username.eq."${userData.username}",email.eq."${userData.email}"`)
-      .order("created_at")
+      .select("email")
+      .eq("email", userData.email)
       .limit(1);
 
     if (existingUsers && existingUsers.length > 0) {
-      const existingUser = existingUsers[0];
-      if (existingUser.username === userData.username) {
-        throw new Error(
-          "This username is already taken. Please choose another."
-        );
-      }
-      if (existingUser.email === userData.email) {
-        throw new Error(
-          "This email address is already registered. Try to login instead."
-        );
-      }
+      throw new Error(
+        "This email address is already registered. Try to login instead."
+      );
     }
 
-    // Insert new user (in production, you'd hash the password)
+    // Create auth user first
+    const { data: auth, error: authError } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+    });
+
+    if (authError) {
+      throw new Error("Failed to create user account: " + authError.message);
+    }
+
+    if (!auth.user?.id) {
+      throw new Error("Failed to create user account");
+    }
+
+    // Then create user profile
     const { data: newUser, error: insertError } = await supabase
       .from("users")
       .insert([
         {
-          username: userData.username,
+          uid: auth.user.id,
           email: userData.email,
-          first_name: userData.firstName || "User",
-          last_name: userData.lastName || "Name",
-          password: userData.password, // Temporary - in production this would be hashed
-          is_verified: true,
-          is_active: true,
+          full_name: userData.fullName,
           role: "user",
-          balance: "0",
+          is_admin: false,
         },
       ])
       .select()
@@ -139,16 +156,26 @@ export async function register(
 
     if (insertError) {
       console.error("Registration error:", insertError);
-      throw new Error("Failed to create account. Please try again.");
+      if (insertError.code === "23505") {
+        throw new Error("Username or email already exists");
+      } else if (insertError.code === "23503") {
+        throw new Error("Invalid reference data");
+      } else if (insertError.code === "23502") {
+        throw new Error("Missing required fields");
+      } else if (insertError.code === "PGRST301") {
+        throw new Error("Database connection error. Please try again");
+      } else {
+        throw new Error(
+          `Registration failed: ${insertError.message || "Please try again"}`
+        );
+      }
     }
 
     // Send welcome email (don't let email failure prevent registration success)
     try {
       const emailResult = await sendWelcomeEmail({
         email: newUser.email,
-        username: newUser.username,
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
+        full_name: newUser.full_name,
       });
 
       if (emailResult.success) {
@@ -179,13 +206,17 @@ export async function register(
 
 export async function logout(): Promise<void> {
   try {
-    // Clear local storage (no need for server call since we're using Supabase directly)
+    // Sign out from Supabase Auth
+    await supabase.auth.signOut();
+
+    // Clear all auth-related data from localStorage
     localStorage.removeItem("user");
-    // Note: If we were using Supabase Auth, we'd call supabase.auth.signOut() here
+    localStorage.removeItem("authToken");
   } catch (error: any) {
     console.error("Logout error:", error);
     // Even if there's an error, we'll still clear local storage
     localStorage.removeItem("user");
+    localStorage.removeItem("authToken");
   }
 }
 

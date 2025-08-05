@@ -1,11 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client using environment variables
-const supabaseUrl =
-  process.env.SUPABASE_URL || "https://wvnyiinrmfysabsfztii.supabase.co";
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzA5NDM2NywiZXhwIjoyMDY4NjcwMzY3fQ.zLhFm0aPCDfbUQHWWdPJeRfXaI06JP1sHzfGdHM0n9g";
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Supabase URL or Service Role Key is not defined in environment variables."
+  );
+}
 
 // Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseKey);
@@ -34,7 +37,6 @@ export async function getUserBalance(userId: string | number) {
     }
 
     // Check if user is verified
-    // Check if user is verified (profiles is an array but we expect one profile)
     const profile = Array.isArray(userData.profiles)
       ? userData.profiles[0]
       : userData.profiles;
@@ -77,6 +79,141 @@ export async function getUserBalance(userId: string | number) {
   }
 }
 
+// Admin functions for deposits and withdrawals
+export async function getAdminDeposits(filters?: {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  amountMin?: number;
+  amountMax?: number;
+}) {
+  try {
+    let query = supabase.from("deposits").select("*", { count: "exact" });
+
+    // Apply filters if provided
+    if (filters?.status) {
+      query = query.eq("status", filters.status);
+    }
+    if (filters?.dateFrom) {
+      query = query.gte("created_at", filters.dateFrom);
+    }
+    if (filters?.dateTo) {
+      query = query.lte("created_at", filters.dateTo);
+    }
+    if (filters?.amountMin) {
+      query = query.gte("amount", filters.amountMin);
+    }
+    if (filters?.amountMax) {
+      query = query.lte("amount", filters.amountMax);
+    }
+
+    // Order by created_at desc
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Error fetching admin deposits:", error);
+      return null;
+    }
+
+    return {
+      deposits: data || [],
+      totalDeposits: count || 0,
+      currentPage: 1,
+      totalPages: 1
+    };
+  } catch (error) {
+    console.error("Error in getAdminDeposits function:", error);
+    return null;
+  }
+}
+
+export async function getAdminWithdrawals(filters?: {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  amountMin?: number;
+  amountMax?: number;
+}) {
+  try {
+    let query = supabase.from("withdrawals").select("*", { count: "exact" });
+
+    // Apply filters if provided
+    if (filters?.status) {
+      query = query.eq("status", filters.status);
+    }
+    if (filters?.dateFrom) {
+      query = query.gte("created_at", filters.dateFrom);
+    }
+    if (filters?.dateTo) {
+      query = query.lte("created_at", filters.dateTo);
+    }
+    if (filters?.amountMin) {
+      query = query.gte("amount", filters.amountMin);
+    }
+    if (filters?.amountMax) {
+      query = query.lte("amount", filters.amountMax);
+    }
+
+    // Order by created_at desc
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Error fetching admin withdrawals:", error);
+      return null;
+    }
+
+    return {
+      withdrawals: data || [],
+      totalWithdrawals: count || 0,
+      currentPage: 1,
+      totalPages: 1
+    };
+  } catch (error) {
+    console.error("Error in getAdminWithdrawals function:", error);
+    return null;
+  }
+}
+
+export async function approveDeposit(depositId: string) {
+  try {
+    const { error } = await supabase.rpc("approve_deposit", {
+      p_deposit_id: depositId
+    });
+
+    if (error) {
+      console.error("Error approving deposit:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in approveDeposit function:", error);
+    return false;
+  }
+}
+
+export async function approveWithdrawal(withdrawalId: string) {
+  try {
+    const { error } = await supabase.rpc("approve_withdrawal", {
+      p_withdrawal_id: withdrawalId
+    });
+
+    if (error) {
+      console.error("Error approving withdrawal:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in approveWithdrawal function:", error);
+    return false;
+  }
+}
+
 // Function to get user deposits
 export async function getUserDeposits(userId: string | number) {
   try {
@@ -95,6 +232,29 @@ export async function getUserDeposits(userId: string | number) {
   } catch (error) {
     console.error("Error in getUserDeposits function:", error);
     return null;
+  }
+}
+
+// Function to get user withdrawals
+export async function getUserWithdrawals(userId: string | number) {
+  try {
+    const { data, error } = await supabase
+      .from("withdrawals")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user withdrawals:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getUserWithdrawals function:", error);
+    return null;
+  }
+}
   }
 }
 

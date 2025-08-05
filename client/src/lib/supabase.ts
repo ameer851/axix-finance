@@ -5,9 +5,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // If env variables are not available, use hardcoded values
-const fallbackUrl = "https://wvnyiinrmfysabsfztii.supabase.co";
+const fallbackUrl = "https://oyqanlnqfyyaqheehsmw.supabase.co";
 const fallbackKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95cWFubG5xZnl5YXFoZWVoc213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMzMzMzQsImV4cCI6MjA2OTkwOTMzNH0.9iuJ3lKSbmGOIblmdGFr08wiUaC7RKqRzY7DUc-pjWc";
 
 // Use fallback values if env variables are missing
 const finalUrl = supabaseUrl || fallbackUrl;
@@ -23,11 +23,15 @@ if (import.meta.env.DEV || import.meta.env.MODE === "development") {
   );
 }
 
+// Create Supabase client with better error handling
 export const supabase = createClient(finalUrl, finalKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+  },
+  global: {
+    headers: { "X-Client-Info": "axix-finance-web" },
   },
 });
 

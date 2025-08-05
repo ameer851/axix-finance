@@ -39,9 +39,7 @@ export async function updateEmail(
  */
 export async function sendWelcomeEmail(user: {
   email: string;
-  username: string;
-  first_name?: string;
-  last_name?: string;
+  full_name: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
     // Since we're using Supabase directly, we need to call the server API for email sending

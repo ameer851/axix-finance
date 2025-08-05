@@ -10,7 +10,6 @@ import {
   setupAuth,
   verifyUserEmail,
 } from "./auth";
-import { pool } from "./db";
 import { handleEmailChange } from "./emailChangeService";
 import {
   sendDepositApprovedEmail,
@@ -21,12 +20,10 @@ import { sendTestEmail } from "./emailTestingService";
 import { setupAdminPanel } from "./fixed-admin-panel";
 import logRoutes from "./logRoutes";
 import { DatabaseStorage } from "./storage";
+import { supabase } from "./supabase";
 
 // Create storage instances
 const storage = new DatabaseStorage();
-
-// Set up admin panel first
-setupAdminPanel(app);
 
 // Define base user interface to avoid recursion
 interface BaseUser {
@@ -218,7 +215,7 @@ if (process.env.NODE_ENV !== "production") {
 // Email sending routes
 router.post("/send-welcome-email", async (req, res) => {
   try {
-    const { email, firstName, lastName } = req.body;
+    const { email, full_name } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
@@ -227,30 +224,11 @@ router.post("/send-welcome-email", async (req, res) => {
     // Create a minimal user object for the email
     const userData = {
       id: 0, // Not needed for email template
+      uid: "temp-uid", // Not needed for email template
       email,
-      username: email.split("@")[0],
-      password: "", // Not needed for email
-      firstName: firstName || "User",
-      lastName: lastName || "",
+      full_name: `${firstName || ""} ${lastName || ""}`.trim() || "User",
       role: "user",
-      balance: "0",
-      isVerified: true,
-      isActive: true,
-      referredBy: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      twoFactorEnabled: false,
-      twoFactorSecret: null,
-      verificationToken: null,
-      verificationTokenExpiry: null,
-      passwordResetToken: null,
-      passwordResetTokenExpiry: null,
-      pendingEmail: null,
-      bitcoinAddress: null,
-      bitcoinCashAddress: null,
-      ethereumAddress: null,
-      bnbAddress: null,
-      usdtTrc20Address: null,
+      is_admin: false,
     };
 
     const emailSent = await sendWelcomeEmail(userData);
@@ -1467,37 +1445,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Also get deposits from deposits_history table temporarily
-        let historyDeposits = [];
+        let historyDeposits: any[] = [];
         try {
-          const historyQuery = `
-          SELECT 
-            'hist_' || id as id,
-            user_id,
-            amount::text as amount,
-            plan_name as description,
-            status,
-            created_at,
-            updated_at,
-            payment_method as crypto_type,
-            null as transaction_hash,
-            null as wallet_address
-          FROM deposits_history 
-          WHERE status = 'pending'
-          ORDER BY created_at DESC
-          LIMIT $1
-        `;
-          const historyResult = await pool.query(historyQuery, [Number(limit)]);
+          // Fetch deposits history data with user information
+          const { data: historyData, error: historyError } = await supabase
+            .from("deposits_history")
+            .select(
+              `
+              id,
+              user_id,
+              amount,
+              plan_name,
+              status,
+              created_at,
+              updated_at,
+              payment_method,
+              users!inner(id, username, email)
+            `
+            )
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(Number(limit));
 
-          // Add user information to history deposits
-          for (const deposit of historyResult.rows) {
-            const userQuery = await pool.query(
-              "SELECT id, username, email FROM users WHERE id = $1",
-              [deposit.user_id]
-            );
-            deposit.user = userQuery.rows[0] || null;
+          if (historyError) {
+            throw historyError;
           }
 
-          historyDeposits = historyResult.rows;
+          // Format the data to match expected structure
+          if (historyData && Array.isArray(historyData)) {
+            historyDeposits = historyData.map((deposit: any) => ({
+              id: `hist_${deposit.id}`,
+              user_id: deposit.user_id,
+              amount: deposit.amount?.toString() || "0",
+              description: deposit.plan_name,
+              status: deposit.status,
+              created_at: deposit.created_at,
+              updated_at: deposit.updated_at,
+              crypto_type: deposit.payment_method,
+              transaction_hash: null,
+              wallet_address: null,
+              user: deposit.users || null,
+            }));
+          }
         } catch (historyError) {
           console.log(
             "Could not fetch from deposits_history:",
@@ -1829,40 +1818,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Handle deposits_history table
               const historyId = parseInt(depositId.replace("hist_", ""));
 
-              const historyQuery = `
-              SELECT * FROM deposits_history 
-              WHERE id = $1 AND status = 'pending'
-            `;
-              const historyResult = await pool.query(historyQuery, [historyId]);
+              // Fetch deposit from history table
+              const { data: historyData, error: historyError } = await supabase
+                .from("deposits_history")
+                .select("*")
+                .eq("id", historyId)
+                .eq("status", "pending")
+                .single();
 
-              if (historyResult.rows.length > 0) {
-                const deposit = historyResult.rows[0];
-
-                // Update status to completed (not approved)
-                const updateQuery = `
-                UPDATE deposits_history 
-                SET status = 'completed', updated_at = NOW()
-                WHERE id = $1
-              `;
-                await pool.query(updateQuery, [historyId]);
-
-                // Store the deposit info for balance update later
-                const depositInfo = {
-                  amount: deposit.amount,
-                  userId: deposit.user_id,
-                };
-
-                // Add to pending balance updates
-                pendingBalanceUpdates.push(depositInfo);
-
-                results.push({ depositId, success: true, deposit });
-              } else {
+              if (historyError || !historyData) {
                 results.push({
                   depositId,
                   success: false,
                   error: "Deposit not found",
                 });
+                continue;
               }
+
+              // Update status to completed
+              const { error: updateError } = await supabase
+                .from("deposits_history")
+                .update({
+                  status: "completed",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", historyId);
+
+              if (updateError) {
+                results.push({
+                  depositId,
+                  success: false,
+                  error: "Failed to update deposit status",
+                });
+                continue;
+              }
+
+              // Store the deposit info for balance update later
+              const depositInfo = {
+                amount: historyData.amount,
+                userId: historyData.user_id,
+              };
+
+              // Add to pending balance updates
+              pendingBalanceUpdates.push(depositInfo);
+
+              results.push({ depositId, success: true, deposit: historyData });
             } else {
               // Handle transactions table
               const updatedDeposit = await storage.updateTransactionStatus(
@@ -1946,31 +1946,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Handle deposits_history table
               const historyId = parseInt(depositId.replace("hist_", ""));
 
-              const historyQuery = `
-              SELECT * FROM deposits_history 
-              WHERE id = $1 AND status = 'pending'
-            `;
-              const historyResult = await pool.query(historyQuery, [historyId]);
+              // Fetch deposit from history table
+              const { data: historyData, error: historyError } = await supabase
+                .from("deposits_history")
+                .select("*")
+                .eq("id", historyId)
+                .eq("status", "pending")
+                .single();
 
-              if (historyResult.rows.length > 0) {
-                const deposit = historyResult.rows[0];
-
-                // Update status to rejected
-                const updateQuery = `
-                UPDATE deposits_history 
-                SET status = 'rejected', updated_at = NOW()
-                WHERE id = $1
-              `;
-                await pool.query(updateQuery, [historyId]);
-
-                results.push({ depositId, success: true, deposit });
-              } else {
+              if (historyError || !historyData) {
                 results.push({
                   depositId,
                   success: false,
                   error: "Deposit not found",
                 });
+                continue;
               }
+
+              // Update status to rejected
+              const { error: updateError } = await supabase
+                .from("deposits_history")
+                .update({
+                  status: "rejected",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", historyId);
+
+              if (updateError) {
+                results.push({
+                  depositId,
+                  success: false,
+                  error: "Failed to update deposit status",
+                });
+                continue;
+              }
+
+              results.push({ depositId, success: true, deposit: historyData });
             } else {
               // Handle transactions table
               const updatedDeposit = await storage.updateTransactionStatus(
@@ -2175,15 +2186,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
             if (updated) {
               // Refund the withdrawal amount back to user's balance
-              const refundBalanceQuery = `
-              UPDATE users 
-              SET balance = balance + $1 
-              WHERE id = $2
-            `;
-              await pool.query(refundBalanceQuery, [
-                parseFloat(withdrawal.amount),
-                withdrawal.userId,
-              ]);
+              const { error: refundError } = await supabase.rpc(
+                "increment_user_balance",
+                {
+                  user_id: withdrawal.userId,
+                  amount: parseFloat(withdrawal.amount),
+                }
+              );
+
+              if (refundError) {
+                console.error("Error refunding balance:", refundError);
+                results.push({
+                  withdrawalId,
+                  success: false,
+                  error: "Failed to refund balance",
+                });
+                continue;
+              }
 
               results.push({ withdrawalId, success: true });
             } else {
@@ -2240,43 +2259,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const historyId = parseInt(idParam.replace("hist_", ""));
 
           // Get deposit from deposits_history table
-          const historyQuery = `
-          SELECT * FROM deposits_history 
-          WHERE id = $1 AND status = 'pending'
-        `;
-          const historyResult = await pool.query(historyQuery, [historyId]);
+          const { data: historyData, error: historyError } = await supabase
+            .from("deposits_history")
+            .select("*")
+            .eq("id", historyId)
+            .eq("status", "pending")
+            .single();
 
-          if (historyResult.rows.length === 0) {
+          if (historyError || !historyData) {
             return res.status(404).json({ message: "Deposit not found" });
           }
 
-          const deposit = historyResult.rows[0];
+          // Update deposits_history status to completed
+          const { error: updateError } = await supabase
+            .from("deposits_history")
+            .update({
+              status: "completed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", historyId);
 
-          // Update deposits_history status to completed (not approved)
-          const updateHistoryQuery = `
-          UPDATE deposits_history 
-          SET status = 'completed', updated_at = NOW()
-          WHERE id = $1
-        `;
-          await pool.query(updateHistoryQuery, [historyId]);
+          if (updateError) {
+            console.error("Error updating deposit status:", updateError);
+            return res
+              .status(500)
+              .json({ message: "Failed to update deposit status" });
+          }
 
-          // Add to user balance
-          const addBalanceQuery = `
-          UPDATE users 
-          SET balance = balance + $1 
-          WHERE id = $2
-        `;
-          await pool.query(addBalanceQuery, [
-            parseFloat(deposit.amount),
-            deposit.user_id,
-          ]);
+          // Add to user balance using RPC function
+          const { error: balanceError } = await supabase.rpc(
+            "increment_user_balance",
+            {
+              user_id: historyData.user_id,
+              amount: parseFloat(historyData.amount),
+            }
+          );
+
+          if (balanceError) {
+            console.error("Error updating user balance:", balanceError);
+            return res
+              .status(500)
+              .json({ message: "Failed to update user balance" });
+          }
 
           // Create notification
           await storage.createNotification({
-            userId: deposit.user_id,
+            userId: historyData.user_id,
             type: "transaction",
             title: "Deposit Approved",
-            message: `Your deposit of $${deposit.amount} has been approved and added to your account.`,
+            message: `Your deposit of $${historyData.amount} has been approved and added to your account.`,
             relatedEntityType: "transaction",
             relatedEntityId: historyId,
           });
@@ -2284,18 +2315,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createLog({
             type: "info",
             userId: req.user!.id,
-            message: `Admin approved deposit #${idParam} of $${deposit.amount}`,
+            message: `Admin approved deposit #${idParam} of $${historyData.amount}`,
             details: {
               depositId: idParam,
-              amount: deposit.amount,
-              userId: deposit.user_id,
+              amount: historyData.amount,
+              userId: historyData.user_id,
             },
           });
 
           res.json({
             success: true,
             message: "Deposit approved successfully",
-            amount: deposit.amount,
+            amount: historyData.amount,
           });
         } else {
           // Handle regular transaction table entries
@@ -2314,16 +2345,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
           if (updated) {
-            // Add to user balance
-            const addBalanceQuery = `
-            UPDATE users 
-            SET balance = balance + $1 
-            WHERE id = $2
-          `;
-            await pool.query(addBalanceQuery, [
-              parseFloat(deposit.amount),
-              deposit.userId,
-            ]);
+            // Add to user balance using RPC function
+            const { error: balanceError } = await supabase.rpc(
+              "increment_user_balance",
+              {
+                user_id: deposit.userId,
+                amount: parseFloat(deposit.amount),
+              }
+            );
+
+            if (balanceError) {
+              console.error("Error updating user balance:", balanceError);
+              return res
+                .status(500)
+                .json({ message: "Failed to update user balance" });
+            }
 
             // Notify the user
             // Notify user via notification and email
@@ -2397,32 +2433,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const historyId = parseInt(idParam.replace("hist_", ""));
 
           // Get deposit from deposits_history table
-          const historyQuery = `
-          SELECT * FROM deposits_history 
-          WHERE id = $1 AND status = 'pending'
-        `;
-          const historyResult = await pool.query(historyQuery, [historyId]);
+          const { data: historyData, error: historyError } = await supabase
+            .from("deposits_history")
+            .select("*")
+            .eq("id", historyId)
+            .eq("status", "pending")
+            .single();
 
-          if (historyResult.rows.length === 0) {
+          if (historyError || !historyData) {
             return res.status(404).json({ message: "Deposit not found" });
           }
 
-          const deposit = historyResult.rows[0];
-
           // Update deposits_history status to rejected
-          const updateHistoryQuery = `
-          UPDATE deposits_history 
-          SET status = 'rejected', updated_at = NOW()
-          WHERE id = $1
-        `;
-          await pool.query(updateHistoryQuery, [historyId]);
+          const { error: updateError } = await supabase
+            .from("deposits_history")
+            .update({
+              status: "rejected",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", historyId);
+
+          if (updateError) {
+            console.error("Error updating deposit status:", updateError);
+            return res
+              .status(500)
+              .json({ message: "Failed to update deposit status" });
+          }
 
           // Create notification
           await storage.createNotification({
-            userId: deposit.user_id,
+            userId: historyData.user_id,
             type: "transaction",
             title: "Deposit Rejected",
-            message: `Your deposit of $${deposit.amount} has been rejected.${reason ? ` Reason: ${reason}` : ""}`,
+            message: `Your deposit of $${historyData.amount} has been rejected.${reason ? ` Reason: ${reason}` : ""}`,
             relatedEntityType: "transaction",
             relatedEntityId: historyId,
           });
@@ -2430,11 +2473,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createLog({
             type: "info",
             userId: req.user!.id,
-            message: `Admin rejected deposit #${idParam} of $${deposit.amount}${reason ? ` - Reason: ${reason}` : ""}`,
+            message: `Admin rejected deposit #${idParam} of $${historyData.amount}${reason ? ` - Reason: ${reason}` : ""}`,
             details: {
               depositId: idParam,
-              amount: deposit.amount,
-              userId: deposit.user_id,
+              amount: historyData.amount,
+              userId: historyData.user_id,
               reason,
             },
           });
@@ -2591,15 +2634,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (updated) {
           // Refund the withdrawal amount back to user's balance
-          const refundBalanceQuery = `
-          UPDATE users 
-          SET balance = balance + $1 
-          WHERE id = $2
-        `;
-          await pool.query(refundBalanceQuery, [
-            parseFloat(withdrawal.amount),
-            withdrawal.userId,
-          ]);
+          const { error: refundError } = await supabase.rpc(
+            "increment_user_balance",
+            {
+              user_id: withdrawal.userId,
+              amount: parseFloat(withdrawal.amount),
+            }
+          );
+
+          if (refundError) {
+            console.error("Error refunding balance:", refundError);
+            return res
+              .status(500)
+              .json({ message: "Failed to refund balance" });
+          }
 
           // Notify the user
           await storage.createNotification({
@@ -2652,10 +2700,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const actualId = parseInt(depositId.replace("hist_", ""));
 
           // Delete from deposits_history table
-          const deleteQuery = `DELETE FROM deposits_history WHERE id = $1 RETURNING *`;
-          const result = await pool.query(deleteQuery, [actualId]);
+          const { data, error } = await supabase
+            .from("deposits_history")
+            .delete()
+            .eq("id", actualId)
+            .select()
+            .single();
 
-          if (result.rows.length === 0) {
+          if (error || !data) {
             return res
               .status(404)
               .json({ message: "Deposit not found in history" });
@@ -3122,7 +3174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Audit logging endpoint - Updated to use new audit_logs table
+  // Audit logging endpoint - Updated to use Supabase
   app.get(
     "/api/admin/audit-logs",
     isAuthenticated,
@@ -3140,121 +3192,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
 
-        // Build query conditions
-        let whereConditions = [];
-        let queryParams = [];
-        let paramIndex = 1;
+        // Build Supabase query
+        let query = supabase
+          .from("audit_logs")
+          .select(
+            `
+            id,
+            action,
+            description,
+            details,
+            user_id,
+            created_at,
+            ip_address,
+            user_agent,
+            location,
+            severity,
+            users:user_id (
+              username,
+              email,
+              first_name,
+              last_name
+            )
+          `
+          )
+          .order("created_at", { ascending: false })
+          .range(offset, offset + Number(limit) - 1);
 
+        // Apply filters
         if (userId) {
-          whereConditions.push(`al.user_id = $${paramIndex}`);
-          queryParams.push(Number(userId));
-          paramIndex++;
+          query = query.eq("user_id", Number(userId));
         }
-
         if (type) {
-          whereConditions.push(`al.action = $${paramIndex}`);
-          queryParams.push(type);
-          paramIndex++;
+          query = query.eq("action", type as string);
         }
-
         if (severity) {
-          whereConditions.push(`al.severity = $${paramIndex}`);
-          queryParams.push(severity);
-          paramIndex++;
+          query = query.eq("severity", severity as string);
         }
-
         if (dateFrom) {
-          whereConditions.push(`al.created_at >= $${paramIndex}`);
-          queryParams.push(dateFrom);
-          paramIndex++;
+          query = query.gte("created_at", dateFrom as string);
         }
-
         if (dateTo) {
-          whereConditions.push(`al.created_at <= $${paramIndex}`);
-          queryParams.push(dateTo);
-          paramIndex++;
+          query = query.lte("created_at", dateTo as string);
         }
 
-        const whereClause =
-          whereConditions.length > 0
-            ? `WHERE ${whereConditions.join(" AND ")}`
-            : "";
+        const { data: logsResult, error: logsError } = await query;
 
-        // Get logs with user information
-        const logsQuery = `
-        SELECT 
-          al.id,
-          al.action as type,
-          al.description as message,
-          al.details,
-          al.user_id as userId,
-          al.created_at as createdAt,
-          al.ip_address as ipAddress,
-          al.user_agent as userAgent,
-          al.location,
-          al.severity,
-          u.username,
-          u.email,
-          u.first_name,
-          u.last_name
-        FROM audit_logs al
-        LEFT JOIN users u ON al.user_id = u.id
-        ${whereClause}
-        ORDER BY al.created_at DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-      `;
-
-        queryParams.push(Number(limit), offset);
-
-        const logsResult = await pool.query(logsQuery, queryParams);
+        if (logsError) {
+          console.error("Error fetching audit logs from Supabase:", logsError);
+          throw logsError;
+        }
 
         // Get total count for pagination
-        const countQuery = `
-        SELECT COUNT(*) as total
-        FROM audit_logs al
-        ${whereClause}
-      `;
+        let countQuery = supabase
+          .from("audit_logs")
+          .select("*", { count: "exact", head: true });
 
-        const countResult = await pool.query(
-          countQuery,
-          queryParams.slice(0, -2)
-        ); // Remove limit and offset
-        const totalLogs = parseInt(countResult.rows[0].total);
+        // Apply same filters for count
+        if (userId) {
+          countQuery = countQuery.eq("user_id", Number(userId));
+        }
+        if (type) {
+          countQuery = countQuery.eq("action", type as string);
+        }
+        if (severity) {
+          countQuery = countQuery.eq("severity", severity as string);
+        }
+        if (dateFrom) {
+          countQuery = countQuery.gte("created_at", dateFrom as string);
+        }
+        if (dateTo) {
+          countQuery = countQuery.lte("created_at", dateTo as string);
+        }
 
-        // Format the logs
-        const logs = logsResult.rows.map((row) => ({
+        const { count: totalLogs, error: countError } = await countQuery;
+
+        if (countError) {
+          console.error("Error getting audit logs count:", countError);
+        }
+
+        // Format the logs with proper type checking
+        const logs = (logsResult || []).map((row: any) => ({
           id: row.id,
-          type: row.type,
-          message: row.message,
-          details: row.details,
-          userId: row.userid,
-          createdAt: row.createdat,
-          ipAddress: row.ipaddress,
-          userAgent: row.useragent,
-          location: row.location,
-          severity: row.severity,
-          user: row.userid
-            ? {
-                id: row.userid,
-                username: row.username,
-                email: row.email,
-                firstName: row.first_name,
-                lastName: row.last_name,
-              }
+          type: row.action || "",
+          message: row.description || "",
+          details: row.details || {},
+          userId: row.user_id || null,
+          createdAt: row.created_at
+            ? new Date(row.created_at).toISOString()
             : null,
+          ipAddress: row.ip_address || "",
+          userAgent: row.user_agent || "",
+          location: row.location || "",
+          severity: row.severity || "low",
+          user:
+            row.users && row.user_id
+              ? {
+                  id: row.user_id,
+                  username: row.users.username || "",
+                  email: row.users.email || "",
+                  firstName: row.users.first_name || "",
+                  lastName: row.users.last_name || "",
+                }
+              : null,
         }));
 
         res.json({
           logs,
-          totalPages: Math.ceil(totalLogs / Number(limit)),
+          totalPages: Math.ceil((totalLogs || 0) / Number(limit)),
           currentPage: Number(page),
-          totalLogs,
+          totalLogs: totalLogs || 0,
         });
       } catch (error) {
         console.error("Error fetching audit logs:", error);
 
         // Fallback to storage layer if audit_logs table doesn't exist
-        if (error.message?.includes('relation "audit_logs" does not exist')) {
+        if (
+          error?.message?.includes('relation "audit_logs" does not exist') ||
+          error?.message?.includes('table "audit_logs" does not exist')
+        ) {
           try {
             const logs = await storage.getAuditLogs({
               limit: Number(limit),
@@ -3283,7 +3338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Admin endpoint to view all deposits history
+  // Admin endpoint to view all deposits history - Updated to use Supabase
   app.get(
     "/api/admin/deposits-history",
     isAuthenticated,
@@ -3301,122 +3356,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
 
-        // Build query conditions
-        let whereConditions = [];
-        let queryParams = [];
-        let paramIndex = 1;
+        // Build Supabase query for deposits with user information
+        let query = supabase
+          .from("deposits_history")
+          .select(
+            `
+            id,
+            user_id,
+            amount,
+            plan_name,
+            payment_method,
+            status,
+            daily_return_rate,
+            duration_days,
+            total_return,
+            earned_amount,
+            remaining_days,
+            start_date,
+            end_date,
+            created_at,
+            updated_at,
+            users:user_id (
+              username,
+              email,
+              first_name,
+              last_name
+            )
+          `
+          )
+          .order("created_at", { ascending: false })
+          .range(offset, offset + Number(limit) - 1);
 
+        // Apply filters
         if (userId) {
-          whereConditions.push(`dh.user_id = $${paramIndex}`);
-          queryParams.push(Number(userId));
-          paramIndex++;
+          query = query.eq("user_id", Number(userId));
         }
-
         if (status) {
-          whereConditions.push(`dh.status = $${paramIndex}`);
-          queryParams.push(status);
-          paramIndex++;
+          query = query.eq("status", status as string);
         }
-
         if (planType) {
-          whereConditions.push(`dh.plan_name ILIKE $${paramIndex}`);
-          queryParams.push(`%${planType}%`);
-          paramIndex++;
+          query = query.ilike("plan_name", `%${planType}%`);
         }
-
         if (dateFrom) {
-          whereConditions.push(`dh.created_at >= $${paramIndex}`);
-          queryParams.push(dateFrom);
-          paramIndex++;
+          query = query.gte("created_at", dateFrom as string);
         }
-
         if (dateTo) {
-          whereConditions.push(`dh.created_at <= $${paramIndex}`);
-          queryParams.push(dateTo);
-          paramIndex++;
+          query = query.lte("created_at", dateTo as string);
         }
 
-        const whereClause =
-          whereConditions.length > 0
-            ? `WHERE ${whereConditions.join(" AND ")}`
-            : "";
+        const { data: depositsResult, error: depositsError } = await query;
 
-        // Get deposits with user information
-        const depositsQuery = `
-        SELECT 
-          dh.id,
-          dh.user_id,
-          dh.amount,
-          dh.plan_name,
-          dh.payment_method,
-          dh.status,
-          dh.daily_return_rate,
-          dh.duration_days,
-          dh.total_return,
-          dh.earned_amount,
-          dh.remaining_days,
-          dh.start_date,
-          dh.end_date,
-          dh.created_at,
-          dh.updated_at,
-          u.username,
-          u.email,
-          u.first_name,
-          u.last_name
-        FROM deposits_history dh
-        LEFT JOIN users u ON dh.user_id = u.id
-        ${whereClause}
-        ORDER BY dh.created_at DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-      `;
-
-        queryParams.push(Number(limit), offset);
-
-        const depositsResult = await pool.query(depositsQuery, queryParams);
+        if (depositsError) {
+          console.error(
+            "Error fetching deposits from Supabase:",
+            depositsError
+          );
+          throw depositsError;
+        }
 
         // Get total count for pagination
-        const countQuery = `
-        SELECT COUNT(*) as total
-        FROM deposits_history dh
-        ${whereClause}
-      `;
+        let countQuery = supabase
+          .from("deposits_history")
+          .select("*", { count: "exact", head: true });
 
-        const countResult = await pool.query(
-          countQuery,
-          queryParams.slice(0, -2)
-        ); // Remove limit and offset
-        const totalDeposits = parseInt(countResult.rows[0].total);
+        // Apply same filters for count
+        if (userId) {
+          countQuery = countQuery.eq("user_id", Number(userId));
+        }
+        if (status) {
+          countQuery = countQuery.eq("status", status as string);
+        }
+        if (planType) {
+          countQuery = countQuery.ilike("plan_name", `%${planType}%`);
+        }
+        if (dateFrom) {
+          countQuery = countQuery.gte("created_at", dateFrom as string);
+        }
+        if (dateTo) {
+          countQuery = countQuery.lte("created_at", dateTo as string);
+        }
 
-        // Format the deposits
-        const deposits = depositsResult.rows.map((row) => ({
+        const { count: totalDeposits, error: countError } = await countQuery;
+
+        if (countError) {
+          console.error("Error getting deposits count:", countError);
+        }
+
+        // Format the deposits with proper type checking and null safety
+        const deposits = (depositsResult || []).map((row: any) => ({
           id: row.id,
           userId: row.user_id,
-          amount: parseFloat(row.amount),
-          planName: row.plan_name,
-          paymentMethod: row.payment_method,
-          status: row.status,
-          dailyReturnRate: parseFloat(row.daily_return_rate) || 0,
-          durationDays: row.duration_days,
-          totalReturn: parseFloat(row.total_return) || 0,
-          earnedAmount: parseFloat(row.earned_amount) || 0,
-          remainingDays: row.remaining_days,
-          startDate: row.start_date,
-          endDate: row.end_date,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          user: {
-            username: row.username,
-            email: row.email,
-            firstName: row.first_name,
-            lastName: row.last_name,
-          },
+          amount: row.amount ? parseFloat(row.amount.toString()) : 0,
+          planName: row.plan_name || "",
+          paymentMethod: row.payment_method || "",
+          status: row.status || "",
+          dailyReturnRate: row.daily_return_rate
+            ? parseFloat(row.daily_return_rate.toString())
+            : 0,
+          durationDays: row.duration_days || 0,
+          totalReturn: row.total_return
+            ? parseFloat(row.total_return.toString())
+            : 0,
+          earnedAmount: row.earned_amount
+            ? parseFloat(row.earned_amount.toString())
+            : 0,
+          remainingDays: row.remaining_days || 0,
+          startDate: row.start_date || null,
+          endDate: row.end_date || null,
+          createdAt: row.created_at
+            ? new Date(row.created_at).toISOString()
+            : null,
+          updatedAt: row.updated_at
+            ? new Date(row.updated_at).toISOString()
+            : null,
+          user: row.users
+            ? {
+                username: row.users.username || "",
+                email: row.users.email || "",
+                firstName: row.users.first_name || "",
+                lastName: row.users.last_name || "",
+              }
+            : null,
         }));
 
         res.json({
           deposits,
-          totalPages: Math.ceil(totalDeposits / Number(limit)),
+          totalPages: Math.ceil((totalDeposits || 0) / Number(limit)),
           currentPage: Number(page),
-          totalDeposits,
+          totalDeposits: totalDeposits || 0,
         });
       } catch (error) {
         console.error("Error fetching deposits history:", error);
@@ -3869,26 +3936,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Existing endpoints
   app.get("/api/health", async (req: Request, res: Response) => {
     try {
-      const client = await pool.connect();
-      try {
-        await client.query("SELECT 1");
-        res.status(200).json({
-          status: "ok",
-          message: "Server is running",
-          databaseConnected: true,
-        });
-      } catch (error) {
-        console.error("Database query error:", error);
+      // Test Supabase connection with a simple query
+      const { data, error } = await supabase
+        .from("users")
+        .select("id")
+        .limit(1);
+
+      if (error) {
+        console.error("Supabase query error:", error);
         res.status(500).json({
           status: "error",
           message: "Server is running but database query failed",
           databaseConnected: false,
         });
-      } finally {
-        client.release();
+      } else {
+        res.status(200).json({
+          status: "ok",
+          message: "Server is running",
+          databaseConnected: true,
+        });
       }
     } catch (error) {
-      console.error("Database connection error:", error);
+      console.error("Supabase connection error:", error);
       res.status(500).json({
         status: "error",
         message: "Server is running but database connection failed",
@@ -3901,26 +3970,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (process.env.NODE_ENV === "development") {
     app.get("/api/debug/tables", async (req: Request, res: Response) => {
       try {
-        const client = await pool.connect();
-        try {
-          const result = await client.query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            ORDER BY table_name;
-          `);
-          res.status(200).json({
-            tables: result.rows.map((row) => row.table_name),
-          });
-        } catch (error) {
-          console.error("Error listing tables:", error);
-          res.status(500).json({ error: "Failed to list tables" });
-        } finally {
-          client.release();
+        // For Supabase, we can list known tables or use rpc function if available
+        const knownTables = [
+          "users",
+          "transactions",
+          "deposits_history",
+          "audit_logs",
+          "notifications",
+          "settings",
+          "earnings",
+          "logs",
+        ];
+
+        // Test which tables actually exist by trying to query them
+        const existingTables: string[] = [];
+        for (const table of knownTables) {
+          try {
+            const { error } = await supabase.from(table).select("*").limit(0); // Just test the query without fetching data
+            if (!error) {
+              existingTables.push(table);
+            }
+          } catch (e) {
+            // Table doesn't exist or no permission
+          }
         }
+
+        res.status(200).json({
+          tables: existingTables,
+        });
       } catch (error) {
-        console.error("Database connection error:", error);
-        res.status(500).json({ error: "Database connection failed" });
+        console.error("Error listing tables:", error);
+        res.status(500).json({ error: "Failed to list tables" });
       }
     });
   }
@@ -4539,7 +4619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Deposits History API
+  // Deposits History API - Updated to use Supabase
   router.get(
     "/api/users/:userId/deposits-history",
     requireEmailVerification,
@@ -4553,40 +4633,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Access denied" });
         }
 
-        const query = `
-        SELECT 
-          dh.id,
-          dh.amount,
-          dh.plan_name as plan,
-          dh.payment_method as method,
-          dh.status,
-          dh.daily_return_rate as dailyReturn,
-          dh.duration_days as duration,
-          dh.total_return as totalReturn,
-          dh.earned_amount as earnedAmount,
-          dh.remaining_days as remainingDays,
-          dh.start_date as startDate,
-          dh.end_date as endDate,
-          dh.created_at as createdAt,
-          dh.payment_details
-        FROM deposits_history dh
-        WHERE dh.user_id = $1
-        ORDER BY dh.created_at DESC
-      `;
+        // Use Supabase to fetch deposits history
+        const { data: depositsHistory, error: depositsHistoryError } =
+          await supabase
+            .from("deposits_history")
+            .select(
+              `
+            id,
+            amount,
+            plan_name,
+            payment_method,
+            status,
+            daily_return_rate,
+            duration_days,
+            total_return,
+            earned_amount,
+            remaining_days,
+            start_date,
+            end_date,
+            created_at,
+            payment_details
+          `
+            )
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
 
-        const result = await pool.query(query, [userId]);
+        if (depositsHistoryError) {
+          console.error(
+            "Error fetching deposits history from Supabase:",
+            depositsHistoryError
+          );
+          return res
+            .status(500)
+            .json({ message: "Failed to fetch deposits history" });
+        }
 
-        // Format the data
-        const depositsHistory = result.rows.map((row) => ({
-          ...row,
-          amount: parseFloat(row.amount),
-          dailyReturn: parseFloat(row.dailyreturn) || 0,
-          totalReturn: parseFloat(row.totalreturn) || 0,
-          earnedAmount: parseFloat(row.earnedamount) || 0,
-          remainingDays: row.remainingdays || 0,
-        }));
+        // Format the data with proper type checking
+        const formattedDepositsHistory = (depositsHistory || []).map(
+          (row: any) => ({
+            id: row.id,
+            amount: row.amount ? parseFloat(row.amount.toString()) : 0,
+            plan: row.plan_name || "",
+            method: row.payment_method || "",
+            status: row.status || "",
+            dailyReturn: row.daily_return_rate
+              ? parseFloat(row.daily_return_rate.toString())
+              : 0,
+            duration: row.duration_days || 0,
+            totalReturn: row.total_return
+              ? parseFloat(row.total_return.toString())
+              : 0,
+            earnedAmount: row.earned_amount
+              ? parseFloat(row.earned_amount.toString())
+              : 0,
+            remainingDays: row.remaining_days || 0,
+            startDate: row.start_date || null,
+            endDate: row.end_date || null,
+            createdAt: row.created_at
+              ? new Date(row.created_at).toISOString()
+              : null,
+            payment_details: row.payment_details || null,
+          })
+        );
 
-        res.json(depositsHistory);
+        res.json(formattedDepositsHistory);
       } catch (error) {
         console.error("Error fetching deposits history:", error);
         res.status(500).json({ message: "Failed to fetch deposits history" });
@@ -4594,7 +4704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Withdrawal History API
+  // Withdrawal History API - Updated to use Supabase
   router.get(
     "/api/users/:userId/withdrawal-history",
     requireEmailVerification,
@@ -4608,44 +4718,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Access denied" });
         }
 
-        const query = `
-        SELECT 
-          t.id,
-          t.amount,
-          t.status,
-          t.type,
-          t.description,
-          t.method,
-          t.transactionHash,
-          t.createdAt,
-          t.approvedAt,
-          u.email as userEmail,
-          u.firstname,
-          u.lastname
-        FROM transactions t
-        JOIN users u ON t.userId = u.id
-        WHERE t.userId = $1 AND t.type = 'withdrawal'
-        ORDER BY t.createdAt DESC
-      `;
+        // Use Supabase to fetch withdrawal history with user information
+        const { data: withdrawalHistory, error: withdrawalHistoryError } =
+          await supabase
+            .from("transactions")
+            .select(
+              `
+            id,
+            amount,
+            status,
+            type,
+            description,
+            method,
+            transactionHash,
+            createdAt,
+            approvedAt,
+            users:userId (
+              email,
+              firstName,
+              lastName
+            )
+          `
+            )
+            .eq("userId", userId)
+            .eq("type", "withdrawal")
+            .order("createdAt", { ascending: false });
 
-        const result = await pool.query(query, [userId]);
+        if (withdrawalHistoryError) {
+          console.error(
+            "Error fetching withdrawal history from Supabase:",
+            withdrawalHistoryError
+          );
+          return res
+            .status(500)
+            .json({ message: "Failed to fetch withdrawal history" });
+        }
 
-        // Format the data
-        const withdrawalHistory = result.rows.map((row) => ({
-          id: row.id,
-          amount: parseFloat(row.amount),
-          status: row.status,
-          type: row.type,
-          description: row.description,
-          method: row.method,
-          transactionHash: row.transactionhash,
-          createdAt: row.createdat,
-          approvedAt: row.approvedat,
-          userEmail: row.useremail,
-          userName: `${row.firstname} ${row.lastname}`.trim(),
-        }));
+        // Format the data with proper type checking
+        const formattedWithdrawalHistory = (withdrawalHistory || []).map(
+          (row: any) => ({
+            id: row.id,
+            amount: row.amount ? parseFloat(row.amount.toString()) : 0,
+            status: row.status || "",
+            type: row.type || "",
+            description: row.description || "",
+            method: row.method || "",
+            transactionHash: row.transactionHash || "",
+            createdAt: row.createdAt
+              ? new Date(row.createdAt).toISOString()
+              : null,
+            approvedAt: row.approvedAt
+              ? new Date(row.approvedAt).toISOString()
+              : null,
+            userEmail: row.users ? row.users.email : "",
+            userName: row.users
+              ? `${row.users.firstName || ""} ${row.users.lastName || ""}`.trim()
+              : "",
+          })
+        );
 
-        res.json(withdrawalHistory);
+        res.json(formattedWithdrawalHistory);
       } catch (error) {
         console.error("Error fetching withdrawal history:", error);
         res.status(500).json({ message: "Failed to fetch withdrawal history" });
@@ -4653,7 +4785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Audit Logs API
+  // Audit Logs API - Updated to use Supabase
   router.get(
     "/api/users/:userId/audit-logs",
     requireEmailVerification,
@@ -4667,31 +4799,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Access denied" });
         }
 
-        const query = `
-        SELECT 
-          id,
-          action,
-          description,
-          ip_address as ipAddress,
-          user_agent as userAgent,
-          location,
-          severity,
-          details,
-          created_at as timestamp
-        FROM audit_logs
-        WHERE user_id = $1
-        ORDER BY created_at DESC
-        LIMIT 50
-      `;
+        // Use Supabase to fetch audit logs
+        const { data: auditLogs, error: auditLogsError } = await supabase
+          .from("audit_logs")
+          .select(
+            `
+            id,
+            action,
+            description,
+            ip_address,
+            user_agent,
+            location,
+            severity,
+            details,
+            created_at
+          `
+          )
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(50);
 
-        const result = await pool.query(query, [userId]);
+        if (auditLogsError) {
+          console.error(
+            "Error fetching audit logs from Supabase:",
+            auditLogsError
+          );
 
-        res.json(result.rows);
+          // If table doesn't exist, log message and return empty array
+          if (
+            auditLogsError.message?.includes(
+              'table "audit_logs" does not exist'
+            ) ||
+            auditLogsError.message?.includes(
+              'relation "audit_logs" does not exist'
+            )
+          ) {
+            console.log(
+              "Audit logs table does not exist, logging to console instead:",
+              {
+                type: "info",
+                userId: userId,
+                message: "User accessed audit logs",
+                details: { ip: req.ip },
+              }
+            );
+            return res.json([]);
+          }
+
+          return res
+            .status(500)
+            .json({ message: "Failed to fetch audit logs" });
+        }
+
+        // Format the audit logs with proper type checking
+        const formattedAuditLogs = (auditLogs || []).map((row: any) => ({
+          id: row.id,
+          action: row.action || "",
+          description: row.description || "",
+          ipAddress: row.ip_address || "",
+          userAgent: row.user_agent || "",
+          location: row.location || "",
+          severity: row.severity || "low",
+          details: row.details || {},
+          timestamp: row.created_at
+            ? new Date(row.created_at).toISOString()
+            : null,
+        }));
+
+        res.json(formattedAuditLogs);
       } catch (error) {
         console.error("Error fetching audit logs:", error);
 
         // If table doesn't exist, log message and return empty array
-        if (error.message?.includes('relation "audit_logs" does not exist')) {
+        if (
+          error?.message?.includes('relation "audit_logs" does not exist') ||
+          error?.message?.includes('table "audit_logs" does not exist')
+        ) {
           console.log(
             "Audit logs table does not exist, logging to console instead:",
             {
@@ -4809,42 +4992,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // First try to get from deposits_history table
         try {
-          const query = `
-          SELECT 
-            id,
-            amount,
-            plan_name as planName,
-            payment_method as method,
-            status,
-            daily_return_rate as dailyReturn,
-            duration_days as duration,
-            earned_amount as earnedAmount,
-            remaining_days as remainingDays,
-            start_date as startDate,
-            end_date as endDate,
-            created_at as createdAt
-          FROM deposits_history
-          WHERE user_id = $1
-          ORDER BY created_at DESC
-        `;
+          const { data: depositsData, error: depositsError } = await supabase
+            .from("deposits_history")
+            .select(
+              `
+              id,
+              amount,
+              plan_name,
+              payment_method,
+              status,
+              daily_return_rate,
+              duration_days,
+              earned_amount,
+              remaining_days,
+              start_date,
+              end_date,
+              created_at
+            `
+            )
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
 
-          const result = await pool.query(query, [userId]);
+          if (depositsError) {
+            throw depositsError;
+          }
 
-          if (result.rows.length > 0) {
+          if (depositsData && depositsData.length > 0) {
             // Format the data
-            const deposits = result.rows.map((row) => ({
+            const deposits = depositsData.map((row: any) => ({
               id: row.id,
-              amount: parseFloat(row.amount),
-              planName: row.planName,
-              method: row.method,
+              amount: parseFloat(row.amount) || 0,
+              planName: row.plan_name,
+              method: row.payment_method,
               status: row.status,
-              dailyReturn: parseFloat(row.dailyReturn) || 0,
-              duration: row.duration,
-              earnedAmount: parseFloat(row.earnedAmount) || 0,
-              remainingDays: row.remainingDays || 0,
-              startDate: row.startDate,
-              endDate: row.endDate,
-              createdAt: row.createdAt,
+              dailyReturn: parseFloat(row.daily_return_rate) || 0,
+              duration: row.duration_days,
+              earnedAmount: parseFloat(row.earned_amount) || 0,
+              remainingDays: row.remaining_days || 0,
+              startDate: row.start_date,
+              endDate: row.end_date,
+              createdAt: row.created_at,
             }));
 
             return res.json(deposits);
@@ -4858,24 +5045,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Fallback to legacy deposits table if deposits_history doesn't exist
         try {
-          const legacyQuery = `
-          SELECT 
-            id,
-            amount,
-            plan as planName,
-            status,
-            created_at as createdAt
-          FROM deposits
-          WHERE user_id = $1
-          ORDER BY created_at DESC
-        `;
+          const { data: legacyData, error: legacyError } = await supabase
+            .from("deposits")
+            .select(
+              `
+              id,
+              amount,
+              plan,
+              status,
+              created_at
+            `
+            )
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
 
-          const legacyResult = await pool.query(legacyQuery, [userId]);
+          if (legacyError) {
+            throw legacyError;
+          }
 
-          const deposits = legacyResult.rows.map((row) => ({
+          const deposits = (legacyData || []).map((row: any) => ({
             id: row.id,
-            amount: parseFloat(row.amount),
-            planName: row.planName || "Unknown Plan",
+            amount: parseFloat(row.amount) || 0,
+            planName: row.plan || "Unknown Plan",
             method: "Unknown",
             status: row.status || "pending",
             dailyReturn: 0,
@@ -4884,7 +5075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             remainingDays: 0,
             startDate: null,
             endDate: null,
-            createdAt: row.createdAt,
+            createdAt: row.created_at,
           }));
 
           res.json(deposits);
@@ -4946,41 +5137,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Try to get from earnings table (if it exists)
         try {
-          const query = `
-          SELECT 
-            id,
-            user_id,
-            type,
-            amount,
-            source,
-            created_at,
-            details
-          FROM earnings
-          WHERE ${conditions.join(" AND ")}
-          ORDER BY created_at DESC
-          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `;
+          // Build Supabase query
+          let query = supabase
+            .from("earnings")
+            .select(
+              `
+              id,
+              user_id,
+              type,
+              amount,
+              source,
+              created_at,
+              details
+            `
+            )
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .range(
+              parseInt(offset as string),
+              parseInt(offset as string) + parseInt(limit as string) - 1
+            );
 
-          params.push(parseInt(limit as string), parseInt(offset as string));
+          // Add date filters
+          if (dateFrom) {
+            query = query.gte(
+              "created_at",
+              new Date(dateFrom as string).toISOString()
+            );
+          }
+          if (dateTo) {
+            query = query.lte(
+              "created_at",
+              new Date(dateTo as string).toISOString()
+            );
+          }
+          if (planType) {
+            query = query.eq("type", planType);
+          }
 
-          const result = await pool.query(query, params);
+          const { data: earningsData, error: earningsError } = await query;
 
-          // Get total count
-          const countQuery = `
-          SELECT COUNT(*) as total, COALESCE(SUM(amount), 0) as total_earnings
-          FROM earnings
-          WHERE ${conditions.slice(0, -2).join(" AND ")}
-        `;
+          if (earningsError) {
+            throw earningsError;
+          }
 
-          const countResult = await pool.query(countQuery, params.slice(0, -2));
-          const totalCount = parseInt(countResult.rows[0].total);
-          const totalEarnings = parseFloat(countResult.rows[0].total_earnings);
+          // Get total count and earnings
+          let countQuery = supabase
+            .from("earnings")
+            .select("amount", { count: "exact" })
+            .eq("user_id", userId);
 
-          const earnings = result.rows.map((row) => ({
+          if (dateFrom) {
+            countQuery = countQuery.gte(
+              "created_at",
+              new Date(dateFrom as string).toISOString()
+            );
+          }
+          if (dateTo) {
+            countQuery = countQuery.lte(
+              "created_at",
+              new Date(dateTo as string).toISOString()
+            );
+          }
+          if (planType) {
+            countQuery = countQuery.eq("type", planType);
+          }
+
+          const {
+            data: countData,
+            count: totalCount,
+            error: countError,
+          } = await countQuery;
+
+          if (countError) {
+            throw countError;
+          }
+
+          const totalEarnings = (countData || []).reduce(
+            (sum: number, earning: any) =>
+              sum + (parseFloat(earning.amount) || 0),
+            0
+          );
+
+          const earnings = (earningsData || []).map((row: any) => ({
             id: row.id,
             userId: row.user_id,
             type: row.type,
-            amount: parseFloat(row.amount),
+            amount: parseFloat(row.amount) || 0,
             source: row.source,
             createdAt: row.created_at,
             details: row.details,
@@ -4989,9 +5232,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json({
             earnings,
             totalEarnings,
-            totalCount,
+            totalCount: totalCount || 0,
             hasMore:
-              totalCount >
+              (totalCount || 0) >
               parseInt(offset as string) + parseInt(limit as string),
           });
         } catch (earningsError) {
@@ -5003,27 +5246,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Fallback: Generate mock earnings based on deposits_history
         try {
-          const depositsQuery = `
-          SELECT 
-            id,
-            amount,
-            plan_name,
-            daily_return_rate,
-            start_date,
-            created_at
-          FROM deposits_history
-          WHERE user_id = $1 AND status = 'active'
-          ORDER BY created_at DESC
-        `;
+          const { data: depositsData, error: depositsError } = await supabase
+            .from("deposits_history")
+            .select(
+              `
+              id,
+              amount,
+              plan_name,
+              daily_return_rate,
+              start_date,
+              created_at
+            `
+            )
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .order("created_at", { ascending: false });
 
-          const depositsResult = await pool.query(depositsQuery, [userId]);
+          if (depositsError) {
+            throw depositsError;
+          }
 
           // Generate mock earnings based on deposits
-          const mockEarnings = [];
+          const mockEarnings: any[] = [];
           let totalEarnings = 0;
 
-          for (const deposit of depositsResult.rows) {
-            const depositAmount = parseFloat(deposit.amount);
+          for (const deposit of depositsData || []) {
+            const depositAmount = parseFloat(deposit.amount) || 0;
             const dailyRate = parseFloat(deposit.daily_return_rate) || 0;
             const dailyEarning = depositAmount * (dailyRate / 100);
 
@@ -5118,32 +5366,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const { status, earnedAmount, remainingDays } = req.body;
 
-        const updateQuery = `
-        UPDATE deposits_history 
-        SET 
-          status = $1,
-          earned_amount = $2,
-          remaining_days = $3,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4 AND user_id = $5
-        RETURNING *
-      `;
+        // Update deposit in deposits_history table
+        const { data, error } = await supabase
+          .from("deposits_history")
+          .update({
+            status: status,
+            earned_amount: earnedAmount,
+            remaining_days: remainingDays,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", depositId)
+          .eq("user_id", userId)
+          .select()
+          .single();
 
-        const result = await pool.query(updateQuery, [
-          status,
-          earnedAmount,
-          remainingDays,
-          depositId,
-          userId,
-        ]);
-
-        if (result.rows.length === 0) {
+        if (error || !data) {
           return res.status(404).json({ message: "Deposit not found" });
         }
 
         res.json({
           message: "Deposit updated successfully",
-          deposit: result.rows[0],
+          deposit: data,
         });
       } catch (error) {
         console.error("Error updating deposit:", error);
@@ -5163,23 +5406,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ) {
     try {
       // Log to new audit_logs table
-      const query = `
-        INSERT INTO audit_logs (user_id, action, description, ip_address, user_agent, location, severity, details)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `;
+      const { error } = await supabase.from("audit_logs").insert({
+        user_id: userId,
+        action: action,
+        description: description,
+        ip_address: req.ip || req.connection.remoteAddress,
+        user_agent: req.get("User-Agent"),
+        location: "Unknown", // TODO: Add geolocation lookup
+        severity: severity,
+        details: details,
+      });
 
-      const values = [
-        userId,
-        action,
-        description,
-        req.ip || req.connection.remoteAddress,
-        req.get("User-Agent"),
-        "Unknown", // TODO: Add geolocation lookup
-        severity,
-        JSON.stringify(details),
-      ];
-
-      await pool.query(query, values);
+      if (error) {
+        throw error;
+      }
     } catch (error) {
       // If audit logs table doesn't exist, just log to console
       console.log(
@@ -5233,12 +5473,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ).catch(console.error);
         } else if (res.statusCode === 401) {
           // Failed login - try to find user ID for logging
-          pool
-            .query("SELECT id FROM users WHERE username = $1 OR email = $1", [
-              username,
-            ])
-            .then((result) => {
-              const userId = result.rows[0]?.id;
+          supabase
+            .from("users")
+            .select("id")
+            .or(`username.eq.${username},email.eq.${username}`)
+            .single()
+            .then(({ data }) => {
+              const userId = data?.id;
               if (userId) {
                 logAuditEvent(
                   userId,
@@ -5277,23 +5518,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     details: any = {}
   ) {
     try {
-      const query = `
-        INSERT INTO audit_logs (user_id, action, description, ip_address, user_agent, location, severity, details)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `;
+      const { error } = await supabase.from("audit_logs").insert({
+        user_id: userId,
+        action: action,
+        description: description,
+        ip_address: req.ip || req.connection.remoteAddress,
+        user_agent: req.get("User-Agent"),
+        location: "Unknown", // TODO: Add geolocation lookup
+        severity: severity,
+        details: details,
+      });
 
-      const values = [
-        userId,
-        action,
-        description,
-        req.ip || req.connection.remoteAddress,
-        req.get("User-Agent"),
-        "Unknown", // TODO: Add geolocation lookup
-        severity,
-        JSON.stringify(details),
-      ];
-
-      await pool.query(query, values);
+      if (error) {
+        throw error;
+      }
     } catch (error) {
       // If audit logs table doesn't exist, just log to console
       console.log(
@@ -5334,38 +5572,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dateOfBirth,
         } = req.body;
 
-        const updateQuery = `
-        UPDATE users 
-        SET 
-          first_name = $1,
-          last_name = $2,
-          phone = $3,
-          address = $4,
-          city = $5,
-          state = $6,
-          zip_code = $7,
-          country = $8,
-          date_of_birth = $9,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $10
-        RETURNING *
-      `;
+        // Update user profile
+        const { data, error } = await supabase
+          .from("users")
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone,
+            address: address,
+            city: city,
+            state: state,
+            zip_code: zipCode,
+            country: country,
+            date_of_birth: dateOfBirth,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId)
+          .select()
+          .single();
 
-        const values = [
-          firstName,
-          lastName,
-          phone,
-          address,
-          city,
-          state,
-          zipCode,
-          country,
-          dateOfBirth,
-          userId,
-        ];
-        const result = await pool.query(updateQuery, values);
-
-        if (result.rows.length === 0) {
+        if (error || !data) {
           return res.status(404).json({ message: "User not found" });
         }
 
@@ -5381,7 +5607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({
           message: "Profile updated successfully",
-          user: result.rows[0],
+          user: data,
         });
       } catch (error) {
         console.error("Error updating profile:", error);
@@ -5404,32 +5630,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Access denied" });
         }
 
-        const query = `
-        SELECT 
-          id,
-          first_name as firstName,
-          last_name as lastName,
-          email,
-          phone,
-          address,
-          city,
-          state,
-          zip_code as zipCode,
-          country,
-          date_of_birth as dateOfBirth,
-          created_at as createdAt,
-          updated_at as updatedAt
-        FROM users
-        WHERE id = $1
-      `;
+        // Fetch user profile data
+        const { data, error } = await supabase
+          .from("users")
+          .select(
+            `
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            address,
+            city,
+            state,
+            zip_code,
+            country,
+            date_of_birth,
+            created_at,
+            updated_at
+          `
+          )
+          .eq("id", userId)
+          .single();
 
-        const result = await pool.query(query, [userId]);
-
-        if (result.rows.length === 0) {
+        if (error || !data) {
           return res.status(404).json({ message: "User not found" });
         }
 
-        res.json(result.rows[0]);
+        // Format the response to match expected structure
+        const formattedUser = {
+          id: data.id,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zipCode: data.zip_code,
+          country: data.country,
+          dateOfBirth: data.date_of_birth,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        };
+
+        res.json(formattedUser);
       } catch (error) {
         console.error("Error fetching profile:", error);
         res.status(500).json({ message: "Failed to fetch profile" });
@@ -5461,20 +5706,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Get current user password
-        const userQuery = await pool.query(
-          "SELECT password FROM users WHERE id = $1",
-          [userId]
-        );
-        if (userQuery.rows.length === 0) {
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("password")
+          .eq("id", userId)
+          .single();
+
+        if (userError || !userData) {
           return res.status(404).json({ message: "User not found" });
         }
-
-        const currentUser = userQuery.rows[0];
 
         // Verify current password
         const isValidPassword = await comparePasswords(
           currentPassword,
-          currentUser.password
+          userData.password
         );
         if (!isValidPassword) {
           await logAuditEvent(
@@ -5493,15 +5738,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hashedNewPassword = await hashPassword(newPassword);
 
         // Update password
-        const updateQuery = `
-        UPDATE users 
-        SET 
-          password = $1,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `;
+        const { error: updateError } = await supabase
+          .from("users")
+          .update({
+            password: hashedNewPassword,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
 
-        await pool.query(updateQuery, [hashedNewPassword, userId]);
+        if (updateError) {
+          console.error("Error updating password:", updateError);
+          return res.status(500).json({ message: "Failed to update password" });
+        }
 
         // Log audit event
         await logAuditEvent(
@@ -5546,14 +5794,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ).catch(console.error);
           } else {
             // Try to find the newly created user
-            pool
-              .query("SELECT id FROM users WHERE username = $1 OR email = $1", [
-                username || email,
-              ])
-              .then((result) => {
-                if (result.rows[0]?.id) {
+            supabase
+              .from("users")
+              .select("id")
+              .or(
+                `username.eq.${username || email},email.eq.${username || email}`
+              )
+              .single()
+              .then(({ data }) => {
+                if (data?.id) {
                   logAuditEvent(
-                    result.rows[0].id,
+                    data.id,
                     "user_registered",
                     "New user account created",
                     req,

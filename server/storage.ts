@@ -1,14 +1,75 @@
-import { eq, and, like, desc, sql, or, between, gte, lte } from "drizzle-orm";
-import { db } from "./db";
-import { transactions, users, notifications, auditLogs, visitor_tracking } from "@shared/schema";
+import { supabase } from "./supabase";
 
-// Local type definitions (since @shared/types doesn't exist)
-type Transaction = typeof transactions.$inferSelect;
+// Local type definitions
+type Transaction = {
+  id: number;
+  userId: number;
+  type: string;
+  amount: string;
+  status: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  processedBy?: number;
+  rejectionReason?: string;
+  cryptoType?: string;
+  walletAddress?: string;
+  transactionHash?: string;
+  planName?: string;
+  planDuration?: string;
+  dailyProfit?: number;
+  totalReturn?: number;
+  expectedCompletionDate?: string;
+};
+
 type TransactionStatus = "pending" | "completed" | "rejected";
-type User = typeof users.$inferSelect;
-type Notification = typeof notifications.$inferSelect;
-type AuditLog = typeof auditLogs.$inferSelect;
-type VisitorTracking = typeof visitor_tracking.$inferSelect;
+
+type User = {
+  id: number;
+  uid: string;
+  email: string;
+  full_name?: string;
+  role: string;
+  is_admin: boolean;
+  passwordResetTokenExpiry?: string;
+};
+
+type Notification = {
+  id: number;
+  userId: number;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  relatedEntityType?: string;
+  relatedEntityId?: number;
+  priority?: string;
+  expiresAt?: string;
+};
+
+type AuditLog = {
+  id: number;
+  userId?: number;
+  action: string;
+  description: string;
+  details?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+};
+
+type VisitorTracking = {
+  id: number;
+  ipAddress: string;
+  userAgent: string;
+  page: string;
+  referrer?: string;
+  sessionId: string;
+  userId?: number;
+  createdAt: string;
+  lastActivity: string;
+};
 
 // Define types for method options
 interface GetUsersOptions {
@@ -16,61 +77,6 @@ interface GetUsersOptions {
   offset: number;
   search?: string;
   status?: string;
-}
-
-async function cleanupDeletedUsers(): Promise<{ success: boolean; message: string; deletedCount: number }> {
-  try {
-    // Get all deactivated users (ones previously marked as deleted)
-    const deletedUsers = await db.select()
-      .from(users)
-      .where(and(
-        eq(users.isActive, false),
-        like(users.email, '%@deleted.local')
-      ));
-
-    let deletedCount = 0;
-    const errors: string[] = [];
-
-    // Try to delete each user if they have no associated records
-    for (const user of deletedUsers) {
-      const { canDelete, associatedRecords } = await this.canUserBeDeleted(user.id);
-      
-      if (canDelete) {
-        try {
-          // If no associated records, permanently delete
-          await db.delete(users).where(eq(users.id, user.id));
-          deletedCount++;
-        } catch (deleteError) {
-          console.error(`Failed to delete user ${user.id}:`, deleteError);
-          errors.push(`User ${user.id}: Deletion failed`);
-        }
-      } else {
-        const counts = [
-          `${associatedRecords.transactions} transactions`,
-          `${associatedRecords.auditLogs} audit logs`,
-          `${associatedRecords.logs} logs`
-        ].filter(c => !c.startsWith('0')).join(', ');
-        errors.push(`User ${user.id}: Has associated records (${counts})`);
-      }
-    }
-
-    const message = errors.length > 0
-      ? `Deleted ${deletedCount} users. Some users could not be deleted:\n${errors.join('\n')}`
-      : `Successfully deleted ${deletedCount} users`;
-
-    return {
-      success: true,
-      message,
-      deletedCount
-    };
-  } catch (error) {
-    console.error('Failed to cleanup deleted users:', error);
-    return {
-      success: false,
-      message: 'Failed to cleanup deleted users: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      deletedCount: 0
-    };
-  }
 }
 
 interface GetTransactionsOptions {
@@ -92,30 +98,51 @@ interface GetAuditLogsOptions {
   dateTo?: string;
 }
 
-// Single clean DatabaseStorage class
+// Single clean DatabaseStorage class using Supabase
 export class DatabaseStorage {
-  async cleanupDeletedUsers(): Promise<{ success: boolean; message: string; deletedCount: number }> {
+  async cleanupDeletedUsers(): Promise<{
+    success: boolean;
+    message: string;
+    deletedCount: number;
+  }> {
     try {
-      // Get all deactivated users (ones previously marked as deleted)
-      const deletedUsers = await db.select()
-        .from(users)
-        .where(and(
-          eq(users.isActive, false),
-          like(users.email, '%@deleted.local')
-        ));
+      // Get all deactivated users
+      const { data: deletedUsers, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("isActive", false)
+        .like("email", "%@deleted.local");
+
+      if (error) {
+        console.error("Failed to get deleted users:", error);
+        return {
+          success: false,
+          message: "Failed to get deleted users",
+          deletedCount: 0,
+        };
+      }
 
       let deletedCount = 0;
       const errors: string[] = [];
 
       // Try to delete each user if they have no associated records
-      for (const user of deletedUsers) {
-        const { canDelete, associatedRecords } = await this.canUserBeDeleted(user.id);
-        
+      for (const user of deletedUsers || []) {
+        const { canDelete, associatedRecords } = await this.canUserBeDeleted(
+          user.id
+        );
+
         if (canDelete) {
           try {
-            // If no associated records, permanently delete
-            await db.delete(users).where(eq(users.id, user.id));
-            deletedCount++;
+            const { error: deleteError } = await supabase
+              .from("users")
+              .delete()
+              .eq("id", user.id);
+
+            if (!deleteError) {
+              deletedCount++;
+            } else {
+              errors.push(`User ${user.id}: Deletion failed`);
+            }
           } catch (deleteError) {
             console.error(`Failed to delete user ${user.id}:`, deleteError);
             errors.push(`User ${user.id}: Deletion failed`);
@@ -124,75 +151,83 @@ export class DatabaseStorage {
           const counts = [
             `${associatedRecords.transactions} transactions`,
             `${associatedRecords.auditLogs} audit logs`,
-            `${associatedRecords.logs} logs`
-          ].filter(c => !c.startsWith('0')).join(', ');
+            `${associatedRecords.logs} logs`,
+          ]
+            .filter((c) => !c.startsWith("0"))
+            .join(", ");
           errors.push(`User ${user.id}: Has associated records (${counts})`);
         }
       }
 
-      const message = errors.length > 0
-        ? `Deleted ${deletedCount} users. Some users could not be deleted:\n${errors.join('\n')}`
-        : `Successfully deleted ${deletedCount} users`;
+      const message =
+        errors.length > 0
+          ? `Deleted ${deletedCount} users. Some users could not be deleted:\n${errors.join("\n")}`
+          : `Successfully deleted ${deletedCount} users`;
 
       return {
         success: true,
         message,
-        deletedCount
+        deletedCount,
       };
     } catch (error) {
-      console.error('Failed to cleanup deleted users:', error);
+      console.error("Failed to cleanup deleted users:", error);
       return {
         success: false,
-        message: 'Failed to cleanup deleted users: ' + (error instanceof Error ? error.message : 'Unknown error'),
-        deletedCount: 0
+        message:
+          "Failed to cleanup deleted users: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        deletedCount: 0,
       };
     }
   }
-  // Transaction methods
+
   async getTransaction(id: number): Promise<Transaction | undefined> {
     try {
-      const result = await db.select({
-        id: transactions.id,
-        userId: transactions.userId,
-        type: transactions.type,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        processedBy: transactions.processedBy,
-        rejectionReason: transactions.rejectionReason,
-        transactionHash: transactions.transactionHash,
-        cryptoType: transactions.cryptoType,
-        walletAddress: transactions.walletAddress,
-        planName: transactions.planName
-      }).from(transactions).where(eq(transactions.id, id));
-      return result.length > 0 ? result[0] : undefined;
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+      return data as Transaction;
     } catch (error) {
-      console.error(`Failed to get transaction ${id}:`, error);
+      console.error("Failed to get transaction:", error);
       return undefined;
     }
   }
 
-  async updateTransactionStatus(id: number, status: TransactionStatus, reason?: string): Promise<Transaction | undefined> {
+  async updateTransactionStatus(
+    id: number,
+    status: TransactionStatus,
+    reason?: string
+  ): Promise<Transaction | undefined> {
     try {
-      const updateData: any = { 
-        status, 
-        updatedAt: new Date() 
+      const updateData: any = {
+        status,
+        updatedAt: new Date().toISOString(),
       };
-      
+
       // Add rejection reason if status is rejected and reason is provided
-      if (status === 'rejected' && reason) {
+      if (status === "rejected" && reason) {
         updateData.rejectionReason = reason;
       }
-      
-      const result = await db.update(transactions)
-        .set(updateData)
-        .where(eq(transactions.id, id))
-        .returning();
-      return result.length > 0 ? result[0] : undefined;
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+      return data as Transaction;
     } catch (error) {
-      console.error(`Failed to update transaction ${id}:`, error);
+      console.error("Failed to update transaction status:", error);
       return undefined;
     }
   }
@@ -201,331 +236,337 @@ export class DatabaseStorage {
     return this.getTransaction(id);
   }
 
-  async getTransactions(options: GetTransactionsOptions): Promise<Transaction[]> {
+  async getTransactions(
+    options: GetTransactionsOptions
+  ): Promise<Transaction[]> {
     try {
-      const conditions: any[] = [];
-      
+      let query = supabase.from("transactions").select("*");
+
       if (options.status) {
-        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+        query = query.eq("status", options.status);
       }
-      
+
       if (options.type) {
-        conditions.push(eq(transactions.type, options.type as any));
+        query = query.eq("type", options.type);
       }
-      
+
       if (options.dateFrom && options.dateTo) {
-        conditions.push(
-          between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
-        );
+        query = query
+          .gte("createdAt", options.dateFrom)
+          .lte("createdAt", options.dateTo);
       }
 
       if (options.search) {
-        conditions.push(or(
-          like(transactions.description, `%${options.search}%`),
-          like(transactions.transactionHash, `%${options.search}%`)
-        ));
+        query = query.or(
+          `description.ilike.%${options.search}%,transactionHash.ilike.%${options.search}%`
+        );
       }
-      
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-      const query = db.select({
-            id: transactions.id,
-            userId: transactions.userId,
-            type: transactions.type,
-            amount: transactions.amount,
-            description: transactions.description,
-            status: transactions.status,
-            createdAt: transactions.createdAt,
-            updatedAt: transactions.updatedAt,
-            processedBy: transactions.processedBy,
-            rejectionReason: transactions.rejectionReason,
-            transactionHash: transactions.transactionHash,
-            cryptoType: transactions.cryptoType,
-            walletAddress: transactions.walletAddress
-            // Excluding new columns that don't exist yet: planName, planDuration, dailyProfit, totalReturn, expectedCompletionDate
-          }).from(transactions).where(whereClause)
-        : db.select({
-            id: transactions.id,
-            userId: transactions.userId,
-            type: transactions.type,
-            amount: transactions.amount,
-            description: transactions.description,
-            status: transactions.status,
-            createdAt: transactions.createdAt,
-            updatedAt: transactions.updatedAt,
-            processedBy: transactions.processedBy,
-            rejectionReason: transactions.rejectionReason,
-            transactionHash: transactions.transactionHash,
-            cryptoType: transactions.cryptoType,
-            walletAddress: transactions.walletAddress
-            // Excluding new columns that don't exist yet: planName, planDuration, dailyProfit, totalReturn, expectedCompletionDate
-          }).from(transactions);
-      
-      return await query.limit(options.limit).offset(options.offset);
+
+      const { data, error } = await query
+        .range(options.offset, options.offset + options.limit - 1)
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get transactions:", error);
+        return [];
+      }
+
+      return data as Transaction[];
     } catch (error) {
-      console.error('Failed to get transactions:', error);
+      console.error("Failed to get transactions:", error);
       return [];
     }
   }
 
-  async getTransactionCount(options: {
-    search?: string;
-    status?: string;
-    type?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  } = {}): Promise<number> {
+  async getTransactionCount(
+    options: {
+      search?: string;
+      status?: string;
+      type?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    } = {}
+  ): Promise<number> {
     try {
-      const conditions: any[] = [];
-      
+      let query = supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true });
+
       if (options.status) {
-        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+        query = query.eq("status", options.status);
       }
-      
+
       if (options.type) {
-        conditions.push(eq(transactions.type, options.type as any));
+        query = query.eq("type", options.type);
       }
-      
+
       if (options.dateFrom && options.dateTo) {
-        conditions.push(
-          between(transactions.createdAt, new Date(options.dateFrom), new Date(options.dateTo))
-        );
+        query = query
+          .gte("createdAt", options.dateFrom)
+          .lte("createdAt", options.dateTo);
       }
 
       if (options.search) {
-        conditions.push(or(
-          like(transactions.description, `%${options.search}%`),
-          like(transactions.transactionHash, `%${options.search}%`)
-        ));
+        query = query.or(
+          `description.ilike.%${options.search}%,transactionHash.ilike.%${options.search}%`
+        );
       }
-      
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-      const query = db.select({ count: sql<number>`count(*)` }).from(transactions);
-      
-      if (whereClause) {
-        query.where(whereClause);
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error("Failed to get transaction count:", error);
+        return 0;
       }
-      
-      const result = await query;
-      return result[0].count;
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get transaction count:', error);
+      console.error("Failed to get transaction count:", error);
       return 0;
     }
   }
 
   async getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
     try {
-      return await db.select({
-        id: transactions.id,
-        userId: transactions.userId,
-        type: transactions.type,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        processedBy: transactions.processedBy,
-        rejectionReason: transactions.rejectionReason,
-        transactionHash: transactions.transactionHash,
-        cryptoType: transactions.cryptoType,
-        walletAddress: transactions.walletAddress
-      })
-        .from(transactions)
-        .orderBy(desc(transactions.createdAt))
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("createdAt", { ascending: false })
         .limit(limit);
+
+      if (error) {
+        console.error("Failed to get recent transactions:", error);
+        return [];
+      }
+
+      return data as Transaction[];
     } catch (error) {
-      console.error('Failed to get recent transactions:', error);
+      console.error("Failed to get recent transactions:", error);
       return [];
     }
   }
 
-  async getPendingDeposits(options: { limit: number; offset: number }): Promise<Transaction[]> {
+  async getPendingDeposits(options: {
+    limit: number;
+    offset: number;
+  }): Promise<Transaction[]> {
     try {
-      return await db.select({
-        id: transactions.id,
-        userId: transactions.userId,
-        type: transactions.type,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        processedBy: transactions.processedBy,
-        rejectionReason: transactions.rejectionReason,
-        transactionHash: transactions.transactionHash,
-        cryptoType: transactions.cryptoType,
-        walletAddress: transactions.walletAddress
-      })
-        .from(transactions)
-        .where(and(
-          eq(transactions.type, 'deposit'),
-          eq(transactions.status, 'pending')
-        ))
-        .limit(options.limit)
-        .offset(options.offset);
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("type", "deposit")
+        .eq("status", "pending")
+        .range(options.offset, options.offset + options.limit - 1)
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get pending deposits:", error);
+        return [];
+      }
+
+      return data as Transaction[];
     } catch (error) {
-      console.error('Failed to get pending deposits:', error);
+      console.error("Failed to get pending deposits:", error);
       return [];
     }
   }
 
   async getPendingDepositCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(and(
-          eq(transactions.type, 'deposit'),
-          eq(transactions.status, 'pending')
-        ));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("type", "deposit")
+        .eq("status", "pending");
+
+      if (error) {
+        console.error("Failed to get pending deposit count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get pending deposit count:', error);
+      console.error("Failed to get pending deposit count:", error);
       return 0;
     }
   }
 
   async getPendingWithdrawalCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(and(
-          eq(transactions.type, 'withdrawal'),
-          eq(transactions.status, 'pending')
-        ));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("type", "withdrawal")
+        .eq("status", "pending");
+
+      if (error) {
+        console.error("Failed to get pending withdrawal count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get pending withdrawal count:', error);
+      console.error("Failed to get pending withdrawal count:", error);
       return 0;
     }
   }
 
   async getTotalDepositAmount(): Promise<number> {
     try {
-      const result = await db.select({
-        total: sql<number>`coalesce(sum(amount), 0)`
-      })
-      .from(transactions)
-      .where(and(
-        eq(transactions.type, 'deposit'),
-        eq(transactions.status, 'completed')
-      ));
-      return result[0].total;
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount")
+        .eq("type", "deposit")
+        .eq("status", "completed");
+
+      if (error) {
+        console.error("Failed to get total deposit amount:", error);
+        return 0;
+      }
+
+      return data?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
     } catch (error) {
-      console.error('Failed to get total deposit amount:', error);
+      console.error("Failed to get total deposit amount:", error);
       return 0;
     }
   }
 
   async getTotalWithdrawalAmount(): Promise<number> {
     try {
-      const result = await db.select({
-        total: sql<number>`coalesce(sum(amount), 0)`
-      })
-      .from(transactions)
-      .where(and(
-        eq(transactions.type, 'withdrawal'),
-        eq(transactions.status, 'completed')
-      ));
-      return result[0].total;
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount")
+        .eq("type", "withdrawal")
+        .eq("status", "completed");
+
+      if (error) {
+        console.error("Failed to get total withdrawal amount:", error);
+        return 0;
+      }
+
+      return data?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
     } catch (error) {
-      console.error('Failed to get total withdrawal amount:', error);
+      console.error("Failed to get total withdrawal amount:", error);
       return 0;
     }
   }
 
-  // User methods
   async searchUsers(query: string): Promise<User[]> {
     try {
-      return await db.select().from(users).where(
-        or(
-          like(users.username, `%${query}%`),
-          like(users.email, `%${query}%`),
-          like(users.firstName, `%${query}%`),
-          like(users.lastName, `%${query}%`)
-        )
-      );
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .or(
+          `username.ilike.%${query}%,email.ilike.%${query}%,firstName.ilike.%${query}%,lastName.ilike.%${query}%`
+        );
+
+      if (error) {
+        console.error("Failed to search users:", error);
+        return [];
+      }
+
+      return data as User[];
     } catch (error) {
-      console.error('Failed to search users:', error);
+      console.error("Failed to search users:", error);
       return [];
     }
   }
 
   async getUsers(options: GetUsersOptions): Promise<User[]> {
     try {
-      let whereClause: any = undefined;
-      const conditions: any[] = [];
-      
+      let query = supabase.from("users").select("*");
+
       if (options.search) {
-        conditions.push(or(
-          like(users.username, `%${options.search}%`),
-          like(users.email, `%${options.search}%`),
-          like(users.firstName, `%${options.search}%`),
-          like(users.lastName, `%${options.search}%`)
-        ));
+        query = query.or(
+          `username.ilike.%${options.search}%,email.ilike.%${options.search}%,firstName.ilike.%${options.search}%,lastName.ilike.%${options.search}%`
+        );
       }
-      
+
       if (options.status) {
-        if (options.status === 'active') {
-          conditions.push(eq(users.isActive, true));
-        } else if (options.status === 'inactive') {
-          conditions.push(eq(users.isActive, false));
-        } else if (options.status === 'verified') {
-          conditions.push(eq(users.isVerified, true));
-        } else if (options.status === 'unverified') {
-          conditions.push(eq(users.isVerified, false));
+        if (options.status === "active") {
+          query = query.eq("isActive", true);
+        } else if (options.status === "inactive") {
+          query = query.eq("isActive", false);
+        } else if (options.status === "verified") {
+          query = query.eq("isVerified", true);
+        } else if (options.status === "unverified") {
+          query = query.eq("isVerified", false);
         }
       }
-      
-      if (conditions.length > 0) {
-        whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+      const { data, error } = await query
+        .range(options.offset, options.offset + options.limit - 1)
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get users:", error);
+        return [];
       }
-      
-      const query = whereClause 
-        ? db.select().from(users).where(whereClause)
-        : db.select().from(users);
-        
-      return await query.limit(options.limit).offset(options.offset);
+
+      return data as User[];
     } catch (error) {
-      console.error('Failed to get users:', error);
+      console.error("Failed to get users:", error);
       return [];
     }
   }
 
   async getUserCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true });
+
+      if (error) {
+        console.error("Failed to get user count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get user count:', error);
+      console.error("Failed to get user count:", error);
       return 0;
     }
   }
 
   async getPendingVerificationCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(users)
-        .where(eq(users.isVerified, false));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("isVerified", false);
+
+      if (error) {
+        console.error("Failed to get pending verification count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get pending verification count:', error);
+      console.error("Failed to get pending verification count:", error);
       return 0;
     }
   }
 
   async getRecentRegistrations(limit: number = 10): Promise<User[]> {
     try {
-      return await db.select()
-        .from(users)
-        .orderBy(desc(users.createdAt))
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .order("createdAt", { ascending: false })
         .limit(limit);
+
+      if (error) {
+        console.error("Failed to get recent registrations:", error);
+        return [];
+      }
+
+      return data as User[];
     } catch (error) {
-      console.error('Failed to get recent registrations:', error);
+      console.error("Failed to get recent registrations:", error);
       return [];
     }
   }
 
-  // Notification methods
   async createNotification(data: {
     userId: number;
     type: string;
@@ -537,131 +578,191 @@ export class DatabaseStorage {
     expiresAt?: Date;
   }): Promise<Notification> {
     try {
-      const result = await db.insert(notifications).values({
-        userId: data.userId,
-        type: data.type as any,
-        title: data.title,
-        message: data.message,
-        relatedEntityType: data.relatedEntityType,
-        relatedEntityId: data.relatedEntityId,
-        priority: (data.priority as any) || 'medium',
-        expiresAt: data.expiresAt
-      }).returning();
-      return result[0];
+      const { data: result, error } = await supabase
+        .from("notifications")
+        .insert({
+          userId: data.userId,
+          type: data.type,
+          title: data.title,
+          message: data.message,
+          relatedEntityType: data.relatedEntityType,
+          relatedEntityId: data.relatedEntityId,
+          priority: data.priority || "medium",
+          expiresAt: data.expiresAt?.toISOString(),
+          isRead: false,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Failed to create notification:", error);
+        throw error;
+      }
+
+      return result as Notification;
     } catch (error) {
-      console.error('Failed to create notification:', error);
+      console.error("Failed to create notification:", error);
       throw error;
     }
   }
 
-  // Audit log methods
   async getAuditLogs(options: GetAuditLogsOptions): Promise<AuditLog[]> {
     try {
+      let query = supabase.from("audit_logs").select("*");
+
       if (options.action && options.search) {
-        return await db.select().from(auditLogs)
-          .where(and(
-            eq(auditLogs.action, options.action),
-            like(auditLogs.details, `%${options.search}%`)
-          ))
-          .limit(options.limit).offset(options.offset);
+        query = query
+          .eq("action", options.action)
+          .ilike("details", `%${options.search}%`);
       } else if (options.action) {
-        return await db.select().from(auditLogs)
-          .where(eq(auditLogs.action, options.action))
-          .limit(options.limit).offset(options.offset);
+        query = query.eq("action", options.action);
       } else if (options.search) {
-        return await db.select().from(auditLogs)
-          .where(like(auditLogs.details, `%${options.search}%`))
-          .limit(options.limit).offset(options.offset);
-      } else {
-        return await db.select().from(auditLogs)
-          .limit(options.limit).offset(options.offset);
+        query = query.ilike("details", `%${options.search}%`);
       }
+
+      const { data, error } = await query
+        .range(options.offset, options.offset + options.limit - 1)
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get audit logs:", error);
+        return [];
+      }
+
+      return data as AuditLog[];
     } catch (error) {
-      console.error('Failed to get audit logs:', error);
+      console.error("Failed to get audit logs:", error);
       return [];
     }
   }
 
-  async getAuditLogCount(options: { search?: string; action?: string } = {}): Promise<number> {
+  async getAuditLogCount(
+    options: { search?: string; action?: string } = {}
+  ): Promise<number> {
     try {
-      let result;
+      let query = supabase
+        .from("audit_logs")
+        .select("*", { count: "exact", head: true });
+
       if (options.action && options.search) {
-        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs)
-          .where(and(
-            eq(auditLogs.action, options.action),
-            like(auditLogs.details, `%${options.search}%`)
-          ));
+        query = query
+          .eq("action", options.action)
+          .ilike("details", `%${options.search}%`);
       } else if (options.action) {
-        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs)
-          .where(eq(auditLogs.action, options.action));
+        query = query.eq("action", options.action);
       } else if (options.search) {
-        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs)
-          .where(like(auditLogs.details, `%${options.search}%`));
-      } else {
-        result = await db.select({ count: sql<number>`count(*)` }).from(auditLogs);
+        query = query.ilike("details", `%${options.search}%`);
       }
-      
-      return result[0].count;
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error("Failed to get audit log count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get audit log count:', error);
+      console.error("Failed to get audit log count:", error);
       return 0;
     }
   }
 
   async getRecentLogins(limit: number = 10): Promise<AuditLog[]> {
     try {
-      return await db.select()
-        .from(auditLogs)
-        .where(eq(auditLogs.action, 'login'))
-        .orderBy(desc(auditLogs.createdAt))
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("action", "login")
+        .order("createdAt", { ascending: false })
         .limit(limit);
+
+      if (error) {
+        console.error("Failed to get recent logins:", error);
+        return [];
+      }
+
+      return data as AuditLog[];
     } catch (error) {
-      console.error('Failed to get recent logins:', error);
+      console.error("Failed to get recent logins:", error);
       return [];
     }
   }
 
-  // Visitor tracking methods
   async getActiveVisitors(): Promise<VisitorTracking[]> {
     try {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      return await db.select()
-        .from(visitor_tracking)
-        .where(sql`${visitor_tracking.lastActivity} > ${fiveMinutesAgo}`)
-        .orderBy(desc(visitor_tracking.lastActivity));
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("visitor_tracking")
+        .select("*")
+        .gt("lastActivity", fiveMinutesAgo)
+        .order("lastActivity", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get active visitors:", error);
+        return [];
+      }
+
+      return data as VisitorTracking[];
     } catch (error) {
-      console.error('Failed to get active visitors:', error);
+      console.error("Failed to get active visitors:", error);
       return [];
     }
   }
 
-  // Additional user methods required by auth.ts
   async getUser(id: number): Promise<User | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.id, id));
-      return result.length > 0 ? result[0] : undefined;
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return data as User;
     } catch (error) {
-      console.error(`Failed to get user ${id}:`, error);
+      console.error("Failed to get user:", error);
       return undefined;
     }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.username, username));
-      return result.length > 0 ? result[0] : undefined;
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("username", username)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return data as User;
     } catch (error) {
-      console.error(`Failed to get user by username ${username}:`, error);
+      console.error("Failed to get user by username:", error);
       return undefined;
     }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.email, email));
-      return result.length > 0 ? result[0] : undefined;
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return data as User;
     } catch (error) {
-      console.error(`Failed to get user by email ${email}:`, error);
+      console.error("Failed to get user by email:", error);
       return undefined;
     }
   }
@@ -687,67 +788,100 @@ export class DatabaseStorage {
     verificationTokenExpiry?: Date | null;
   }): Promise<User | undefined> {
     try {
-      const result = await db.insert(users).values({
-        username: userData.username,
-        password: userData.password,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        role: userData.role || "user",
-        balance: userData.balance || "0",
-        isActive: userData.isActive ?? true,
-        isVerified: userData.isVerified ?? false,
-        twoFactorEnabled: userData.twoFactorEnabled ?? false,
-        referredBy: userData.referredBy || null,
-        bitcoinAddress: userData.bitcoinAddress || null,
-        bitcoinCashAddress: userData.bitcoinCashAddress || null,
-        ethereumAddress: userData.ethereumAddress || null,
-        bnbAddress: userData.bnbAddress || null,
-        usdtTrc20Address: userData.usdtTrc20Address || null,
-        verificationToken: userData.verificationToken || null,
-        verificationTokenExpiry: userData.verificationTokenExpiry || null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-      return result.length > 0 ? result[0] : undefined;
+      const { data, error } = await supabase
+        .from("users")
+        .insert({
+          username: userData.username,
+          password: userData.password,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          role: userData.role || "user",
+          balance: userData.balance || "0",
+          isActive: userData.isActive !== false,
+          isVerified: userData.isVerified || false,
+          twoFactorEnabled: userData.twoFactorEnabled || false,
+          referredBy: userData.referredBy,
+          bitcoinAddress: userData.bitcoinAddress,
+          bitcoinCashAddress: userData.bitcoinCashAddress,
+          ethereumAddress: userData.ethereumAddress,
+          bnbAddress: userData.bnbAddress,
+          usdtTrc20Address: userData.usdtTrc20Address,
+          verificationToken: userData.verificationToken,
+          verificationTokenExpiry:
+            userData.verificationTokenExpiry?.toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("Failed to create user:", error);
+        return undefined;
+      }
+
+      return data as User;
     } catch (error) {
-      console.error('Failed to create user:', error);
+      console.error("Failed to create user:", error);
       return undefined;
     }
   }
 
-  async updateUser(id: number, updates: Partial<{
-    username: string;
-    password: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: "user" | "admin";
-    balance: string;
-    isActive: boolean;
-    isVerified: boolean;
-    twoFactorEnabled: boolean;
-    verificationToken: string | null;
-    verificationTokenExpiry: Date | null;
-    pendingEmail: string | null;
-  }>): Promise<User | undefined> {
+  async updateUser(
+    id: number,
+    updates: Partial<{
+      username: string;
+      password: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: "user" | "admin";
+      balance: string;
+      isActive: boolean;
+      isVerified: boolean;
+      twoFactorEnabled: boolean;
+      verificationToken: string | null;
+      verificationTokenExpiry: Date | null;
+      pendingEmail: string | null;
+    }>
+  ): Promise<User | undefined> {
     try {
-      const result = await db.update(users)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(users.id, id))
-        .returning();
-      return result.length > 0 ? result[0] : undefined;
+      const updateData = {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from("users")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return data as User;
     } catch (error) {
-      console.error(`Failed to update user ${id}:`, error);
+      console.error("Failed to update user:", error);
       return undefined;
     }
   }
 
   async getAllUsers(): Promise<User[]> {
     try {
-      return await db.select().from(users);
+      const { data, error } = await supabase.from("users").select("*");
+
+      if (error) {
+        console.error("Failed to get all users:", error);
+        return [];
+      }
+
+      return data as User[];
     } catch (error) {
-      console.error('Failed to get all users:', error);
+      console.error("Failed to get all users:", error);
       return [];
     }
   }
@@ -755,160 +889,103 @@ export class DatabaseStorage {
   async deleteUser(id: number): Promise<boolean> {
     try {
       // Check if user has associated records that would prevent deletion
-      const userTransactions = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(eq(transactions.userId, id));
-      
-      let auditLogCount = 0;
-      let logsCount = 0;
-      
-      // Check audit_logs table if it exists
-      try {
-        const userAuditLogs = await db.select({ count: sql<number>`count(*)` })
-          .from(auditLogs)
-          .where(eq(auditLogs.userId, id));
-        auditLogCount = userAuditLogs[0].count;
-      } catch (auditError: any) {
-        if (auditError.message?.includes('does not exist') || auditError.code === '42P01') {
-          console.log('Audit logs table does not exist, proceeding without audit log check');
-          auditLogCount = 0;
-        } else {
-          throw auditError;
-        }
-      }
-      
-      // Check for other log tables that might have foreign keys (like 'logs' table)
-      try {
-        const userLogs = await db.execute(sql`SELECT COUNT(*) as count FROM logs WHERE user_id = ${id}`);
-        logsCount = Number(userLogs.rows[0]?.count || 0);
-      } catch (logsError: any) {
-        if (logsError.message?.includes('does not exist') || logsError.code === '42P01') {
-          console.log('Logs table does not exist, proceeding without logs check');
-          logsCount = 0;
-        } else {
-          console.log('Cannot check logs table:', logsError.message);
-          logsCount = 0;
-        }
-      }
-      
-      const transactionCount = userTransactions[0].count;
-      const totalAssociatedRecords = transactionCount + auditLogCount + logsCount;
-      
-      // If user has associated records, deactivate instead of deleting
-      if (totalAssociatedRecords > 0) {
-        console.log(`User ${id} has ${transactionCount} transactions, ${auditLogCount} audit logs, and ${logsCount} log entries. Deactivating instead of deleting.`);
-        
+      const { canDelete } = await this.canUserBeDeleted(id);
+
+      if (canDelete) {
+        const { error } = await supabase.from("users").delete().eq("id", id);
+
+        return !error;
+      } else {
+        // If user has associated records, deactivate instead of deleting
         const deactivated = await this.updateUser(id, {
           isActive: false,
           username: `deleted_user_${id}_${Date.now()}`,
-          email: `deleted_${id}_${Date.now()}@deleted.local`
+          email: `deleted_${id}_${Date.now()}@deleted.local`,
         });
-        
+
         return deactivated !== undefined;
       }
-      
-      // If no associated records, attempt to delete
-      await db.delete(users).where(eq(users.id, id));
-      return true;
     } catch (error) {
       console.error(`Failed to delete user ${id}:`, error);
-      
-      // If it's any kind of constraint error, try deactivation
-      if (error instanceof Error && (
-        error.message.includes('foreign key') || 
-        error.message.includes('constraint') ||
-        error.message.includes('violates') ||
-        error.message.includes('referenced')
-      )) {
-        console.log(`Constraint violation detected for user ${id}. Attempting deactivation.`);
-        try {
-          const deactivated = await this.updateUser(id, {
-            isActive: false,
-            username: `deleted_user_${id}_${Date.now()}`,
-            email: `deleted_${id}_${Date.now()}@deleted.local`
-          });
-          return deactivated !== undefined;
-        } catch (deactivationError) {
-          console.error(`Failed to deactivate user ${id}:`, deactivationError);
-          return false;
-        }
-      }
-      
       return false;
     }
   }
 
-  async canUserBeDeleted(id: number): Promise<{ canDelete: boolean; reason?: string; associatedRecords: { transactions: number; auditLogs: number; logs: number } }> {
+  async canUserBeDeleted(id: number): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedRecords: {
+      transactions: number;
+      auditLogs: number;
+      logs: number;
+    };
+  }> {
     try {
-      const userTransactions = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(eq(transactions.userId, id));
-      
+      // Check transactions
+      const { count: transactionCount } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("userId", id);
+
+      // Check audit_logs
       let auditLogCount = 0;
-      let logsCount = 0;
-      
-      // Check audit_logs table if it exists
       try {
-        const userAuditLogs = await db.select({ count: sql<number>`count(*)` })
-          .from(auditLogs)
-          .where(eq(auditLogs.userId, id));
-        auditLogCount = userAuditLogs[0].count;
+        const { count } = await supabase
+          .from("audit_logs")
+          .select("*", { count: "exact", head: true })
+          .eq("userId", id);
+        auditLogCount = count || 0;
       } catch (auditError: any) {
-        if (auditError.message?.includes('does not exist') || auditError.code === '42P01') {
-          console.log('Audit logs table does not exist, proceeding without audit log check');
-          auditLogCount = 0;
-        } else {
-          throw auditError;
-        }
+        console.log(
+          "Audit logs table does not exist, proceeding without audit log check"
+        );
+        auditLogCount = 0;
       }
-      
+
       // Check for other log tables
+      let logsCount = 0;
       try {
-        const userLogs = await db.execute(sql`SELECT COUNT(*) as count FROM logs WHERE user_id = ${id}`);
-        logsCount = Number(userLogs.rows[0]?.count || 0);
+        const { count } = await supabase
+          .from("logs")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", id);
+        logsCount = count || 0;
       } catch (logsError: any) {
-        if (logsError.message?.includes('does not exist') || logsError.code === '42P01') {
-          console.log('Logs table does not exist, proceeding without logs check');
-          logsCount = 0;
-        } else {
-          console.log('Cannot check logs table:', logsError.message);
-          logsCount = 0;
-        }
+        console.log("Logs table does not exist, proceeding without logs check");
+        logsCount = 0;
       }
-      
-      const transactionCount = userTransactions[0].count;
-      
+
       const associatedRecords = {
-        transactions: transactionCount,
+        transactions: transactionCount || 0,
         auditLogs: auditLogCount,
-        logs: logsCount
+        logs: logsCount,
       };
-      
-      const totalAssociatedRecords = transactionCount + auditLogCount + logsCount;
-      
+
+      const totalAssociatedRecords =
+        (transactionCount || 0) + auditLogCount + logsCount;
+
       if (totalAssociatedRecords > 0) {
         return {
           canDelete: false,
           reason: `User has ${transactionCount} transactions, ${auditLogCount} audit log entries, and ${logsCount} log entries`,
-          associatedRecords
+          associatedRecords,
         };
       }
-      
+
       return {
         canDelete: true,
-        associatedRecords
+        associatedRecords,
       };
     } catch (error) {
       console.error(`Failed to check if user ${id} can be deleted:`, error);
       return {
         canDelete: false,
-        reason: 'Error checking user deletion eligibility',
-        associatedRecords: { transactions: 0, auditLogs: 0, logs: 0 }
+        reason: "Error checking user deletion eligibility",
+        associatedRecords: { transactions: 0, auditLogs: 0, logs: 0 },
       };
     }
   }
 
-  // Audit log methods
   async createLog(logData: {
     type: string;
     userId?: number;
@@ -916,70 +993,88 @@ export class DatabaseStorage {
     details?: any;
   }): Promise<AuditLog | undefined> {
     try {
-      const result = await db.insert(auditLogs).values({
-        userId: logData.userId || null,
-        action: logData.type,
-        description: logData.message,
-        details: typeof logData.details === 'object' ? JSON.stringify(logData.details) : logData.details || null,
-        ipAddress: null, // Could be passed in if needed
-        userAgent: null, // Could be passed in if needed
-        createdAt: new Date()
-      }).returning();
-      return result.length > 0 ? result[0] : undefined;
-    } catch (error: any) {
-      // If audit_logs table doesn't exist, just log to console and return undefined
-      if (error.message?.includes('does not exist') || error.code === '42P01') {
-        console.log('Audit logs table does not exist, logging to console instead:', logData);
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .insert({
+          userId: logData.userId || null,
+          action: logData.type,
+          description: logData.message,
+          details:
+            typeof logData.details === "object"
+              ? JSON.stringify(logData.details)
+              : logData.details || null,
+          ipAddress: null,
+          userAgent: null,
+          createdAt: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.log(
+          "Audit logs table does not exist, logging to console instead:",
+          logData
+        );
         return undefined;
       }
-      console.error('Failed to create log:', error);
+
+      return data as AuditLog;
+    } catch (error: any) {
+      if (error.message?.includes("does not exist") || error.code === "42P01") {
+        console.log(
+          "Audit logs table does not exist, logging to console instead:",
+          logData
+        );
+        return undefined;
+      }
+      console.error("Failed to create log:", error);
       return undefined;
     }
   }
 
-  // Database connection check
   async checkDatabaseConnection(): Promise<boolean> {
     try {
       // Simple query to test connection
-      await db.select({ count: sql<number>`1` }).from(users).limit(1);
+      const { data, error } = await supabase
+        .from("users")
+        .select("id")
+        .limit(1);
+
+      if (error) {
+        console.error("Database connection check failed:", error);
+        return false;
+      }
+
       return true;
     } catch (error) {
-      console.error('Database connection check failed:', error);
+      console.error("Database connection check failed:", error);
       return false;
     }
   }
 
-  // Additional methods required by routes.ts
   async getUserTransactions(userId: number): Promise<Transaction[]> {
     try {
-      return await db.select({
-        id: transactions.id,
-        userId: transactions.userId,
-        type: transactions.type,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        processedBy: transactions.processedBy,
-        rejectionReason: transactions.rejectionReason,
-        transactionHash: transactions.transactionHash,
-        cryptoType: transactions.cryptoType,
-        walletAddress: transactions.walletAddress
-        // Excluding new columns that don't exist yet: planName, planDuration, dailyProfit, totalReturn, expectedCompletionDate
-      })
-        .from(transactions)
-        .where(eq(transactions.userId, userId))
-        .orderBy(desc(transactions.createdAt));
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("userId", userId)
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get user transactions:", error);
+        return [];
+      }
+
+      return data as Transaction[];
     } catch (error) {
-      console.error(`Failed to get user transactions for ${userId}:`, error);
+      console.error("Failed to get user transactions:", error);
       return [];
     }
   }
 
   async createTransaction(transactionData: {
     userId: number;
-    type: 'deposit' | 'withdrawal' | 'investment';
+    type: "deposit" | "withdrawal" | "investment";
     amount: string;
     status?: TransactionStatus;
     description?: string;
@@ -993,83 +1088,105 @@ export class DatabaseStorage {
   }): Promise<Transaction | undefined> {
     try {
       // Map investment to deposit for now since the DB schema only supports deposit/withdrawal
-      const dbType = transactionData.type === 'investment' ? 'deposit' : transactionData.type;
-      
-      // Only insert fields that exist in the current schema
-      const result = await db.insert(transactions).values({
-        userId: transactionData.userId,
-        type: dbType as any,
-        amount: transactionData.amount,
-        status: transactionData.status || 'pending',
-        description: transactionData.description || '',
-        planName: transactionData.planName || null,
-        cryptoType: transactionData.cryptoType || null,
-        walletAddress: transactionData.walletAddress || null,
-        transactionHash: transactionData.transactionHash || null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-        // Note: planDuration, dailyProfit, totalReturn, expectedCompletionDate are not included 
-        // until the database schema is updated
-      }).returning();
-      return result.length > 0 ? result[0] : undefined;
+      const dbType =
+        transactionData.type === "investment"
+          ? "deposit"
+          : transactionData.type;
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert({
+          userId: transactionData.userId,
+          type: dbType,
+          amount: transactionData.amount,
+          status: transactionData.status || "pending",
+          description: transactionData.description || "",
+          planName: transactionData.planName || null,
+          cryptoType: transactionData.cryptoType || null,
+          walletAddress: transactionData.walletAddress || null,
+          transactionHash: transactionData.transactionHash || null,
+          planDuration: transactionData.planDuration || null,
+          dailyProfit: transactionData.dailyProfit || null,
+          totalReturn: transactionData.totalReturn || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("Failed to create transaction:", error);
+        return undefined;
+      }
+
+      return data as Transaction;
     } catch (error) {
-      console.error('Failed to create transaction:', error);
+      console.error("Failed to create transaction:", error);
       return undefined;
     }
   }
 
   async getActiveUserCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(users)
-        .where(eq(users.isActive, true));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("isActive", true);
+
+      if (error) {
+        console.error("Failed to get active user count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get active user count:', error);
+      console.error("Failed to get active user count:", error);
       return 0;
     }
   }
 
   async getPendingTransactionCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(eq(transactions.status, 'pending'));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+
+      if (error) {
+        console.error("Failed to get pending transaction count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get pending transaction count:', error);
+      console.error("Failed to get pending transaction count:", error);
       return 0;
     }
   }
 
   async getAllTransactions(): Promise<Transaction[]> {
     try {
-      return await db.select({
-        id: transactions.id,
-        userId: transactions.userId,
-        type: transactions.type,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        processedBy: transactions.processedBy,
-        rejectionReason: transactions.rejectionReason,
-        transactionHash: transactions.transactionHash,
-        cryptoType: transactions.cryptoType,
-        walletAddress: transactions.walletAddress,
-        planName: transactions.planName
-      }).from(transactions).orderBy(desc(transactions.createdAt));
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get all transactions:", error);
+        return [];
+      }
+
+      return data as Transaction[];
     } catch (error) {
-      console.error('Failed to get all transactions:', error);
+      console.error("Failed to get all transactions:", error);
       return [];
     }
   }
 
-  async getDeposits(options: { 
-    limit: number; 
-    offset: number; 
-    status?: string; 
+  async getDeposits(options: {
+    limit: number;
+    offset: number;
+    status?: string;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -1078,154 +1195,158 @@ export class DatabaseStorage {
     amountMax?: number;
   }): Promise<any[]> {
     try {
-      const conditions: any[] = [eq(transactions.type, 'deposit')];
-      
+      let query = supabase
+        .from("transactions")
+        .select(
+          `
+          *,
+          users!inner(id, username, email)
+        `
+        )
+        .eq("type", "deposit");
+
       if (options.status) {
-        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+        query = query.eq("status", options.status);
       }
-      
+
       if (options.search) {
-        conditions.push(or(
-          like(transactions.description, `%${options.search}%`),
-          like(transactions.transactionHash, `%${options.search}%`)
-        ));
+        query = query.or(
+          `description.ilike.%${options.search}%,transactionHash.ilike.%${options.search}%`
+        );
       }
 
       if (options.dateFrom) {
-        conditions.push(gte(transactions.createdAt, new Date(options.dateFrom)));
+        query = query.gte("createdAt", options.dateFrom);
       }
 
       if (options.dateTo) {
-        conditions.push(lte(transactions.createdAt, new Date(options.dateTo)));
+        query = query.lte("createdAt", options.dateTo);
       }
 
-      if (options.method) {
-        conditions.push(eq(transactions.cryptoType, options.method));
+      if (options.amountMin) {
+        query = query.gte("amount", options.amountMin.toString());
       }
 
-      if (options.amountMin !== undefined) {
-        conditions.push(gte(transactions.amount, options.amountMin.toString()));
+      if (options.amountMax) {
+        query = query.lte("amount", options.amountMax.toString());
       }
 
-      if (options.amountMax !== undefined) {
-        conditions.push(lte(transactions.amount, options.amountMax.toString()));
-      }
-      
-      const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
-      
-      // Select only existing columns for now
-      const result = await db.select({
-        id: transactions.id,
-        user_id: transactions.userId,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        created_at: transactions.createdAt,
-        updated_at: transactions.updatedAt,
-        crypto_type: transactions.cryptoType,
-        transaction_hash: transactions.transactionHash,
-        wallet_address: transactions.walletAddress,
-        user: {
-          id: users.id,
-          username: users.username,
-          email: users.email
-        }
-      })
-        .from(transactions)
-        .leftJoin(users, eq(transactions.userId, users.id))
-        .where(whereClause)
-        .limit(options.limit)
-        .offset(options.offset)
-        .orderBy(desc(transactions.createdAt));
+      const { data, error } = await query
+        .range(options.offset, options.offset + options.limit - 1)
+        .order("createdAt", { ascending: false });
 
-      return result;
+      if (error) {
+        console.error("Failed to get deposits:", error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
-      console.error('Failed to get deposits:', error);
+      console.error("Failed to get deposits:", error);
       return [];
     }
   }
 
   async getDepositCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(eq(transactions.type, 'deposit'));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("type", "deposit");
+
+      if (error) {
+        console.error("Failed to get deposit count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get deposit count:', error);
+      console.error("Failed to get deposit count:", error);
       return 0;
     }
   }
 
-  async getWithdrawals(options: { limit: number; offset: number; status?: string; search?: string }): Promise<Transaction[]> {
+  async getWithdrawals(options: {
+    limit: number;
+    offset: number;
+    status?: string;
+    search?: string;
+  }): Promise<Transaction[]> {
     try {
-      const conditions: any[] = [eq(transactions.type, 'withdrawal')];
-      
+      let query = supabase
+        .from("transactions")
+        .select("*")
+        .eq("type", "withdrawal");
+
       if (options.status) {
-        conditions.push(eq(transactions.status, options.status as TransactionStatus));
+        query = query.eq("status", options.status);
       }
-      
+
       if (options.search) {
-        conditions.push(or(
-          like(transactions.description, `%${options.search}%`),
-          like(transactions.transactionHash, `%${options.search}%`)
-        ));
+        query = query.or(
+          `description.ilike.%${options.search}%,transactionHash.ilike.%${options.search}%`
+        );
       }
-      
-      const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
-      
-      return await db.select({
-        id: transactions.id,
-        userId: transactions.userId,
-        type: transactions.type,
-        amount: transactions.amount,
-        description: transactions.description,
-        status: transactions.status,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        processedBy: transactions.processedBy,
-        rejectionReason: transactions.rejectionReason,
-        transactionHash: transactions.transactionHash,
-        cryptoType: transactions.cryptoType,
-        walletAddress: transactions.walletAddress
-      })
-        .from(transactions)
-        .where(whereClause)
-        .limit(options.limit)
-        .offset(options.offset)
-        .orderBy(desc(transactions.createdAt));
+
+      const { data, error } = await query
+        .range(options.offset, options.offset + options.limit - 1)
+        .order("createdAt", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get withdrawals:", error);
+        return [];
+      }
+
+      return data as Transaction[];
     } catch (error) {
-      console.error('Failed to get withdrawals:', error);
+      console.error("Failed to get withdrawals:", error);
       return [];
     }
   }
 
   async getWithdrawalCount(): Promise<number> {
     try {
-      const result = await db.select({ count: sql<number>`count(*)` })
-        .from(transactions)
-        .where(eq(transactions.type, 'withdrawal'));
-      return result[0].count;
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true })
+        .eq("type", "withdrawal");
+
+      if (error) {
+        console.error("Failed to get withdrawal count:", error);
+        return 0;
+      }
+
+      return count || 0;
     } catch (error) {
-      console.error('Failed to get withdrawal count:', error);
+      console.error("Failed to get withdrawal count:", error);
       return 0;
     }
   }
 
-  async updateWithdrawalStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
+  async updateWithdrawalStatus(
+    id: number,
+    status: TransactionStatus
+  ): Promise<Transaction | undefined> {
     return this.updateTransactionStatus(id, status);
   }
 
-  async updateDepositStatus(id: number, status: TransactionStatus): Promise<Transaction | undefined> {
+  async updateDepositStatus(
+    id: number,
+    status: TransactionStatus
+  ): Promise<Transaction | undefined> {
     return this.updateTransactionStatus(id, status);
   }
 
   async deleteTransaction(id: number): Promise<boolean> {
     try {
-      await db.delete(transactions).where(eq(transactions.id, id));
-      return true;
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id);
+
+      return !error;
     } catch (error) {
-      console.error(`Failed to delete transaction ${id}:`, error);
+      console.error("Failed to delete transaction:", error);
       return false;
     }
   }
@@ -1238,70 +1359,68 @@ export class DatabaseStorage {
     return this.getAllTransactions();
   }
 
-  // System settings methods (placeholder implementations)
   async getMaintenanceSettings(): Promise<any> {
     try {
-      // Return default maintenance settings
+      // For now, return default maintenance settings
       return {
         enabled: false,
-        message: "The system is temporarily under maintenance. Please try again later.",
+        message:
+          "The system is temporarily under maintenance. Please try again later.",
         startTime: null,
-        endTime: null
+        endTime: null,
       };
     } catch (error) {
-      console.error('Failed to get maintenance settings:', error);
+      console.error("Failed to get maintenance settings:", error);
       return { enabled: false, message: "Maintenance mode disabled" };
     }
   }
 
   async updateMaintenanceSettings(settings: any): Promise<any> {
     try {
-      // In a real implementation, this would update a settings table
-      // For now, just return the settings as if they were saved
+      // For now, just log the settings update
+      console.log("Maintenance settings would be updated:", settings);
       return settings;
     } catch (error) {
-      console.error('Failed to update maintenance settings:', error);
+      console.error("Failed to update maintenance settings:", error);
       return null;
     }
   }
 
   async getSystemSettings(): Promise<any> {
     try {
-      // Return default system settings
+      // For now, return default system settings
       return {
-        siteName: "Axix Finance",
         supportEmail: "support@axixfinance.com",
         maintenanceMode: false,
-        registrationEnabled: true
+        registrationEnabled: true,
       };
     } catch (error) {
-      console.error('Failed to get system settings:', error);
+      console.error("Failed to get system settings:", error);
       return {};
     }
   }
 
   async updateSystemSettings(settings: any): Promise<any> {
     try {
-      // In a real implementation, this would update a settings table
-      // For now, just return the settings as if they were saved
+      // For now, just log the settings update
+      console.log("System settings would be updated:", settings);
       return settings;
     } catch (error) {
-      console.error('Failed to update system settings:', error);
+      console.error("Failed to update system settings:", error);
       return null;
     }
   }
 
   async getAllSettings(): Promise<any[]> {
     try {
-      // Return placeholder settings
+      // For now, return default settings
       return [
-        { name: "siteName", value: "Axix Finance" },
         { name: "supportEmail", value: "support@axixfinance.com" },
         { name: "maintenanceMode", value: "false" },
-        { name: "registrationEnabled", value: "true" }
+        { name: "registrationEnabled", value: "true" },
       ];
     } catch (error) {
-      console.error('Failed to get all settings:', error);
+      console.error("Failed to get all settings:", error);
       return [];
     }
   }
@@ -1309,53 +1428,81 @@ export class DatabaseStorage {
   async getSetting(name: string): Promise<any> {
     try {
       const allSettings = await this.getAllSettings();
-      return allSettings.find(setting => setting.name === name);
+      return allSettings.find((setting) => setting.name === name);
     } catch (error) {
       console.error(`Failed to get setting ${name}:`, error);
       return null;
     }
   }
 
-  async createOrUpdateSetting(name: string, value: string, description?: string): Promise<void> {
+  async createOrUpdateSetting(
+    name: string,
+    value: string,
+    description?: string
+  ): Promise<void> {
     try {
-      // In a real implementation, this would insert/update a settings table
       // For now, just log that the setting would be created/updated
       if (process.env.NODE_ENV !== "production") {
-        console.log(`Setting '${name}' would be set to '${value}'${description ? ` (${description})` : ''}`);
+        console.log(
+          `Setting '${name}' would be set to '${value}'${description ? ` (${description})` : ""}`
+        );
       }
     } catch (error) {
-      console.error(`Failed to create/update setting ${name}:`, error);
-      throw error;
+      console.error("Failed to create or update setting:", error);
     }
   }
 
   async initializeDatabase(): Promise<void> {
     try {
+      console.log("🔄 Initializing database with Supabase...");
+
       // Initialize required settings
       const requiredSettings = [
-        { name: 'minimumWithdrawal', value: '50', description: 'Minimum withdrawal amount in USD' },
-        { name: 'withdrawalFee', value: '5', description: 'Withdrawal fee percentage' },
-        { name: 'referralBonus', value: '10', description: 'Referral bonus percentage' },
-        { name: 'maintenanceMode', value: 'false', description: 'System maintenance mode' },
-        { name: 'contactEmail', value: process.env.CONTACT_EMAIL || 'support@axixfinance.com', description: 'Support contact email' }
+        {
+          name: "minimumWithdrawal",
+          value: "50",
+          description: "Minimum withdrawal amount in USD",
+        },
+        {
+          name: "withdrawalFee",
+          value: "5",
+          description: "Withdrawal fee percentage",
+        },
+        {
+          name: "referralBonus",
+          value: "10",
+          description: "Referral bonus percentage",
+        },
+        {
+          name: "maintenanceMode",
+          value: "false",
+          description: "System maintenance mode",
+        },
+        {
+          name: "contactEmail",
+          value: process.env.CONTACT_EMAIL || "support@axixfinance.com",
+          description: "Support contact email",
+        },
       ];
-      
-      // Create or update required settings
+
       for (const setting of requiredSettings) {
         const existingSetting = await this.getSetting(setting.name);
         if (!existingSetting) {
-          await this.createOrUpdateSetting(setting.name, setting.value, setting.description);
-          if (process.env.NODE_ENV !== "production") console.log(`Setting '${setting.name}' initialized`);
+          await this.createOrUpdateSetting(
+            setting.name,
+            setting.value,
+            setting.description
+          );
+          if (process.env.NODE_ENV !== "production")
+            console.log(`Setting '${setting.name}' initialized`);
         }
       }
-      
-      if (process.env.NODE_ENV !== "production") console.log('Database initialization completed successfully');
+
+      if (process.env.NODE_ENV !== "production")
+        console.log("Database initialization completed successfully");
     } catch (error) {
-      console.error('Database initialization failed:', error);
+      console.error("Database initialization failed:", error);
       throw error;
     }
   }
 }
-
-// Export default instance
-export default new DatabaseStorage();

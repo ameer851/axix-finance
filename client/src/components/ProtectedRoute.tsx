@@ -1,12 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import React, { lazy, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useLocation } from "wouter";
-
-// Lazy load the verification banner
-const VerificationBanner = lazy(
-  () => import("@/components/VerificationBanner")
-);
 
 function LoadingSpinner() {
   return (
@@ -27,7 +22,7 @@ export default function ProtectedRoute({
   requireVerified = false,
   requireAdmin = false,
 }: ProtectedRouteProps) {
-  const { user, isAuthenticated, isVerified, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -49,7 +44,7 @@ export default function ProtectedRoute({
       }
 
       // Handle admin role requirements
-      if (requireAdmin && user?.role !== "admin") {
+      if (requireAdmin && !(user?.is_admin || user?.role === "admin")) {
         setIsRedirecting(true);
         toast({
           title: "Access denied",
@@ -59,24 +54,13 @@ export default function ProtectedRoute({
         setLocation("/dashboard");
         return;
       }
-
-      // Handle verification requirements
-      if (requireVerified && !isVerified) {
-        toast({
-          title: "Verification required",
-          description: "Please verify your email to access this page",
-          variant: "destructive",
-        });
-        // Still allow access but will show verification banner
-      }
     }
   }, [
     isLoading,
     isAuthenticated,
-    requireVerified,
-    isVerified,
     requireAdmin,
     user?.role,
+    user?.is_admin,
     isRedirecting,
     toast,
     setLocation,
@@ -93,10 +77,8 @@ export default function ProtectedRoute({
   }
 
   // Block access for non-admin users trying to access admin routes
-  if (requireAdmin && user?.role !== "admin") {
+  if (requireAdmin && !(user?.is_admin || user?.role === "admin")) {
     return <LoadingSpinner />;
   }
-
-  // Verification requirements disabled
   return <>{children}</>;
 }

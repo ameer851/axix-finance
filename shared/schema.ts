@@ -1,50 +1,87 @@
-import { pgTable, text, serial, integer, boolean, numeric, timestamp, pgEnum, jsonb } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
 export const roleEnum = pgEnum("role", ["user", "admin"]);
-export const transactionTypeEnum = pgEnum("transaction_type", ["deposit", "withdrawal", "transfer", "investment"]);
-export const transactionStatusEnum = pgEnum("transaction_status", ["pending", "completed", "rejected"]);
-export const logTypeEnum = pgEnum("log_type", ["info", "warning", "error", "audit"]);
-export const messageStatusEnum = pgEnum("message_status", ["unread", "read", "replied"]);
-export const notificationTypeEnum = pgEnum("notification_type", ["transaction", "account", "security", "marketing", "system", "verification"]);
-export const notificationPriorityEnum = pgEnum("notification_priority", ["low", "medium", "high"]);
+export const transactionTypeEnum = pgEnum("transaction_type", [
+  "deposit",
+  "withdrawal",
+  "transfer",
+  "investment",
+]);
+export const transactionStatusEnum = pgEnum("transaction_status", [
+  "pending",
+  "completed",
+  "rejected",
+]);
+export const logTypeEnum = pgEnum("log_type", [
+  "info",
+  "warning",
+  "error",
+  "audit",
+]);
+export const messageStatusEnum = pgEnum("message_status", [
+  "unread",
+  "read",
+  "replied",
+]);
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "transaction",
+  "account",
+  "security",
+  "marketing",
+  "system",
+  "verification",
+]);
+export const notificationPriorityEnum = pgEnum("notification_priority", [
+  "low",
+  "medium",
+  "high",
+]);
 
-// Users table
+// Users table - matches the actual database structure
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  uid: text("uid").notNull().unique(), // Auth user ID from Supabase Auth
   email: text("email").notNull().unique(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
+  full_name: text("full_name"),
+  is_admin: boolean("is_admin").default(false),
   role: text("role").notNull().default("user"),
-  balance: numeric("balance").notNull().default("0"),
-  isVerified: boolean("is_verified").default(true), // Users are verified by default
-  isActive: boolean("is_active").default(true), // Accounts are active by default
-  referredBy: integer("referred_by"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-  twoFactorEnabled: boolean("two_factor_enabled").default(false),
-  twoFactorSecret: text("two_factor_secret"),
-  verificationToken: text("verification_token"),
-  verificationTokenExpiry: timestamp("verification_token_expiry"),
-  passwordResetToken: text("password_reset_token"),
-  passwordResetTokenExpiry: timestamp("password_reset_token_expiry"),
-  pendingEmail: text("pending_email"),
-  // New wallet address fields
-  bitcoinAddress: text("bitcoin_address"),
-  bitcoinCashAddress: text("bitcoin_cash_address"),
-  ethereumAddress: text("ethereum_address"),
-  bnbAddress: text("bnb_address"),
-  usdtTrc20Address: text("usdt_trc20_address"),
 });
+
+// Zod schema for user validation
+export const insertUserSchema = createInsertSchema(users, {
+  email: z.string().email(),
+  role: z.enum(["user", "admin"]),
+  is_admin: z.boolean().optional(),
+  full_name: z.string().min(1).optional(),
+});
+
+export const selectUserSchema = insertUserSchema.extend({
+  id: z.number(),
+  uid: z.string(),
+});
+
+export type User = z.infer<typeof selectUserSchema>;
+export type NewUser = z.infer<typeof insertUserSchema>;
 
 // Transactions table
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   type: text("type").notNull(),
   amount: numeric("amount").notNull(),
   description: text("description"),
@@ -79,7 +116,9 @@ export const logs = pgTable("logs", {
 // Support messages table
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   subject: text("subject").notNull(),
   content: text("content").notNull(),
   status: text("status").notNull().default("unread"),
@@ -92,7 +131,9 @@ export const messages = pgTable("messages", {
 // Notifications table
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   type: text("type").notNull(),
   title: text("title").notNull(),
   message: text("message").notNull(),
@@ -139,35 +180,26 @@ export const settings = pgTable("settings", {
   updatedBy: integer("updated_by").references(() => users.id),
 });
 
-// Schemas for validation and type inference
-export const insertUserSchema = createInsertSchema(users).omit({ 
-  id: true, 
-  createdAt: true,
-  updatedAt: true,
-  balance: true,
-  isVerified: true,
-  isActive: true,
-  twoFactorEnabled: true,
-  twoFactorSecret: true,
-  referredBy: true,
-  bitcoinAddress: true,
-  bitcoinCashAddress: true,
-  ethereumAddress: true,
-  bnbAddress: true,
-  usdtTrc20Address: true
+// Additional user-related schemas for legacy code support
+export const legacyUserSchema = z.object({
+  id: z.number(),
+  email: z.string().email(),
+  role: z.enum(["user", "admin"]),
+  full_name: z.string().optional(),
+  is_admin: z.boolean().optional(),
 });
 
-export const insertTransactionSchema = createInsertSchema(transactions).omit({ 
-  id: true, 
+export const insertTransactionSchema = createInsertSchema(transactions).omit({
+  id: true,
   createdAt: true,
   updatedAt: true,
   processedBy: true,
-  rejectionReason: true
+  rejectionReason: true,
 });
 
 export const insertLogSchema = createInsertSchema(logs).omit({
   id: true,
-  createdAt: true
+  createdAt: true,
 });
 
 export const insertMessageSchema = createInsertSchema(messages).omit({
@@ -176,19 +208,19 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   updatedAt: true,
   status: true,
   respondedBy: true,
-  response: true
+  response: true,
 });
 
 export const insertSettingSchema = createInsertSchema(settings).omit({
   id: true,
   updatedAt: true,
-  updatedBy: true
+  updatedBy: true,
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
-  isRead: true
+  isRead: true,
 });
 
 // Types
@@ -210,12 +242,22 @@ export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
-export type TransactionType = "deposit" | "withdrawal" | "transfer" | "investment";
+export type TransactionType =
+  | "deposit"
+  | "withdrawal"
+  | "transfer"
+  | "investment";
 export type TransactionStatus = "pending" | "completed" | "rejected";
 export type LogType = "info" | "warning" | "error" | "audit";
 export type MessageStatus = "unread" | "read" | "replied";
 export type Role = "user" | "admin";
-export type NotificationType = "transaction" | "account" | "security" | "marketing" | "system" | "verification";
+export type NotificationType =
+  | "transaction"
+  | "account"
+  | "security"
+  | "marketing"
+  | "system"
+  | "verification";
 export type NotificationPriority = "low" | "medium" | "high";
 
 // Goal type for financial goals planning
@@ -229,8 +271,8 @@ export type Goal = {
   currentAmount: string;
   targetDate: string;
   category: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'active' | 'completed' | 'paused' | 'cancelled';
+  priority: "low" | "medium" | "high";
+  status: "active" | "completed" | "paused" | "cancelled";
   progress: number;
   createdAt: Date;
   updatedAt: Date;

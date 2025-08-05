@@ -26,6 +26,94 @@ interface ErrorResponse {
 
 // Admin service implementation
 export const adminService = {
+  deposits: {
+    getAll: async (
+      filters?: TransactionFilters
+    ): Promise<PaginatedResponse<Transaction>> => {
+      try {
+        const searchParams = filters
+          ? new URLSearchParams(
+              Object.entries(filters).map(([key, value]) => [
+                key,
+                String(value),
+              ])
+            )
+          : "";
+        const url = `/api/admin/deposits${searchParams ? `?${searchParams}` : ""}`;
+        const response = await apiRequest("GET", url);
+        return response.json();
+      } catch (error) {
+        console.error("Error fetching deposits:", error);
+        throw new Error("Failed to fetch deposits");
+      }
+    },
+    approve: async (depositId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/deposits/${depositId}/approve`
+      );
+      return response.json();
+    },
+    reject: async (depositId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/deposits/${depositId}/reject`
+      );
+      return response.json();
+    },
+    delete: async (depositId: string) => {
+      const response = await apiRequest(
+        "DELETE",
+        `/api/admin/deposits/${depositId}`
+      );
+      return response.json();
+    },
+  },
+
+  withdrawals: {
+    getAll: async (
+      filters?: TransactionFilters
+    ): Promise<PaginatedResponse<Transaction>> => {
+      try {
+        const searchParams = filters
+          ? new URLSearchParams(
+              Object.entries(filters).map(([key, value]) => [
+                key,
+                String(value),
+              ])
+            )
+          : "";
+        const url = `/api/admin/withdrawals${searchParams ? `?${searchParams}` : ""}`;
+        const response = await apiRequest("GET", url);
+        return response.json();
+      } catch (error) {
+        console.error("Error fetching withdrawals:", error);
+        throw new Error("Failed to fetch withdrawals");
+      }
+    },
+    approve: async (withdrawalId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/withdrawals/${withdrawalId}/approve`
+      );
+      return response.json();
+    },
+    reject: async (withdrawalId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/withdrawals/${withdrawalId}/reject`
+      );
+      return response.json();
+    },
+    delete: async (withdrawalId: string) => {
+      const response = await apiRequest(
+        "DELETE",
+        `/api/admin/withdrawals/${withdrawalId}`
+      );
+      return response.json();
+    },
+  },
+
   getDashboardStats: async (): Promise<AdminDashboardStats> => {
     try {
       const response = await apiRequest("GET", "/api/admin/dashboard");
@@ -37,7 +125,7 @@ export const adminService = {
           0
         ),
         totalUsers: data.usersCount,
-        activeUsers: data.usersCount, // We can refine this later
+        activeUsers: data.usersCount,
         totalTransactions: data.deposits.length + data.withdrawals.length,
         conversionRate:
           ((data.deposits.length / (data.visitorsCount || 1)) * 100).toFixed(

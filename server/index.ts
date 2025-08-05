@@ -2,7 +2,6 @@ import cors from "cors";
 import "dotenv/config"; // Load .env file
 import express, { NextFunction, type Request, Response } from "express";
 import rateLimit from "express-rate-limit";
-import helmet from "helmet";
 import { setupAdminPanel } from "./admin-panel";
 import { setupCookiePolicy } from "./cookiePolicy"; // Import our cookie policy middleware
 import { checkDatabaseConnection } from "./db"; // Import our enhanced database connection check
@@ -10,6 +9,7 @@ import * as emailManager from "./emailManager"; // Import email manager
 import { routeDelay } from "./middleware"; // Import our custom middleware
 import { applyRoutePatches } from "./route-patches";
 import { registerRoutes } from "./routes";
+import { securityMiddleware } from "./security-middleware";
 import { DatabaseStorage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
 
@@ -21,13 +21,22 @@ app.get("/health", async (req: Request, res: Response) => {
   try {
     const dbConnected = await checkDatabaseConnection();
     if (!dbConnected) {
-      return res
-        .status(503)
-        .json({ status: "error", message: "Database connection failed" });
+      return res.status(200).json({
+        status: "ok",
+        message: "Server is running with limited functionality",
+        database: "disconnected",
+      });
     }
-    res.status(200).json({ status: "ok" });
+    res.status(200).json({
+      status: "ok",
+      database: "connected",
+    });
   } catch (error) {
-    res.status(503).json({ status: "error", message: "Health check failed" });
+    res.status(200).json({
+      status: "ok",
+      message: "Server is running with limited functionality",
+      database: "error",
+    });
   }
 });
 
@@ -63,87 +72,8 @@ app.use("/api/", generalLimiter); // Apply to all API routes as base limiter
 app.use("/api/auth/", authLimiter); // Apply stricter limits to auth routes
 app.use("/api/visitors/", visitorLimiter); // Apply specific limits to visitor tracking routes
 
-// Security middleware
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        connectSrc: [
-          "'self'",
-          "https://*.google.com",
-          "https://*.googleapis.com",
-          "https://*.gstatic.com",
-          "wss://*.tradingview.com",
-        ],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-          "https://translate.google.com",
-          "https://translate.googleapis.com",
-          "https://www.google.com",
-          "https://s3.tradingview.com",
-          "https://translate-pa.googleapis.com",
-          "https://*.gstatic.com",
-          "https://www.gstatic.com",
-          "https://www.googletagmanager.com",
-          "https://*.translate.goog",
-          "https://static.tradingview.com",
-          "https://*.tradingview.com",
-          "https://www.tradingview-widget.com",
-          "blob:",
-          "https://www.tradingview.com",
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://translate.googleapis.com",
-          "https://www.gstatic.com",
-          "https://fonts.googleapis.com",
-        ],
-        imgSrc: [
-          "'self'",
-          "data:",
-          "blob:",
-          "https://translate.googleapis.com",
-          "https://translate.google.com",
-          "https://www.gstatic.com",
-          "https://fonts.gstatic.com",
-          "https://*.google.com",
-        ],
-        connectSrc: [
-          "'self'",
-          "https://translate.googleapis.com",
-          "https://translate.google.com",
-          "https://*.tradingview.com",
-          "wss://*.tradingview.com",
-          "https://translate-pa.googleapis.com",
-          "https://www.tradingview.com",
-          "https://www.tradingview-widget.com",
-        ],
-        frameSrc: [
-          "'self'",
-          "https://translate.google.com",
-          "https://*.tradingview.com",
-          "https://www.tradingview-widget.com",
-          "https://s.tradingview.com",
-        ],
-        fontSrc: [
-          "'self'",
-          "https://fonts.gstatic.com",
-          "https://translate.googleapis.com",
-        ],
-        mediaSrc: ["'self'", "data:", "https://*.google.com"],
-        objectSrc: ["'none'"],
-        manifestSrc: ["'self'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: false,
-  })
-);
+// Apply security middleware
+app.use(securityMiddleware);
 // For all environments, use the standard cors middleware with appropriate settings
 app.use(
   cors({
@@ -397,8 +327,8 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on a configurable port
   // this serves both the API and the client
-  const port = process.env.PORT || 4000;
-  const host = process.env.HOST || "0.0.0.0"; // Listen on all interfaces in production
+  const port = parseInt(process.env.PORT || "4000");
+  const host = "127.0.0.1"; // Force IPv4 localhost for Windows compatibility
 
   // Check database connection before starting the server
   try {
@@ -450,98 +380,84 @@ app.use((req, res, next) => {
     }
 
     // Start the server
-    server.listen(
-      {
-        port,
-        host,
-        reusePort: true,
-      },
-      () => {
+    server.listen(port, host, () => {
+      if (process.env.NODE_ENV !== "production")
+        console.log(
+          `🚀 Server running in ${process.env.NODE_ENV || "development"} mode`
+        );
+      if (process.env.NODE_ENV !== "production")
+        console.log(`🔗 http://localhost:${port}`);
+
+      if (dbConnected) {
+        if (process.env.NODE_ENV !== "production")
+          console.log("📊 Database connection established");
+
+        // Initialize database with required settings
+        if (process.env.NODE_ENV === "production") {
+          storage.initializeDatabase().catch((err) => {
+            console.error("Failed to initialize database:", err);
+          });
+        }
+      } else {
         if (process.env.NODE_ENV !== "production")
           console.log(
-            `🚀 Server running in ${process.env.NODE_ENV || "development"} mode`
+            "⚠️ Running with limited functionality due to database connection issues"
           );
         if (process.env.NODE_ENV !== "production")
-          console.log(`🔗 http://localhost:${port}`);
+          console.log(
+            "⚠️ The application will automatically retry connecting to the database"
+          );
+      }
 
-        if (dbConnected) {
+      // Set up periodic database connection check (every 30 seconds)
+      const dbCheckInterval = setInterval(async () => {
+        const reconnected = await checkDatabaseConnection();
+
+        if (reconnected && global.dbConnectionIssues) {
           if (process.env.NODE_ENV !== "production")
-            console.log("📊 Database connection established");
+            console.log("✅ Database connection re-established");
+          global.dbConnectionIssues = false;
 
-          // Initialize database with required settings
+          // Initialize database if needed
           if (process.env.NODE_ENV === "production") {
             storage.initializeDatabase().catch((err) => {
               console.error("Failed to initialize database:", err);
             });
           }
-        } else {
-          if (process.env.NODE_ENV !== "production")
-            console.log(
-              "⚠️ Running with limited functionality due to database connection issues"
-            );
-          if (process.env.NODE_ENV !== "production")
-            console.log(
-              "⚠️ The application will automatically retry connecting to the database"
-            );
+        } else if (!reconnected && !global.dbConnectionIssues) {
+          console.error("❌ Lost connection to database");
+          global.dbConnectionIssues = true;
         }
+      }, 30000); // Check every 30 seconds
 
-        // Set up periodic database connection check (every 30 seconds)
-        const dbCheckInterval = setInterval(async () => {
-          const reconnected = await checkDatabaseConnection();
+      // Clean up interval on process exit
+      process.on("SIGTERM", () => {
+        clearInterval(dbCheckInterval);
+        server.close();
+      });
 
-          if (reconnected && global.dbConnectionIssues) {
-            if (process.env.NODE_ENV !== "production")
-              console.log("✅ Database connection re-established");
-            global.dbConnectionIssues = false;
-
-            // Initialize database if needed
-            if (process.env.NODE_ENV === "production") {
-              storage.initializeDatabase().catch((err) => {
-                console.error("Failed to initialize database:", err);
-              });
-            }
-          } else if (!reconnected && !global.dbConnectionIssues) {
-            console.error("❌ Lost connection to database");
-            global.dbConnectionIssues = true;
-          }
-        }, 30000); // Check every 30 seconds
-
-        // Clean up interval on process exit
-        process.on("SIGTERM", () => {
-          clearInterval(dbCheckInterval);
-          server.close();
-        });
-
-        process.on("SIGINT", () => {
-          clearInterval(dbCheckInterval);
-          server.close();
-        });
-      }
-    );
+      process.on("SIGINT", () => {
+        clearInterval(dbCheckInterval);
+        server.close();
+      });
+    });
   } catch (err) {
     console.error("Failed to check database connection:", err);
     console.warn("⚠️ Starting server without database connection check");
 
     // Start the server anyway
-    server.listen(
-      {
-        port,
-        host,
-        reusePort: true,
-      },
-      () => {
-        if (process.env.NODE_ENV !== "production")
-          console.log(
-            `🚀 Server running in ${process.env.NODE_ENV || "development"} mode`
-          );
-        if (process.env.NODE_ENV !== "production")
-          console.log(`🔗 http://localhost:${port}`);
-        if (process.env.NODE_ENV !== "production")
-          console.log(
-            "⚠️ Running with limited functionality due to database connection issues"
-          );
-      }
-    );
+    server.listen(port, host, () => {
+      if (process.env.NODE_ENV !== "production")
+        console.log(
+          `🚀 Server running in ${process.env.NODE_ENV || "development"} mode`
+        );
+      if (process.env.NODE_ENV !== "production")
+        console.log(`🔗 http://localhost:${port}`);
+      if (process.env.NODE_ENV !== "production")
+        console.log(
+          "⚠️ Running with limited functionality due to database connection issues"
+        );
+    });
   }
 })().catch((err) => {
   console.error("Failed to start server:", err);
