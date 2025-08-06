@@ -22,4 +22,3 @@ args = "npm run dev"
 [[ports]]
 localPort = 4000
 externalPort = 6000
-exposeLocalhost = true
