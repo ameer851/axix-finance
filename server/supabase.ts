@@ -14,6 +14,17 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     autoRefreshToken: false,
     persistSession: false,
   },
+  global: {
+    fetch: (...args) => fetch(...args),
+    headers: { "x-application-name": "axix-finance" },
+  },
+  db: {
+    schema: "public",
+  },
+  // Add timeouts to prevent hanging requests
+  realtime: {
+    timeout: 10000,
+  },
 });
 
 // Database types for TypeScript
@@ -246,20 +257,69 @@ export interface Database {
 }
 
 // Test Supabase connection
-export async function testSupabaseConnection() {
-  try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("count")
-      .limit(1);
-    if (error) {
-      console.error("Supabase connection test failed:", error);
+export async function testSupabaseConnection(maxRetries = 3, delayMs = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `🔄 Testing Supabase connection (attempt ${attempt}/${maxRetries})`
+      );
+      console.log(`🔗 Using Supabase URL: ${supabaseUrl}`);
+
+      const startTime = Date.now();
+      const { data, error } = await supabase
+        .from("users")
+        .select("count")
+        .limit(1);
+      const endTime = Date.now();
+
+      if (error) {
+        console.error("❌ Supabase connection test failed:", {
+          error,
+          attempt,
+          responseTime: `${endTime - startTime}ms`,
+          url: supabaseUrl,
+          statusCode: error.code,
+          message: error.message,
+          details: error.details,
+        });
+
+        if (attempt < maxRetries) {
+          console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        return false;
+      }
+
+      console.log("✅ Supabase connection successful", {
+        attempt,
+        responseTime: `${endTime - startTime}ms`,
+        url: supabaseUrl,
+      });
+      return true;
+    } catch (error) {
+      const errorObj =
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            }
+          : { message: String(error) };
+
+      console.error("❌ Supabase connection test failed:", {
+        error: errorObj,
+        attempt,
+        url: supabaseUrl,
+      });
+
+      if (attempt < maxRetries) {
+        console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
       return false;
     }
-    console.log("✅ Supabase connection successful");
-    return true;
-  } catch (error) {
-    console.error("❌ Supabase connection test failed:", error);
-    return false;
   }
+  return false;
 }

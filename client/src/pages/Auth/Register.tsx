@@ -92,12 +92,12 @@ const Register: React.FC = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      // Extract only the fields we need for registration
       const { confirmPassword, confirmEmail, terms, ...registerData } = values;
-      // Set isVerified to true by default
-      registerData.isVerified = true;
 
       const result = await register({
+        ...registerData,
+        email: values.email,
+        password: values.password,
         ...registerData,
         role: "user",
       });

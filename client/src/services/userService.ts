@@ -1,9 +1,8 @@
+import { supabase } from "@/lib/supabase";
 import { Transaction, User } from "@shared/schema";
 
 // Define UserRole type since it's not in the schema
-type UserRole = "user" | "manager" | "support";
-
-import { apiRequest } from "@/lib/queryClient";
+type UserRole = "user" | "admin";
 
 export type UserFilters = {
   role?: UserRole;
@@ -20,29 +19,65 @@ export type UserFilters = {
  */
 export async function getCurrentUserProfile(): Promise<any> {
   try {
-    const response = await apiRequest("GET", "/profile");
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      return await response.json();
-    } else {
-      const text = await response.text();
-      throw new Error(`Unexpected response format: ${text}`);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Error getting auth user:", userError);
+      throw new Error(userError.message);
     }
+
+    if (!user) {
+      throw new Error("No authenticated user found");
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError);
+      throw new Error(profileError.message);
+    }
+
+    return {
+      ...profile,
+      transactions: {
+        deposits: await getUserTransactionStats(user.id, "deposit"),
+        withdrawals: await getUserTransactionStats(user.id, "withdrawal"),
+      },
+    };
   } catch (error: any) {
     console.error("Error fetching user profile:", error);
-    if (error.status === 403) {
-      throw new Error("You do not have permission to view this profile.");
-    } else if (error.status === 404) {
-      throw new Error("User not found.");
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error(
-        "Cannot connect to server. Please check your internet connection and try again."
-      );
-    }
-    throw new Error(
-      error.message || "Failed to fetch user profile. Please try again later."
-    );
+    throw error;
   }
+}
+
+async function getUserTransactionStats(
+  userId: string,
+  type: "deposit" | "withdrawal"
+) {
+  const { data, error, count } = await supabase
+    .from("transactions")
+    .select("*", { count: "exact" })
+    .eq("userId", userId)
+    .eq("type", type)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error(`Error fetching user ${type}s:`, error);
+    return { recent: [], total: 0 };
+  }
+
+  return {
+    recent: data || [],
+    total: count || 0,
+  };
 }
 
 /**

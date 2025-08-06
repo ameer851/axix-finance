@@ -187,7 +187,7 @@ export const dbHelpers = {
       .from("transactions")
       .select("*")
       .eq("userId", userId)
-      .order("createdAt", { ascending: false })
+      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     return { data, error };
   },
@@ -209,7 +209,7 @@ export const dbHelpers = {
       .from("notifications")
       .select("*")
       .eq("userId", userId)
-      .order("createdAt", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(limit);
     return { data, error };
   },

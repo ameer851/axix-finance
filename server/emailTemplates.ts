@@ -34,7 +34,12 @@ function generateDepositApprovalEmailHTML(
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
+        <h1 style="${COMMON_STYLES.headerText}">
+          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1754455551/Minimalist_Bank_Icon_Design_eogehs.png" 
+               alt="AxixFinance Icon" 
+               style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;" />
+          AxixFinance
+        </h1>
       </div>
       <div style="${COMMON_STYLES.body}">
         <h2>Deposit Approved!</h2>
@@ -69,7 +74,12 @@ function generateWelcomeEmailHTML(user: User): string {
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
+        <h1 style="${COMMON_STYLES.headerText}">
+          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1754455551/Minimalist_Bank_Icon_Design_eogehs.png" 
+               alt="AxixFinance Icon" 
+               style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;" />
+          AxixFinance
+        </h1>
       </div>
       <div style="${COMMON_STYLES.body}">
         <h2>Welcome to AxixFinance!</h2>
@@ -123,7 +133,12 @@ function generateDepositConfirmationEmailHTML(
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
+        <h1 style="${COMMON_STYLES.headerText}">
+          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1754455551/Minimalist_Bank_Icon_Design_eogehs.png" 
+               alt="AxixFinance Icon" 
+               style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;" />
+          AxixFinance
+        </h1>
       </div>
       <div style="${COMMON_STYLES.body}">
         <h2>Deposit Confirmation</h2>
@@ -169,7 +184,12 @@ function generateWithdrawalRequestEmailHTML(
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
+        <h1 style="${COMMON_STYLES.headerText}">
+          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1754455551/Minimalist_Bank_Icon_Design_eogehs.png" 
+               alt="AxixFinance Icon" 
+               style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;" />
+          AxixFinance
+        </h1>
       </div>
       <div style="${COMMON_STYLES.body}">
         <h2>Withdrawal Request Received</h2>
@@ -214,7 +234,12 @@ function generateWithdrawalConfirmationEmailHTML(
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
+        <h1 style="${COMMON_STYLES.headerText}">
+          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1754455551/Minimalist_Bank_Icon_Design_eogehs.png" 
+               alt="AxixFinance Icon" 
+               style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;" />
+          AxixFinance
+        </h1>
       </div>
       <div style="${COMMON_STYLES.body}">
         <h2>Withdrawal Processed Successfully</h2>
@@ -249,122 +274,9 @@ function generateWithdrawalConfirmationEmailHTML(
   `;
 }
 
-function generateNotificationEmailHTML(
-  user: User,
-  subject: string,
-  message: string,
-  buttonText?: string,
-  buttonUrl?: string
-): string {
-  return `
-    <div style="${COMMON_STYLES.container}">
-      <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
-      </div>
-      <div style="${COMMON_STYLES.body}">
-        <h2>${subject}</h2>
-        <p>Hello ${user.firstName || user.username},</p>
-        <div style="margin: 20px 0;">
-          ${message}
-        </div>
-        ${
-          buttonUrl && buttonText
-            ? `
-          <div style="text-align: center; margin: 30px 0; padding: 12px 24px;">
-            <a href="${buttonUrl}" style="${COMMON_STYLES.button}">
-              ${buttonText}
-            </a>
-          </div>
-        `
-            : ""
-        }
-        <p>Best regards,<br>The AxixFinance Team</p>
-      </div>
-      <div style="${COMMON_STYLES.footer}">
-        <p>© ${new Date().getFullYear()} AxixFinance. All rights reserved.</p>
-        <p>This is an automated email, please do not reply.</p>
-      </div>
-    </div>
-  `;
-}
-
-function generateVerificationEmailHTML(
-  user: User,
-  verificationUrl: string
-): string {
-  return `
-    <div style="${COMMON_STYLES.container}">
-      <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
-      </div>
-      <div style="${COMMON_STYLES.body}">
-        <h2>Verify Your Email Address</h2>
-        <p>Hello ${user.firstName || user.username},</p>
-        <p>Thank you for creating an account with AxixFinance. Please click the button below to verify your email address:</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1753823823/ChatGPT_Image_Jul_23_2025_05_18_19_PM_sfaaml.png" 
-               alt="AxixFinance" 
-               style="max-width: 300px; width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px;" />
-        </div>
-        
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${verificationUrl}" style="${COMMON_STYLES.button}">
-            Verify Email Address
-          </a>
-        </p>
-        <p>If you didn't create an account with AxixFinance, you can safely ignore this email.</p>
-        <p>For security reasons, this verification link will expire in 24 hours.</p>
-        <p>Best regards,<br>The AxixFinance Team</p>
-      </div>
-      <div style="${COMMON_STYLES.footer}">
-        <p>© ${new Date().getFullYear()} AxixFinance. All rights reserved.</p>
-        <p>This is an automated email, please do not reply.</p>
-      </div>
-    </div>
-  `;
-}
-
-function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
-  return `
-    <div style="${COMMON_STYLES.container}">
-      <div style="${COMMON_STYLES.header}">
-        <h1 style="${COMMON_STYLES.headerText}">AxixFinance</h1>
-      </div>
-      <div style="${COMMON_STYLES.body}">
-        <h2>Reset Your Password</h2>
-        <p>Hello ${user.firstName || user.username},</p>
-        <p>We received a request to reset your password. Click the button below to create a new password:</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <img src="https://res.cloudinary.com/dtgipp43e/image/upload/v1753823823/ChatGPT_Image_Jul_23_2025_05_18_19_PM_sfaaml.png" 
-               alt="AxixFinance" 
-               style="max-width: 300px; width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px;" />
-        </div>
-        
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}" style="${COMMON_STYLES.button}">
-            Reset Password
-          </a>
-        </p>
-        <p>If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
-        <p>For security reasons, this password reset link will expire in 1 hour.</p>
-        <p>Best regards,<br>The AxixFinance Team</p>
-      </div>
-      <div style="${COMMON_STYLES.footer}">
-        <p>© ${new Date().getFullYear()} AxixFinance. All rights reserved.</p>
-        <p>This is an automated email, please do not reply.</p>
-      </div>
-    </div>
-  `;
-}
-
 export {
   generateDepositApprovalEmailHTML,
   generateDepositConfirmationEmailHTML,
-  generateNotificationEmailHTML,
-  generatePasswordResetEmailHTML,
-  generateVerificationEmailHTML,
   generateWelcomeEmailHTML,
   generateWithdrawalConfirmationEmailHTML,
   generateWithdrawalRequestEmailHTML,

@@ -13,9 +13,11 @@ import {
 import { handleEmailChange } from "./emailChangeService";
 import {
   sendDepositApprovedEmail,
+  sendDepositSuccessEmail,
   sendWelcomeEmail,
   sendWithdrawalApprovedEmail,
-} from "./emailManager";
+  sendWithdrawalRequestEmail,
+} from "./emailService";
 import { sendTestEmail } from "./emailTestingService";
 import { setupAdminPanel } from "./fixed-admin-panel";
 import logRoutes from "./logRoutes";
@@ -226,7 +228,7 @@ router.post("/send-welcome-email", async (req, res) => {
       id: 0, // Not needed for email template
       uid: "temp-uid", // Not needed for email template
       email,
-      full_name: `${firstName || ""} ${lastName || ""}`.trim() || "User",
+      full_name: full_name || "User",
       role: "user",
       is_admin: false,
     };
@@ -247,9 +249,9 @@ router.post("/send-welcome-email", async (req, res) => {
 });
 
 // Simple admin routes that work with Supabase directly
-router.get("/admin/users-simple", async (req, res) => {
+router.get("/admin/users-simple", requireAdminRole, async (req, res) => {
   try {
-    // For now, allow all requests - in production you'd verify admin role
+    // Admin role verified by middleware
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -274,38 +276,48 @@ router.get("/admin/users-simple", async (req, res) => {
 });
 
 // Simple visitor stats endpoints
-router.get("/admin/visitors/active-simple", async (req, res) => {
-  try {
-    // Return mock data for now - in production you'd query your visitor tracking system
-    return res.status(200).json({
-      visitors: [],
-      count: 0,
-    });
-  } catch (error) {
-    console.error("Active visitors fetch error:", error);
-    return res.status(500).json({ message: "Failed to fetch active visitors" });
+router.get(
+  "/admin/visitors/active-simple",
+  requireAdminRole,
+  async (req, res) => {
+    try {
+      // Return mock data for now - in production you'd query your visitor tracking system
+      return res.status(200).json({
+        visitors: [],
+        count: 0,
+      });
+    } catch (error) {
+      console.error("Active visitors fetch error:", error);
+      return res
+        .status(500)
+        .json({ message: "Failed to fetch active visitors" });
+    }
   }
-});
+);
 
-router.get("/admin/visitors/stats-simple", async (req, res) => {
-  try {
-    // Return mock stats for now - in production you'd query your analytics
-    return res.status(200).json({
-      totalVisitors: 0,
-      activeVisitors: 0,
-      pageViews: 0,
-      bounceRate: 0,
-      avgSessionDuration: 0,
-      topPages: [],
-    });
-  } catch (error) {
-    console.error("Visitor stats fetch error:", error);
-    return res.status(500).json({ message: "Failed to fetch visitor stats" });
+router.get(
+  "/admin/visitors/stats-simple",
+  requireAdminRole,
+  async (req, res) => {
+    try {
+      // Return mock stats for now - in production you'd query your analytics
+      return res.status(200).json({
+        totalVisitors: 0,
+        activeVisitors: 0,
+        pageViews: 0,
+        bounceRate: 0,
+        avgSessionDuration: 0,
+        topPages: [],
+      });
+    } catch (error) {
+      console.error("Visitor stats fetch error:", error);
+      return res.status(500).json({ message: "Failed to fetch visitor stats" });
+    }
   }
-});
+);
 
 // Simple admin deposits endpoint
-router.get("/admin/deposits-simple", async (req, res) => {
+router.get("/admin/deposits-simple", requireAdminRole, async (req, res) => {
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -340,7 +352,7 @@ router.get("/admin/deposits-simple", async (req, res) => {
 });
 
 // Simple admin withdrawals endpoint
-router.get("/admin/transactions", async (req, res) => {
+router.get("/admin/transactions", requireAdminRole, async (req, res) => {
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -405,7 +417,7 @@ router.get("/admin/transactions", async (req, res) => {
 });
 
 // Simple admin stats endpoint
-router.get("/admin/stats-simple", async (req, res) => {
+router.get("/admin/stats-simple", requireAdminRole, async (req, res) => {
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -504,7 +516,7 @@ router.get("/admin/stats-simple", async (req, res) => {
 });
 
 // Simple audit logs endpoint
-router.get("/admin/audit-simple", async (req, res) => {
+router.get("/admin/audit-simple", requireAdminRole, async (req, res) => {
   try {
     // Return mock audit data for now
     return res.status(200).json({
@@ -802,6 +814,7 @@ router.post("/transactions", async (req: Request, res: Response) => {
       walletAddress,
       transactionHash,
       planName,
+      userId,
     } = req.body;
 
     if (!type || !amount) {
@@ -810,10 +823,72 @@ router.post("/transactions", async (req: Request, res: Response) => {
         .json({ message: "Transaction type and amount are required" });
     }
 
-    // For now, return mock transaction data
+    // If this is a withdrawal, create it in the database and send email
+    if (type === "withdrawal" && req.user?.id) {
+      const actualUserId = userId || req.user.id;
+
+      // Create the withdrawal transaction
+      const transaction = await storage.createTransaction({
+        userId: actualUserId,
+        type: "withdrawal",
+        amount: amount.toString(),
+        status: "pending",
+        description:
+          description || `Withdrawal of $${amount} via ${cryptoType}`,
+        cryptoType: cryptoType || null,
+        walletAddress: walletAddress || null,
+        transactionHash: transactionHash || null,
+        destination: walletAddress || null,
+      });
+
+      // Create notification for the user
+      await storage.createNotification({
+        userId: actualUserId,
+        type: "transaction",
+        title: "Withdrawal Request Submitted",
+        message: `Your withdrawal request of $${amount.toLocaleString()} has been submitted and is pending approval.`,
+        relatedEntityType: "transaction",
+        relatedEntityId: transaction.id,
+      });
+
+      // Send withdrawal request email
+      try {
+        await sendWithdrawalRequestEmail(
+          req.user as any,
+          amount.toString(),
+          req.ip || "Unknown"
+        );
+        console.log(`📧 Withdrawal request email sent to ${req.user?.email}`);
+      } catch (emailError) {
+        console.error("Failed to send withdrawal request email:", emailError);
+        // Don't fail the transaction if email fails
+      }
+
+      // Log the withdrawal request for audit trail
+      await storage.createLog({
+        type: "audit",
+        message: `User requested withdrawal of $${amount} via ${cryptoType}`,
+        details: {
+          userId: actualUserId,
+          amount,
+          cryptoType,
+          walletAddress,
+          transactionId: transaction.id,
+        },
+        userId: actualUserId,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Withdrawal request submitted successfully",
+        transaction: transaction,
+      });
+    }
+
+    // For deposits and other types, return mock data for now
     const mockTransaction = {
       id: Date.now(),
-      userId: 1,
+      userId: userId || 1,
       type,
       amount: amount.toString(),
       status: "pending",
@@ -3781,6 +3856,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           userId: userId,
         });
+
+        // Send deposit success email
+        try {
+          await sendDepositSuccessEmail(
+            req.user as any,
+            amount.toString(),
+            planName
+          );
+          console.log(`📧 Deposit success email sent to ${req.user?.email}`);
+        } catch (emailError) {
+          console.error("Failed to send deposit success email:", emailError);
+          // Don't fail the transaction if email fails
+        }
 
         res.status(200).json({
           success: true,

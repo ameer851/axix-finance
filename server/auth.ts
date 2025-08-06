@@ -671,7 +671,15 @@ export function setupAuth(app: Express) {
       if (err) {
         return res.status(500).json({ message: "Logout failed" });
       }
-      res.status(200).json({ message: "Logged out successfully" });
+      req.session.destroy((err) => {
+        if (err) {
+          return res
+            .status(500)
+            .json({ message: "Session destruction failed" });
+        }
+        res.clearCookie("connect.sid"); // or your session cookie name if different
+        res.status(200).json({ message: "Logged out successfully" });
+      });
     });
   });
 

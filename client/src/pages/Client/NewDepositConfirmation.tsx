@@ -1,23 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  CheckCircle2, 
-  Copy, 
-  ExternalLink, 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
   AlertCircle,
   ArrowLeft,
-  Wallet,
+  CheckCircle2,
+  Copy,
+  RefreshCw,
   Send,
-  RefreshCw
-} from 'lucide-react';
+  Wallet,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 interface DepositDetails {
   amount: string;
@@ -28,25 +27,31 @@ interface DepositDetails {
 }
 
 // API function for submitting deposit confirmation
-const submitDepositConfirmation = async (userId: number, confirmationData: any) => {
-  console.log('🔍 Submitting deposit confirmation for user:', userId);
-  console.log('📦 Confirmation data:', confirmationData);
-  
+const submitDepositConfirmation = async (
+  userId: number,
+  confirmationData: any
+) => {
+  console.log("🔍 Submitting deposit confirmation for user:", userId);
+  console.log("📦 Confirmation data:", confirmationData);
+
   try {
-    const response = await fetch('/api/transactions/deposit/confirm', {
-      method: 'POST',
+    const response = await fetch("/api/transactions/deposit/confirm", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include',
+      credentials: "include",
       body: JSON.stringify({
         userId,
-        ...confirmationData
-      })
+        ...confirmationData,
+      }),
     });
 
-    console.log('📡 Response status:', response.status);
-    console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+    console.log("📡 Response status:", response.status);
+    console.log(
+      "📡 Response headers:",
+      Object.fromEntries(response.headers.entries())
+    );
 
     if (!response.ok) {
       // Try to get error message from response
@@ -54,58 +59,62 @@ const submitDepositConfirmation = async (userId: number, confirmationData: any) 
       let errorData;
       try {
         const responseText = await response.text();
-        console.log('❌ Raw error response:', responseText);
-        
+        console.log("❌ Raw error response:", responseText);
+
         // Try to parse as JSON first
         try {
           errorData = JSON.parse(responseText);
           errorMessage = errorData.message;
-          console.log('❌ Parsed error data:', errorData);
+          console.log("❌ Parsed error data:", errorData);
         } catch (jsonError) {
           // If not JSON, it might be HTML - extract useful info
-          console.log('❌ Response is not JSON, might be HTML');
+          console.log("❌ Response is not JSON, might be HTML");
           errorMessage = `Server returned HTML instead of JSON (status: ${response.status})`;
-          
+
           // Try to extract title or error message from HTML
           const titleMatch = responseText.match(/<title>(.*?)<\/title>/i);
           if (titleMatch) {
-            console.log('❌ HTML title found:', titleMatch[1]);
+            console.log("❌ HTML title found:", titleMatch[1]);
             errorMessage += ` - ${titleMatch[1]}`;
           }
         }
       } catch (e) {
         errorMessage = `Request failed with status: ${response.status}`;
-        console.log('❌ Failed to read error response:', e);
+        console.log("❌ Failed to read error response:", e);
       }
 
       // Handle specific error status codes
       if (response.status === 401) {
-        throw new Error('Authentication failed. Please log in again.');
+        throw new Error("Authentication failed. Please log in again.");
       } else if (response.status === 403) {
-        throw new Error('Access denied. Please verify your account.');
+        throw new Error("Access denied. Please verify your account.");
       } else if (response.status === 404) {
-        throw new Error('API endpoint not found. Please contact support.');
+        throw new Error("API endpoint not found. Please contact support.");
       }
-      
-      throw new Error(errorMessage || `Request failed with status: ${response.status}`);
+
+      throw new Error(
+        errorMessage || `Request failed with status: ${response.status}`
+      );
     }
 
     // Parse successful response
     try {
       const result = await response.json();
-      console.log('✅ Success response:', result);
+      console.log("✅ Success response:", result);
       return result;
     } catch (parseError) {
-      console.log('❌ Failed to parse success response as JSON:', parseError);
+      console.log("❌ Failed to parse success response as JSON:", parseError);
       const responseText = await response.text();
-      console.log('❌ Raw success response:', responseText);
-      throw new Error('Server returned invalid JSON response');
+      console.log("❌ Raw success response:", responseText);
+      throw new Error("Server returned invalid JSON response");
     }
   } catch (error: any) {
-    console.log('💥 API call error:', error);
+    console.log("💥 API call error:", error);
     // Handle network errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Network error. Please check your connection and try again.');
+    if (error.name === "TypeError" && error.message.includes("fetch")) {
+      throw new Error(
+        "Network error. Please check your connection and try again."
+      );
     }
     throw error;
   }
@@ -116,114 +125,139 @@ const NewDepositConfirmation: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  
-  const [transactionHash, setTransactionHash] = useState('');
+
+  const [transactionHash, setTransactionHash] = useState("");
   const [copiedAddress, setCopiedAddress] = useState(false);
 
   // Get deposit details from localStorage
-  const depositDetailsString = localStorage.getItem('depositDetails');
-  const depositDetails: DepositDetails | null = depositDetailsString ? JSON.parse(depositDetailsString) : null;
+  const depositDetailsString = localStorage.getItem("depositDetails");
+  const depositDetails: DepositDetails | null = depositDetailsString
+    ? JSON.parse(depositDetailsString)
+    : null;
 
   // Redirect if no deposit details
   useEffect(() => {
     if (!depositDetails) {
-      setLocation('/client/deposit');
+      setLocation("/client/deposit");
     }
   }, [depositDetails, setLocation]);
 
   // Submit confirmation mutation
   const confirmationMutation = useMutation({
-    mutationFn: async (data: { transactionHash: string; depositDetails: DepositDetails }) => {
-      console.log('🚀 Starting deposit confirmation mutation');
-      console.log('👤 Current user:', user);
-      console.log('💾 Deposit details:', data.depositDetails);
-      console.log('🔗 Transaction hash:', data.transactionHash);
-      
+    mutationFn: async (data: {
+      transactionHash: string;
+      depositDetails: DepositDetails;
+    }) => {
+      console.log("🚀 Starting deposit confirmation mutation");
+      console.log("👤 Current user:", user);
+      console.log("💾 Deposit details:", data.depositDetails);
+      console.log("🔗 Transaction hash:", data.transactionHash);
+
       // Ensure user is authenticated
       if (!user?.id) {
-        console.log('❌ No user ID available');
-        throw new Error('User not authenticated. Please log in again.');
+        console.log("❌ No user ID available");
+        throw new Error("User not authenticated. Please log in again.");
       }
-      
+
       const payload = {
         transactionHash: data.transactionHash,
         amount: data.depositDetails.amount,
         selectedPlan: data.depositDetails.selectedPlan,
         selectedMethod: data.depositDetails.selectedMethod,
         walletAddress: data.depositDetails.walletAddress,
-        planName: data.depositDetails.planName
+        planName: data.depositDetails.planName,
       };
-      
-      console.log('📦 Final payload:', payload);
+
+      console.log("📦 Final payload:", payload);
       return await submitDepositConfirmation(user.id, payload);
     },
     onSuccess: (data) => {
-      // Clear localStorage
-      localStorage.removeItem('depositDetails');
-      
+      // Store thank you data in localStorage for the dashboard thank you message
+      const thankYouData = {
+        transactionId: data.transactionId || Date.now(),
+        amount: depositDetails?.amount || "0",
+        crypto: depositDetails?.selectedMethod || "bitcoin",
+        transactionHash: transactionHash,
+        planName: depositDetails?.planName || "Investment Plan",
+        timestamp: Date.now(),
+      };
+      localStorage.setItem("depositThankYou", JSON.stringify(thankYouData));
+
+      // Clear deposit details from localStorage
+      localStorage.removeItem("depositDetails");
+
       // Invalidate relevant queries
-  queryClient.invalidateQueries({ queryKey: ['userBalance', user?.id] });
-  queryClient.invalidateQueries({ queryKey: ['userTransactions', user?.id] });
-      
-      toast({
-        title: 'Deposit Submitted Successfully',
-        description: 'Your deposit confirmation has been submitted for admin review.',
+      queryClient.invalidateQueries({ queryKey: ["userBalance", user?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["userTransactions", user?.id],
       });
-      
-      // Redirect to dashboard after success
+
+      // Show success toast
+      toast({
+        title: "Deposit Submitted Successfully! 🎉",
+        description:
+          "Your deposit confirmation has been submitted for admin review. Thank you!",
+      });
+
+      // Redirect to dashboard
       setTimeout(() => {
-        setLocation('/dashboard');
-      }, 2000);
+        setLocation("/client/dashboard");
+      }, 1500);
     },
     onError: (error: any) => {
       // Handle authentication errors specifically
-      if (error.message.includes('Authentication failed') || error.message.includes('log in again')) {
+      if (
+        error.message.includes("Authentication failed") ||
+        error.message.includes("log in again")
+      ) {
         // Clear localStorage and redirect to login
-        localStorage.removeItem('user');
-        localStorage.removeItem('depositDetails');
+        localStorage.removeItem("user");
+        localStorage.removeItem("depositDetails");
         toast({
-          title: 'Session Expired',
-          description: 'Your session has expired. Please log in again.',
-          variant: 'destructive'
+          title: "Session Expired",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
         });
         setTimeout(() => {
-          setLocation('/login');
+          setLocation("/login");
         }, 2000);
         return;
       }
-      
+
       toast({
-        title: 'Submission Failed',
-        description: error.message || 'There was an error submitting your deposit confirmation.',
-        variant: 'destructive'
+        title: "Submission Failed",
+        description:
+          error.message ||
+          "There was an error submitting your deposit confirmation.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleSubmitConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!transactionHash.trim()) {
       toast({
-        title: 'Transaction Hash Required',
-        description: 'Please enter your transaction hash.',
-        variant: 'destructive'
+        title: "Transaction Hash Required",
+        description: "Please enter your transaction hash.",
+        variant: "destructive",
       });
       return;
     }
 
     if (!depositDetails) {
       toast({
-        title: 'Invalid Deposit',
-        description: 'Deposit details not found. Please start a new deposit.',
-        variant: 'destructive'
+        title: "Invalid Deposit",
+        description: "Deposit details not found. Please start a new deposit.",
+        variant: "destructive",
       });
       return;
     }
 
     confirmationMutation.mutate({
       transactionHash: transactionHash.trim(),
-      depositDetails
+      depositDetails,
     });
   };
 
@@ -233,22 +267,22 @@ const NewDepositConfirmation: React.FC = () => {
         await navigator.clipboard.writeText(depositDetails.walletAddress);
         setCopiedAddress(true);
         toast({
-          title: 'Address Copied',
-          description: 'Wallet address copied to clipboard.',
+          title: "Address Copied",
+          description: "Wallet address copied to clipboard.",
         });
         setTimeout(() => setCopiedAddress(false), 3000);
       } catch (error) {
         toast({
-          title: 'Copy Failed',
-          description: 'Failed to copy address to clipboard.',
-          variant: 'destructive'
+          title: "Copy Failed",
+          description: "Failed to copy address to clipboard.",
+          variant: "destructive",
         });
       }
     }
   };
 
   const handleGoBack = () => {
-    setLocation('/client/deposit');
+    setLocation("/client/deposit");
   };
 
   if (!depositDetails) {
@@ -257,9 +291,13 @@ const NewDepositConfirmation: React.FC = () => {
         <Card>
           <CardContent className="text-center py-8">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Deposit Details Found</h3>
-            <p className="text-gray-500 mb-4">Please start a new deposit process.</p>
-            <Button onClick={() => setLocation('/client/deposit')}>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Deposit Details Found
+            </h3>
+            <p className="text-gray-500 mb-4">
+              Please start a new deposit process.
+            </p>
+            <Button onClick={() => setLocation("/client/deposit")}>
               Go to Deposit
             </Button>
           </CardContent>
@@ -281,7 +319,8 @@ const NewDepositConfirmation: React.FC = () => {
           Confirm Your Deposit
         </h1>
         <p className="text-gray-600 mt-2">
-          Please send the payment and submit your transaction hash for verification.
+          Please send the payment and submit your transaction hash for
+          verification.
         </p>
       </div>
 
@@ -302,14 +341,18 @@ const NewDepositConfirmation: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Amount</p>
-                <p className="font-semibold text-green-600">${depositDetails.amount}</p>
+                <p className="font-semibold text-green-600">
+                  ${depositDetails.amount}
+                </p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-500">Payment Method</p>
-                <p className="font-semibold capitalize">{depositDetails.selectedMethod}</p>
+                <p className="font-semibold capitalize">
+                  {depositDetails.selectedMethod}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Status</p>
@@ -335,10 +378,21 @@ const NewDepositConfirmation: React.FC = () => {
                 <div className="text-sm text-blue-800">
                   <p className="font-medium mb-1">Important Instructions:</p>
                   <ul className="space-y-1 text-xs">
-                    <li>1. Send exactly <strong>${depositDetails.amount}</strong> to the wallet address below</li>
-                    <li>2. Use the <strong>{depositDetails.selectedMethod.toUpperCase()}</strong> network only</li>
+                    <li>
+                      1. Send exactly <strong>${depositDetails.amount}</strong>{" "}
+                      to the wallet address below
+                    </li>
+                    <li>
+                      2. Use the{" "}
+                      <strong>
+                        {depositDetails.selectedMethod.toUpperCase()}
+                      </strong>{" "}
+                      network only
+                    </li>
                     <li>3. Copy the transaction hash after sending</li>
-                    <li>4. Submit the transaction hash below for verification</li>
+                    <li>
+                      4. Submit the transaction hash below for verification
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -354,9 +408,9 @@ const NewDepositConfirmation: React.FC = () => {
                   readOnly
                   className="font-mono text-sm"
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={handleCopyAddress}
                   className="shrink-0"
                 >
@@ -371,8 +425,10 @@ const NewDepositConfirmation: React.FC = () => {
 
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                <strong>Note:</strong> Send only {depositDetails.selectedMethod.toUpperCase()} to this address. 
-                Sending any other cryptocurrency will result in permanent loss of funds.
+                <strong>Note:</strong> Send only{" "}
+                {depositDetails.selectedMethod.toUpperCase()} to this address.
+                Sending any other cryptocurrency will result in permanent loss
+                of funds.
               </p>
             </div>
           </div>
@@ -387,9 +443,7 @@ const NewDepositConfirmation: React.FC = () => {
         <CardContent>
           <form onSubmit={handleSubmitConfirmation} className="space-y-6">
             <div>
-              <Label htmlFor="transactionHash">
-                Transaction Hash / TXID
-              </Label>
+              <Label htmlFor="transactionHash">Transaction Hash / TXID</Label>
               <Input
                 id="transactionHash"
                 placeholder="Enter your transaction hash"
@@ -418,12 +472,15 @@ const NewDepositConfirmation: React.FC = () => {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full h-12 text-lg"
-              disabled={!transactionHash.trim() || confirmationMutation.status === 'pending'}
+              disabled={
+                !transactionHash.trim() ||
+                confirmationMutation.status === "pending"
+              }
             >
-              {confirmationMutation.status === 'pending' ? (
+              {confirmationMutation.status === "pending" ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                   Submitting...
@@ -441,7 +498,8 @@ const NewDepositConfirmation: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                   <p className="text-sm text-green-800 font-medium">
-                    Deposit confirmation submitted successfully! Redirecting to dashboard...
+                    Deposit confirmation submitted successfully! Redirecting to
+                    dashboard...
                   </p>
                 </div>
               </div>

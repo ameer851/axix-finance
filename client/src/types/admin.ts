@@ -1,15 +1,24 @@
 export interface AdminDashboardStats {
-  users: {
+  totalUsers: number;
+  activeUsers: number;
+  transactionVolume: number;
+  totalTransactions: number;
+  deposits: {
     total: number;
-    pendingVerification: number;
+    pending: number;
+    approved: number;
+    thisMonth: number;
   };
-  transactions: {
-    pendingDeposits: number;
-    pendingWithdrawals: number;
-    totalDeposits: number;
-    totalWithdrawals: number;
-    profit: number;
+  withdrawals: {
+    total: number;
+    pending: number;
+    approved: number;
+    thisMonth: number;
   };
+  totalDeposits: number;
+  totalWithdrawals: number;
+  pendingTransactions: number;
+  conversionRate: string;
 }
 
 export interface SystemHealth {
@@ -83,4 +92,6 @@ export interface TransactionFilters {
   type?: "deposit" | "withdrawal" | "transfer" | "investment";
   dateFrom?: string;
   dateTo?: string;
+  amountMin?: number;
+  amountMax?: number;
 }

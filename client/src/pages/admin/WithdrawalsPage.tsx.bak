@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   Check,
   CheckCircle,
   Clock,
   DollarSign,
   Trash2,
-  TrendingUp,
+  TrendingDown,
   X,
   XCircle,
 } from "lucide-react";
@@ -21,13 +22,12 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { toast } from "../../hooks/use-toast";
-import { adminQueryConfig } from "../../lib/adminQueryConfig";
 import { adminService } from "../../services/adminService";
 
-export default function DepositsPage() {
-  const [selectedDeposits, setSelectedDeposits] = useState<string[]>([]);
+export default function WithdrawalsPage() {
+  const [selectedWithdrawals, setSelectedWithdrawals] = useState<string[]>([]);
   const [filters, setFilters] = useState({
-    status: "",
+    status: "pending", // Default to showing pending withdrawals
     dateFrom: "",
     dateTo: "",
     amountMin: "",
@@ -36,179 +36,247 @@ export default function DepositsPage() {
   const queryClient = useQueryClient();
 
   const {
-    data: depositsData,
+    data: withdrawalsResponse,
     isLoading,
+    isError,
     error,
   } = useQuery({
-    queryKey: ["admin-deposits", filters],
+    queryKey: ["admin-withdrawals", filters],
     queryFn: async () => {
-      // Convert string amounts to numbers for the API
-      const apiFilters = {
-        ...filters,
-        amountMin: filters.amountMin
-          ? parseFloat(filters.amountMin)
-          : undefined,
-        amountMax: filters.amountMax
-          ? parseFloat(filters.amountMax)
-          : undefined,
-      };
-      return await adminService.deposits.getAll(apiFilters);
-    },
-    staleTime: 15000, // 15 seconds
-    refetchInterval: 30000, // Refetch every 30 seconds
-    retry: (failureCount, error: any) => {
-      // Don't retry on specific errors
-      if (
-        error?.message?.includes("Rate limit exceeded") ||
-        error?.message?.includes("429") ||
-        error?.message?.includes("Invalid response format") ||
-        error?.message?.includes("JSON.parse")
-      ) {
-        return false;
+      try {
+        // Create a fake withdrawal for testing if needed
+        // This is just for demonstration - remove in production
+        try {
+          const testWithdrawal = await adminService.createTestWithdrawal();
+          console.log("Created test withdrawal:", testWithdrawal);
+        } catch (testErr) {
+          console.warn("Failed to create test withdrawal:", testErr);
+        }
+
+        const result = await adminService.withdrawals.getAll({
+          ...filters,
+        });
+        console.log("Withdrawal API response:", result);
+        return result;
+      } catch (err) {
+        console.error("Error fetching withdrawals:", err);
+        throw err;
       }
-      return failureCount < 2;
     },
   });
 
-  React.useEffect(() => {
-    if (error) {
-      let errorMessage = "Failed to fetch deposits. Please try again.";
-      if (error && typeof error === "object" && "message" in error) {
-        if (error.message?.includes("Rate limit exceeded")) {
-          errorMessage = error.message;
-        } else if (error.message?.includes("429")) {
-          errorMessage =
-            "Too many requests. Please wait a moment before refreshing.";
-        } else if (error.message?.includes("Invalid response format")) {
-          errorMessage =
-            "Server returned invalid data. Please refresh the page.";
-        } else if (error.message?.includes("JSON.parse")) {
-          errorMessage = "Unable to process server response. Please try again.";
-        }
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
-    }
-  }, [error]);
+  // Extract withdrawals array from the response object, handling all possible structures
+  // Extract and process withdrawals from the API response
+  const withdrawals = React.useMemo(() => {
+    console.log("Processing withdrawals response:", withdrawalsResponse);
 
-  const deposits = Array.isArray(depositsData?.data) ? depositsData.data : [];
-  const totalPages = depositsData?.pagination?.pages || 1;
-  const currentPage = depositsData?.pagination?.page || 1;
-  const totalDeposits = depositsData?.pagination?.total || 0;
+    if (!withdrawalsResponse) return [];
+
+    // If it's directly an array
+    if (Array.isArray(withdrawalsResponse)) {
+      console.log("Direct array of withdrawals:", withdrawalsResponse.length);
+      return withdrawalsResponse;
+    }
+
+    // If it has a withdrawals property (most likely scenario)
+    if (
+      withdrawalsResponse.withdrawals &&
+      Array.isArray(withdrawalsResponse.withdrawals)
+    ) {
+      console.log(
+        "Found withdrawals property:",
+        withdrawalsResponse.withdrawals.length
+      );
+      return withdrawalsResponse.withdrawals;
+    }
+
+    // Try to find any array property that might contain our withdrawals
+    const arrayProps = Object.entries(withdrawalsResponse).find(
+      ([key, value]) =>
+        Array.isArray(value) &&
+        (key === "data" ||
+          key === "withdrawals" ||
+          key === "transactions" ||
+          key === "results")
+    );
+
+    if (arrayProps) {
+      console.log(
+        `Found array in property ${arrayProps[0]}:`,
+        arrayProps[1].length
+      );
+      return arrayProps[1];
+    }
+
+    // Last resort: look for any array
+    const anyArray = Object.values(withdrawalsResponse).find((v) =>
+      Array.isArray(v)
+    );
+    if (anyArray) {
+      console.log("Found some array property:", anyArray.length);
+      return anyArray;
+    }
+
+    console.warn(
+      "Could not find withdrawals in API response:",
+      withdrawalsResponse
+    );
+    return [];
+  }, [withdrawalsResponse]);
 
   const { data: stats } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: adminService.getDashboardStats,
-    ...adminQueryConfig.mediumFrequency,
   });
 
   const approveMutation = useMutation({
-    mutationFn: adminService.deposits.approve,
+    mutationFn: adminService.withdrawals.approve,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      toast({ title: "Success", description: "Deposit approved successfully" });
+      toast({
+        title: "Success",
+        description: "Withdrawal approved successfully",
+      });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to approve deposit",
+        description: "Failed to approve withdrawal",
         variant: "destructive",
       });
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: adminService.deposits.reject,
+    mutationFn: adminService.rejectWithdrawal,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      toast({ title: "Success", description: "Deposit rejected successfully" });
+      toast({
+        title: "Success",
+        description: "Withdrawal rejected successfully",
+      });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to reject deposit",
+        description: "Failed to reject withdrawal",
         variant: "destructive",
       });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: adminService.deposits.delete,
+    mutationFn: adminService.deleteWithdrawal,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      toast({ title: "Success", description: "Deposit deleted successfully" });
+      toast({
+        title: "Success",
+        description: "Withdrawal deleted successfully",
+      });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to delete deposit",
+        description: "Failed to delete withdrawal",
         variant: "destructive",
       });
     },
   });
 
-  // If you want to support bulk actions, implement them here or in adminService
-
-  const handleBulkAction = (action: string) => {
-    if (selectedDeposits.length === 0) {
+  const bulkMutation = useMutation({
+    mutationFn: ({
+      action,
+      withdrawalIds,
+    }: {
+      action: string;
+      withdrawalIds: number[];
+    }) => {
+      const stringIds = withdrawalIds.map((id) => id.toString());
+      switch (action) {
+        case "approve":
+          return adminService.bulkApproveWithdrawals(stringIds);
+        case "reject":
+          return adminService.bulkRejectWithdrawals(stringIds);
+        case "delete":
+          return adminService.bulkDeleteWithdrawals(stringIds);
+        default:
+          throw new Error("Invalid action");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      setSelectedWithdrawals([]);
+      toast({
+        title: "Success",
+        description: "Bulk operation completed successfully",
+      });
+    },
+    onError: () => {
       toast({
         title: "Error",
-        description: "Please select deposits first",
+        description: "Failed to perform bulk operation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBulkAction = (action: string) => {
+    if (selectedWithdrawals.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select withdrawals first",
         variant: "destructive",
       });
       return;
     }
     bulkMutation.mutate({
       action,
-      depositIds: selectedDeposits.map((id) => parseInt(id)),
+      withdrawalIds: selectedWithdrawals.map((id) => parseInt(id)),
     });
   };
 
-  const handleSelectDeposit = (depositId: number) => {
-    const depositIdStr = depositId.toString();
-    setSelectedDeposits((prev) =>
-      prev.includes(depositIdStr)
-        ? prev.filter((id) => id !== depositIdStr)
-        : [...prev, depositIdStr]
+  const handleSelectWithdrawal = (withdrawalId: number) => {
+    const withdrawalIdStr = withdrawalId.toString();
+    setSelectedWithdrawals((prev) =>
+      prev.includes(withdrawalIdStr)
+        ? prev.filter((id) => id !== withdrawalIdStr)
+        : [...prev, withdrawalIdStr]
     );
   };
 
   const handleSelectAll = () => {
-    if (selectedDeposits.length === deposits.length) {
-      setSelectedDeposits([]);
+    if (selectedWithdrawals.length === withdrawals.length) {
+      setSelectedWithdrawals([]);
     } else {
-      setSelectedDeposits(deposits.map((d: any) => d.id.toString()));
+      setSelectedWithdrawals(withdrawals.map((w: any) => w.id.toString()));
     }
   };
 
-  const filteredDeposits = deposits.filter((deposit: any) => {
-    if (filters.status && deposit.status !== filters.status) return false;
+  const filteredWithdrawals = withdrawals.filter((withdrawal: any) => {
+    if (filters.status && withdrawal.status !== filters.status) return false;
     if (
       filters.dateFrom &&
-      new Date(deposit.createdAt) < new Date(filters.dateFrom)
+      new Date(withdrawal.created_at) < new Date(filters.dateFrom)
     )
       return false;
     if (
       filters.dateTo &&
-      new Date(deposit.createdAt) > new Date(filters.dateTo)
+      new Date(withdrawal.created_at) > new Date(filters.dateTo)
     )
       return false;
-    if (filters.amountMin && deposit.amount < parseFloat(filters.amountMin))
+    if (filters.amountMin && withdrawal.amount < parseFloat(filters.amountMin))
       return false;
-    if (filters.amountMax && deposit.amount > parseFloat(filters.amountMax))
+    if (filters.amountMax && withdrawal.amount > parseFloat(filters.amountMax))
       return false;
     return true;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "completed":
       case "approved":
         return (
           <Badge className="bg-green-100 text-green-800">
@@ -235,6 +303,7 @@ export default function DepositsPage() {
     }
   };
 
+  // Show loading state
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -243,10 +312,28 @@ export default function DepositsPage() {
     );
   }
 
+  // Show error state
+  if (isError) {
+    return (
+      <div className="flex flex-col justify-center items-center h-64 space-y-4">
+        <AlertTriangle className="h-12 w-12 text-red-500" />
+        <h2 className="text-xl font-semibold text-red-500">
+          Error Loading Withdrawals
+        </h2>
+        <p className="text-gray-600">
+          {error instanceof Error ? error.message : "Unknown error"}
+        </p>
+        <pre className="bg-gray-100 p-4 rounded text-sm max-w-2xl overflow-auto">
+          {JSON.stringify(error, null, 2)}
+        </pre>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Deposit Management</h1>
+        <h1 className="text-3xl font-bold">Withdrawal Management</h1>
       </div>
 
       {/* Stats Cards */}
@@ -254,13 +341,13 @@ export default function DepositsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Deposits
+              Total Withdrawals
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${stats?.deposits?.total?.toLocaleString() || "0"}
+              ${stats?.withdrawals?.total?.toLocaleString() || "0"}
             </div>
           </CardContent>
         </Card>
@@ -271,7 +358,7 @@ export default function DepositsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.deposits?.pending || 0}
+              {stats?.withdrawals?.pending || 0}
             </div>
           </CardContent>
         </Card>
@@ -282,18 +369,18 @@ export default function DepositsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.deposits?.approved || 0}
+              {stats?.withdrawals?.approved || 0}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${stats?.deposits?.thisMonth?.toLocaleString() || "0"}
+              ${stats?.withdrawals?.thisMonth?.toLocaleString() || "0"}
             </div>
           </CardContent>
         </Card>
@@ -319,9 +406,9 @@ export default function DepositsPage() {
 
       {/* Bulk Actions */}
       <BulkActions
-        selectedItems={selectedDeposits}
-        onClearSelection={() => setSelectedDeposits([])}
-        totalItems={depositsData?.totalDeposits || 0}
+        selectedItems={selectedWithdrawals}
+        onClearSelection={() => setSelectedWithdrawals([])}
+        totalItems={withdrawals.length}
         actions={[
           {
             id: "approve",
@@ -331,7 +418,7 @@ export default function DepositsPage() {
             action: async (ids) => {
               await bulkMutation.mutateAsync({
                 action: "approve",
-                depositIds: ids.map((id) => parseInt(id)),
+                withdrawalIds: ids.map((id) => parseInt(id)),
               });
             },
           },
@@ -343,7 +430,7 @@ export default function DepositsPage() {
             action: async (ids) => {
               await bulkMutation.mutateAsync({
                 action: "reject",
-                depositIds: ids.map((id) => parseInt(id)),
+                withdrawalIds: ids.map((id) => parseInt(id)),
               });
             },
           },
@@ -355,14 +442,14 @@ export default function DepositsPage() {
             action: async (ids) => {
               await bulkMutation.mutateAsync({
                 action: "delete",
-                depositIds: ids.map((id) => parseInt(id)),
+                withdrawalIds: ids.map((id) => parseInt(id)),
               });
             },
           },
         ]}
       />
 
-      {/* Deposits Table */}
+      {/* Withdrawals Table */}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -373,12 +460,12 @@ export default function DepositsPage() {
                     <input
                       type="checkbox"
                       checked={
-                        selectedDeposits.length === deposits.length &&
-                        deposits.length > 0
+                        selectedWithdrawals.length === withdrawals.length &&
+                        withdrawals.length > 0
                       }
                       onChange={handleSelectAll}
                       className="rounded border-gray-300"
-                      aria-label="Select all deposits"
+                      aria-label="Select all withdrawals"
                     />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -388,13 +475,10 @@ export default function DepositsPage() {
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Plan
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Expected Return
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Method
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Wallet
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
@@ -408,88 +492,50 @@ export default function DepositsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredDeposits.map((deposit: any) => (
-                  <tr key={deposit.id} className="hover:bg-gray-50">
+                {filteredWithdrawals.map((withdrawal: any) => (
+                  <tr key={withdrawal.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedDeposits.includes(
-                          deposit.id.toString()
+                        checked={selectedWithdrawals.includes(
+                          withdrawal.id.toString()
                         )}
-                        onChange={() => handleSelectDeposit(deposit.id)}
+                        onChange={() => handleSelectWithdrawal(withdrawal.id)}
                         className="rounded border-gray-300"
-                        aria-label={`Select deposit ${deposit.id}`}
+                        aria-label={`Select withdrawal ${withdrawal.id}`}
                       />
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {deposit.user?.username || `User ${deposit.user_id}`}
+                      {withdrawal.user?.username ||
+                        `User ${withdrawal.user_id}`}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 font-semibold">
-                      ${deposit.amount.toLocaleString()}
+                      ${withdrawal.amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {deposit.plan_name && (
-                        <div className="space-y-1">
-                          <div className="font-medium text-blue-600">
-                            {deposit.plan_name}
-                          </div>
-                          {deposit.plan_duration && (
-                            <div className="text-xs text-gray-500">
-                              Duration: {deposit.plan_duration}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {!deposit.plan_name && (
-                        <span className="text-gray-400">No plan selected</span>
-                      )}
+                      {withdrawal.crypto_type ||
+                        withdrawal.method ||
+                        "Bank Transfer"}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {deposit.daily_profit && deposit.total_return ? (
-                        <div className="space-y-1">
-                          <div className="text-green-600 font-medium">
-                            Total: $
-                            {parseFloat(deposit.total_return).toLocaleString()}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Daily: $
-                            {parseFloat(deposit.daily_profit).toLocaleString()}
-                          </div>
-                        </div>
-                      ) : deposit.plan_name ? (
-                        <div className="text-sm text-gray-500">
-                          <div>Plan: {deposit.plan_name}</div>
-                          {deposit.description &&
-                            deposit.description.includes("Daily Profit:") && (
-                              <div className="text-xs">
-                                {deposit.description
-                                  .split(" - ")
-                                  .slice(1)
-                                  .join(" - ")}
-                              </div>
-                            )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">Not calculated</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {deposit.crypto_type ||
-                        deposit.method ||
-                        "Account Balance"}
+                    <td className="px-6 py-4 text-sm text-gray-500 font-mono text-xs">
+                      {withdrawal.wallet_address
+                        ? `${withdrawal.wallet_address.substring(0, 10)}...${withdrawal.wallet_address.substring(withdrawal.wallet_address.length - 6)}`
+                        : "N/A"}
                     </td>
                     <td className="px-6 py-4">
-                      {getStatusBadge(deposit.status)}
+                      {getStatusBadge(withdrawal.status)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(deposit.created_at).toLocaleDateString()}
+                      {new Date(withdrawal.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm space-x-2">
-                      {deposit.status === "pending" && (
+                      {withdrawal.status === "pending" && (
                         <>
                           <Button
                             size="sm"
-                            onClick={() => approveMutation.mutate(deposit.id)}
+                            onClick={() =>
+                              approveMutation.mutate(withdrawal.id)
+                            }
                             disabled={approveMutation.isPending}
                             className="bg-green-600 hover:bg-green-700"
                           >
@@ -498,7 +544,7 @@ export default function DepositsPage() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => rejectMutation.mutate(deposit.id)}
+                            onClick={() => rejectMutation.mutate(withdrawal.id)}
                             disabled={rejectMutation.isPending}
                           >
                             Reject
@@ -508,7 +554,7 @@ export default function DepositsPage() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => deleteMutation.mutate(deposit.id)}
+                        onClick={() => deleteMutation.mutate(withdrawal.id)}
                         disabled={deleteMutation.isPending}
                       >
                         Delete
@@ -519,9 +565,9 @@ export default function DepositsPage() {
               </tbody>
             </table>
           </div>
-          {filteredDeposits.length === 0 && (
+          {filteredWithdrawals.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              No deposits found
+              No withdrawals found
             </div>
           )}
         </CardContent>

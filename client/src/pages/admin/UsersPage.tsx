@@ -1,10 +1,7 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import AdminFilters, { FilterState } from "@/components/AdminFilters";
-import BulkActions, { createUserBulkActions } from "@/components/BulkActions";
-import { exportUsers } from "@/utils/exportUtils";
+import { useAdminActions, useAdminData } from "@/hooks/use-admin-data";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface User {
   id: number;
@@ -37,48 +34,92 @@ interface UsersResponse {
 }
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [filters, setFilters] = useState<FilterState>({});
   const { toast } = useToast();
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UserFormData>();
+
+  const {
+    data: users,
+    loading,
+    currentPage,
+    totalPages,
+    totalItems,
+    setPage,
+    setFilters,
+    refresh,
+  } = useAdminData<User>({
+    endpoint: "/api/admin/users",
+    transform: (data) => data.users,
+  });
+
+  const { executeAction, loading: actionLoading } = useAdminActions(
+    "/api/admin/users",
+    {
+      onSuccess: refresh,
+    }
+  );
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<UserFormData>();
 
   // Fetch users from API with advanced filtering
+  const [, navigate] = window.wouter
+    ? window.wouter.useLocation()
+    : [null, (url: string) => (window.location.href = url)];
   const fetchUsers = async (page = 1, appliedFilters: FilterState = {}) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: "10"
+        limit: "10",
       });
 
       // Add filter parameters
-      if (appliedFilters.search) params.set('search', appliedFilters.search);
-      if (appliedFilters.dateFrom) params.set('dateFrom', appliedFilters.dateFrom);
-      if (appliedFilters.dateTo) params.set('dateTo', appliedFilters.dateTo);
-      if (appliedFilters.status) params.set('status', appliedFilters.status);
-      if (appliedFilters.amountMin) params.set('amountMin', appliedFilters.amountMin.toString());
-      if (appliedFilters.amountMax) params.set('amountMax', appliedFilters.amountMax.toString());
+      if (appliedFilters.search) params.set("search", appliedFilters.search);
+      if (appliedFilters.dateFrom)
+        params.set("dateFrom", appliedFilters.dateFrom);
+      if (appliedFilters.dateTo) params.set("dateTo", appliedFilters.dateTo);
+      if (appliedFilters.status) params.set("status", appliedFilters.status);
+      if (appliedFilters.amountMin)
+        params.set("amountMin", appliedFilters.amountMin.toString());
+      if (appliedFilters.amountMax)
+        params.set("amountMax", appliedFilters.amountMax.toString());
 
       const response = await apiRequest("GET", `/api/admin/users?${params}`);
-      const data = await response.json() as UsersResponse;
+      if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Session expired",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Use wouter navigate if available, else fallback
+        if (navigate) navigate("/login");
+        else window.location.href = "/login";
+        return;
+      }
+      const data = (await response.json()) as UsersResponse;
       setUsers(data.users);
       setTotalPages(data.totalPages);
       setCurrentPage(data.currentPage);
       setTotalUsers(data.totalUsers);
       setSelectedUsers([]); // Clear selection when data changes
     } catch (error) {
-      console.error("Failed to fetch users:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch users. Please try again.",
-        variant: "destructive"
-      });
+      // Only show error toast if error is not just empty data
+      const message =
+        typeof error === "object" && error && "message" in error
+          ? (error as any).message
+          : String(error);
+      if (message !== "No data found") {
+        console.error("Failed to fetch users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch users. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -95,13 +136,14 @@ export default function AdminUsers() {
   };
 
   // Handle export functionality
-  const handleExport = (format: 'csv' | 'pdf') => {
-    const exportData = selectedUsers.length > 0 
-      ? users.filter(user => selectedUsers.includes(user.id.toString()))
-      : users;
-    
+  const handleExport = (format: "csv" | "pdf") => {
+    const exportData =
+      selectedUsers.length > 0
+        ? users.filter((user) => selectedUsers.includes(user.id.toString()))
+        : users;
+
     exportUsers(exportData, format);
-    
+
     toast({
       title: "Export Started",
       description: `Exporting ${exportData.length} users to ${format.toUpperCase()}...`,
@@ -111,9 +153,13 @@ export default function AdminUsers() {
   // Bulk action handlers
   const handleBulkApprove = async (userIds: string[]) => {
     try {
-      const response = await apiRequest("POST", "/api/admin/users/bulk-approve", {
-        userIds: userIds
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/admin/users/bulk-approve",
+        {
+          userIds: userIds,
+        }
+      );
 
       if (response.ok) {
         toast({
@@ -127,16 +173,20 @@ export default function AdminUsers() {
       toast({
         title: "Error",
         description: "Failed to approve users",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleBulkSuspend = async (userIds: string[]) => {
     try {
-      const response = await apiRequest("POST", "/api/admin/users/bulk-suspend", {
-        userIds: userIds
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/admin/users/bulk-suspend",
+        {
+          userIds: userIds,
+        }
+      );
 
       if (response.ok) {
         toast({
@@ -150,16 +200,20 @@ export default function AdminUsers() {
       toast({
         title: "Error",
         description: "Failed to suspend users",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleBulkDelete = async (userIds: string[]) => {
     try {
-      const response = await apiRequest("DELETE", "/api/admin/users/bulk-delete", {
-        userIds: userIds
-      });
+      const response = await apiRequest(
+        "DELETE",
+        "/api/admin/users/bulk-delete",
+        {
+          userIds: userIds,
+        }
+      );
 
       if (response.ok) {
         toast({
@@ -173,15 +227,17 @@ export default function AdminUsers() {
       toast({
         title: "Error",
         description: "Failed to delete users",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleBulkExport = async (userIds: string[]) => {
-    const exportData = users.filter(user => userIds.includes(user.id.toString()));
-    exportUsers(exportData, 'csv');
-    
+    const exportData = users.filter((user) =>
+      userIds.includes(user.id.toString())
+    );
+    exportUsers(exportData, "csv");
+
     toast({
       title: "Export Started",
       description: `Exporting ${exportData.length} selected users...`,
@@ -189,12 +245,19 @@ export default function AdminUsers() {
   };
 
   const handleCleanupDeletedUsers = async () => {
-    if (!confirm("Are you sure you want to permanently delete all inactive deleted users? This action cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you sure you want to permanently delete all inactive deleted users? This action cannot be undone."
+      )
+    ) {
       return;
     }
-    
+
     try {
-      const response = await apiRequest("POST", "/api/admin/users/cleanup-deleted");
+      const response = await apiRequest(
+        "POST",
+        "/api/admin/users/cleanup-deleted"
+      );
       const result = await response.json();
 
       if (result.success) {
@@ -210,8 +273,11 @@ export default function AdminUsers() {
       console.error("Cleanup error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to cleanup deleted users",
-        variant: "destructive"
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to cleanup deleted users",
+        variant: "destructive",
       });
     }
   };
@@ -226,9 +292,9 @@ export default function AdminUsers() {
 
   // User selection handlers
   const handleSelectUser = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
         : [...prev, userId]
     );
   };
@@ -237,13 +303,15 @@ export default function AdminUsers() {
     if (selectedUsers.length === users.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(users.map(user => user.id.toString()));
+      setSelectedUsers(users.map((user) => user.id.toString()));
     }
   };
 
   // Calculate selection state for header checkbox
-  const isAllSelected = selectedUsers.length === users.length && users.length > 0;
-  const isIndeterminate = selectedUsers.length > 0 && selectedUsers.length < users.length;
+  const isAllSelected =
+    selectedUsers.length === users.length && users.length > 0;
+  const isIndeterminate =
+    selectedUsers.length > 0 && selectedUsers.length < users.length;
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
@@ -257,47 +325,55 @@ export default function AdminUsers() {
 
   const handleUpdateUser = async (data: UserFormData) => {
     if (!editingUser) return;
-    
-    try {      
-      const response = await apiRequest("PUT", `/api/admin/users/${editingUser.id}`, data);
-      const updatedUser = await response.json() as User;
-      setUsers(prev => prev.map(user => 
-        user.id === editingUser.id ? updatedUser : user
-      ));
+
+    try {
+      const response = await apiRequest(
+        "PUT",
+        `/api/admin/users/${editingUser.id}`,
+        data
+      );
+      const updatedUser = (await response.json()) as User;
+      setUsers((prev) =>
+        prev.map((user) => (user.id === editingUser.id ? updatedUser : user))
+      );
       setEditingUser(null);
       reset();
       toast({
         title: "Success",
-        description: "User updated successfully"
-      });    
+        description: "User updated successfully",
+      });
     } catch (error) {
       console.error("Failed to update user:", error);
       toast({
         title: "Error",
         description: "Failed to update user. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this user? This action cannot be undone."
+      )
+    ) {
       return;
     }
-    
+
     try {
       await apiRequest("DELETE", `/api/admin/users/${userId}`);
-      setUsers(prev => prev.filter(user => user.id !== userId));
+      setUsers((prev) => prev.filter((user) => user.id !== userId));
       toast({
         title: "Success",
-        description: "User deleted successfully"
+        description: "User deleted successfully",
       });
     } catch (error) {
       console.error("Failed to delete user:", error);
       toast({
         title: "Error",
         description: "Failed to delete user. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -337,9 +413,7 @@ export default function AdminUsers() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <div className="text-sm text-gray-600">
-          Total Users: {totalUsers}
-        </div>
+        <div className="text-sm text-gray-600">Total Users: {totalUsers}</div>
       </div>
 
       {/* Advanced Filters */}
@@ -354,7 +428,7 @@ export default function AdminUsers() {
           showStatus: true,
           showPaymentMethod: false,
           showUserSearch: true,
-          customStatuses: ['active', 'inactive', 'verified', 'unverified']
+          customStatuses: ["active", "inactive", "verified", "unverified"],
         }}
       />
 
@@ -423,18 +497,26 @@ export default function AdminUsers() {
                       {user.firstName} {user.lastName}
                     </div>
                     <div className="text-sm text-gray-500">{user.email}</div>
-                    <div className="text-xs text-gray-400">@{user.username}</div>
+                    <div className="text-xs text-gray-400">
+                      @{user.username}
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(user)}`}>
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(user)}`}
+                  >
                     {getStatusText(user)}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      user.role === "admin"
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
                     {user.role}
                   </span>
                 </td>
@@ -462,7 +544,7 @@ export default function AdminUsers() {
             ))}
           </tbody>
         </table>
-        
+
         {users.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="text-gray-500">No users found</div>
@@ -475,15 +557,20 @@ export default function AdminUsers() {
         <div className="mt-6 flex justify-center">
           <nav className="flex space-x-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
-            
+
             {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
+              .filter(
+                (page) =>
+                  page === 1 ||
+                  page === totalPages ||
+                  Math.abs(page - currentPage) <= 2
+              )
               .map((page, idx, arr) => (
                 <span key={page}>
                   {idx > 0 && arr[idx - 1] !== page - 1 && (
@@ -493,17 +580,19 @@ export default function AdminUsers() {
                     onClick={() => setCurrentPage(page)}
                     className={`px-3 py-2 text-sm font-medium rounded-md ${
                       page === currentPage
-                        ? 'text-white bg-indigo-600'
-                        : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                        ? "text-white bg-indigo-600"
+                        : "text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     {page}
                   </button>
                 </span>
               ))}
-            
+
             <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
               className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -518,40 +607,69 @@ export default function AdminUsers() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit User</h3>
-              <form onSubmit={handleSubmit(handleUpdateUser)} className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Edit User
+              </h3>
+              <form
+                onSubmit={handleSubmit(handleUpdateUser)}
+                className="space-y-4"
+              >
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
                   <input
                     {...register("email", { required: "Email is required" })}
                     type="email"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    First Name
+                  </label>
                   <input
-                    {...register("firstName", { required: "First name is required" })}
+                    {...register("firstName", {
+                      required: "First name is required",
+                    })}
                     type="text"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
-                  {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>}
+                  {errors.firstName && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.firstName.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Last Name
+                  </label>
                   <input
-                    {...register("lastName", { required: "Last name is required" })}
+                    {...register("lastName", {
+                      required: "Last name is required",
+                    })}
                     type="text"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
-                  {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
+                  {errors.lastName && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.lastName.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Role</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Role
+                  </label>
                   <select
                     {...register("role", { required: "Role is required" })}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -559,7 +677,11 @@ export default function AdminUsers() {
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                   </select>
-                  {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role.message}</p>}
+                  {errors.role && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.role.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-4">
@@ -569,16 +691,20 @@ export default function AdminUsers() {
                       type="checkbox"
                       className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Account Active</span>
+                    <span className="ml-2 text-sm text-gray-700">
+                      Account Active
+                    </span>
                   </label>
-                  
+
                   <label className="flex items-center">
                     <input
                       {...register("isVerified")}
                       type="checkbox"
                       className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Email Verified</span>
+                    <span className="ml-2 text-sm text-gray-700">
+                      Email Verified
+                    </span>
                   </label>
                 </div>
 

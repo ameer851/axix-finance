@@ -16,6 +16,8 @@ export function corsMiddleware(
     "https://www.axixfinance.com",
     "https://axixfinance.com",
     "https://axix-finance.vercel.app",
+    "http://localhost:4000", // Add local development
+    "http://localhost:3000",
     process.env.VITE_FRONTEND_URL || "",
     process.env.FRONTEND_URL || "",
     process.env.CLIENT_URL || "",
@@ -24,6 +26,24 @@ export function corsMiddleware(
 
   // Get the request origin
   const origin = req.headers.origin;
+
+  // Allow localhost in development
+  if (process.env.NODE_ENV === "development" && origin?.includes("localhost")) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,HEAD,PUT,PATCH,POST,DELETE"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+    return next();
+  }
 
   // Set CORS headers if the origin matches one of our allowed origins
   if (origin && allowedOrigins.includes(origin)) {

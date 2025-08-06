@@ -33,9 +33,32 @@ export async function checkServerConnection(): Promise<boolean> {
   }
 }
 
-export async function login(email: string, password: string): Promise<User> {
+export async function logout(): Promise<void> {
   try {
-    console.log("Attempting login for:", email);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error signing out:", error);
+    }
+
+    // Clear all auth-related data from localStorage regardless of API error
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    console.log("User successfully logged out");
+  } catch (error: any) {
+    console.error("Logout error:", error);
+    // Even if there's an error, we'll still clear local storage
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    throw new Error("Failed to logout. Please try again.");
+  }
+}
+
+export async function login(
+  identifier: string,
+  password: string
+): Promise<User> {
+  try {
+    console.log("Attempting login for:", identifier);
 
     // Check Supabase connection first
     const isConnected = await checkServerConnection();
@@ -43,7 +66,26 @@ export async function login(email: string, password: string): Promise<User> {
       throw new Error("Cannot connect to authentication service.");
     }
 
-    // Use Supabase Auth for all users including admin
+    // Check if identifier is an email or username
+    const isEmail = identifier.includes("@");
+
+    // If it's a username, get the email first
+    let email = identifier;
+    if (!isEmail) {
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("email")
+        .eq("username", identifier)
+        .single();
+
+      if (userError || !userData) {
+        throw new Error("User not found.");
+      }
+
+      email = userData.email;
+    }
+
+    // Use Supabase Auth for login
     const { data: auth, error: authError } =
       await supabase.auth.signInWithPassword({
         email,
@@ -103,7 +145,14 @@ export async function login(email: string, password: string): Promise<User> {
 export async function register(userData: {
   email: string;
   password: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  bitcoinAddress?: string;
+  bitcoinCashAddress?: string;
+  ethereumAddress?: string;
+  bnbAddress?: string;
+  usdtTrc20Address?: string;
 }): Promise<RegistrationUser> {
   try {
     // First check Supabase connection
@@ -112,31 +161,38 @@ export async function register(userData: {
       throw new Error("Unable to connect to the service. Please try again.");
     }
 
-    // Check for existing users
-    const { data: existingUsers, error: userCheckError } = await supabase
-      .from("users")
-      .select("email")
-      .eq("email", userData.email)
-      .limit(1);
-
-    if (existingUsers && existingUsers.length > 0) {
-      throw new Error(
-        "This email address is already registered. Try to login instead."
-      );
-    }
+    // Allow registration even if a session exists (do not block)
 
     // Create auth user first
     const { data: auth, error: authError } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
+      options: {
+        data: {
+          username: userData.username,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+        },
+      },
     });
 
     if (authError) {
+      // Log the full error for debugging
+      console.error("Auth error details:", {
+        name: authError.name,
+        message: authError.message,
+      });
+
+      if (authError.message.includes("User already registered")) {
+        throw new Error(
+          "This email address is already registered. Please try logging in instead."
+        );
+      }
       throw new Error("Failed to create user account: " + authError.message);
     }
 
     if (!auth.user?.id) {
-      throw new Error("Failed to create user account");
+      throw new Error("Failed to create user account - no user ID returned");
     }
 
     // Then create user profile
@@ -146,9 +202,17 @@ export async function register(userData: {
         {
           uid: auth.user.id,
           email: userData.email,
-          full_name: userData.fullName,
+          username: userData.username,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
           role: "user",
-          is_admin: false,
+          is_active: true,
+          balance: 0,
+          bitcoin_address: userData.bitcoinAddress || null,
+          bitcoin_cash_address: userData.bitcoinCashAddress || null,
+          ethereum_address: userData.ethereumAddress || null,
+          bnb_address: userData.bnbAddress || null,
+          usdt_trc20_address: userData.usdtTrc20Address || null,
         },
       ])
       .select()
@@ -201,22 +265,6 @@ export async function register(userData: {
     throw new Error(
       error.message || "Failed to create account. Please try again."
     );
-  }
-}
-
-export async function logout(): Promise<void> {
-  try {
-    // Sign out from Supabase Auth
-    await supabase.auth.signOut();
-
-    // Clear all auth-related data from localStorage
-    localStorage.removeItem("user");
-    localStorage.removeItem("authToken");
-  } catch (error: any) {
-    console.error("Logout error:", error);
-    // Even if there's an error, we'll still clear local storage
-    localStorage.removeItem("user");
-    localStorage.removeItem("authToken");
   }
 }
 

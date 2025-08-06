@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/queryClient";
+import { supabase } from "@/lib/supabase";
 import {
   AdminDashboardStats,
   AdminPasswordUpdate,
@@ -26,47 +26,91 @@ interface ErrorResponse {
 
 // Admin service implementation
 export const adminService = {
+  approveDeposit: async (depositId: string) => {
+    return adminService.deposits.approve(depositId);
+  },
+  rejectDeposit: async (depositId: string) => {
+    return adminService.deposits.reject(depositId);
+  },
+  deleteDeposit: async (depositId: string) => {
+    return adminService.deposits.delete(depositId);
+  },
   deposits: {
     getAll: async (
       filters?: TransactionFilters
     ): Promise<PaginatedResponse<Transaction>> => {
       try {
-        const searchParams = filters
-          ? new URLSearchParams(
-              Object.entries(filters).map(([key, value]) => [
-                key,
-                String(value),
-              ])
-            )
-          : "";
-        const url = `/api/admin/deposits${searchParams ? `?${searchParams}` : ""}`;
-        const response = await apiRequest("GET", url);
-        return response.json();
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 10;
+        const offset = (page - 1) * limit;
+
+        let query = supabase
+          .from("transactions")
+          .select("*, users!inner(id, username, email)", { count: "exact" })
+          .eq("type", "deposit");
+
+        // Apply filters
+        if (filters?.status) query = query.eq("status", filters.status);
+        if (filters?.search)
+          query = query.ilike("description", `%${filters.search}%`);
+        if (filters?.dateFrom) query = query.gte("created_at", filters.dateFrom);
+        if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
+        if (filters?.amountMin) query = query.gte("amount", filters.amountMin);
+        if (filters?.amountMax) query = query.lte("amount", filters.amountMax);
+
+        // Apply sorting and pagination
+        query = query
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1);
+
+        const { data: transactions, error, count } = await query;
+
+        if (error) {
+          console.error("Error fetching deposits:", error);
+          throw new Error(error.message);
+        }
+
+        return {
+          data: transactions || [],
+          success: true,
+          pagination: {
+            page,
+            limit,
+            total: count || 0,
+            pages: Math.ceil((count || 0) / limit),
+          },
+        };
       } catch (error) {
         console.error("Error fetching deposits:", error);
         throw new Error("Failed to fetch deposits");
       }
     },
     approve: async (depositId: string) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/admin/deposits/${depositId}/approve`
-      );
-      return response.json();
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ status: "completed" })
+        .eq("id", depositId)
+        .eq("type", "deposit")
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
     },
     reject: async (depositId: string) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/admin/deposits/${depositId}/reject`
-      );
-      return response.json();
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ status: "rejected" })
+        .eq("id", depositId)
+        .eq("type", "deposit")
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
     },
     delete: async (depositId: string) => {
-      const response = await apiRequest(
-        "DELETE",
-        `/api/admin/deposits/${depositId}`
-      );
-      return response.json();
+      throw new Error("Delete operation not supported");
     },
   },
 
@@ -75,63 +119,145 @@ export const adminService = {
       filters?: TransactionFilters
     ): Promise<PaginatedResponse<Transaction>> => {
       try {
-        const searchParams = filters
-          ? new URLSearchParams(
-              Object.entries(filters).map(([key, value]) => [
-                key,
-                String(value),
-              ])
-            )
-          : "";
-        const url = `/api/admin/withdrawals${searchParams ? `?${searchParams}` : ""}`;
-        const response = await apiRequest("GET", url);
-        return response.json();
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 10;
+        const offset = (page - 1) * limit;
+
+        let query = supabase
+          .from("transactions")
+          .select("*, users!inner(id, username, email)", { count: "exact" })
+          .eq("type", "withdrawal");
+
+        // Apply filters
+        if (filters?.status) query = query.eq("status", filters.status);
+        if (filters?.search)
+          query = query.ilike("description", `%${filters.search}%`);
+        if (filters?.dateFrom) query = query.gte("created_at", filters.dateFrom);
+        if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
+        if (filters?.amountMin) query = query.gte("amount", filters.amountMin);
+        if (filters?.amountMax) query = query.lte("amount", filters.amountMax);
+
+        // Apply sorting and pagination
+        query = query
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1);
+
+        const { data: transactions, error, count } = await query;
+
+        if (error) {
+          console.error("Error fetching withdrawals:", error);
+          throw new Error(error.message);
+        }
+
+        return {
+          data: transactions || [],
+          success: true,
+          pagination: {
+            page,
+            limit,
+            total: count || 0,
+            pages: Math.ceil((count || 0) / limit),
+          },
+        };
       } catch (error) {
         console.error("Error fetching withdrawals:", error);
         throw new Error("Failed to fetch withdrawals");
       }
     },
     approve: async (withdrawalId: string) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/admin/withdrawals/${withdrawalId}/approve`
-      );
-      return response.json();
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ status: "completed" })
+        .eq("id", withdrawalId)
+        .eq("type", "withdrawal")
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
     },
     reject: async (withdrawalId: string) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/admin/withdrawals/${withdrawalId}/reject`
-      );
-      return response.json();
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ status: "rejected" })
+        .eq("id", withdrawalId)
+        .eq("type", "withdrawal")
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
     },
     delete: async (withdrawalId: string) => {
-      const response = await apiRequest(
-        "DELETE",
-        `/api/admin/withdrawals/${withdrawalId}`
-      );
-      return response.json();
+      throw new Error("Delete operation not supported");
     },
   },
 
   getDashboardStats: async (): Promise<AdminDashboardStats> => {
     try {
-      const response = await apiRequest("GET", "/api/admin/dashboard");
-      const data = await response.json();
+      const [
+        { data: users, error: usersError, count: totalUsers },
+        { data: transactions, error: txError },
+        { data: activeVisitors, error: visitorError },
+      ] = await Promise.all([
+        supabase.from("users").select("*", { count: "exact" }),
+        supabase.from("transactions").select("*"),
+        supabase
+          .from("visitor_tracking")
+          .select("*", { count: "exact" })
+          .gte(
+            "lastActivity",
+            new Date(Date.now() - 15 * 60 * 1000).toISOString()
+          ),
+      ]);
+
+      if (usersError) throw usersError;
+      if (txError) throw txError;
+
+      const activeUsers = users?.filter((u) => u.isActive).length || 0;
+      const deposits = transactions?.filter((t) => t.type === "deposit") || [];
+      const withdrawals =
+        transactions?.filter((t) => t.type === "withdrawal") || [];
+
+      const totalDeposits = deposits.reduce(
+        (sum, d) => sum + parseFloat(d.amount),
+        0
+      );
+      const totalWithdrawals = withdrawals.reduce(
+        (sum, w) => sum + parseFloat(w.amount),
+        0
+      );
+
       return {
-        ...data,
-        transactionVolume: data.deposits.reduce(
-          (sum: number, deposit: any) => sum + Number(deposit.amount),
-          0
-        ),
-        totalUsers: data.usersCount,
-        activeUsers: data.usersCount,
-        totalTransactions: data.deposits.length + data.withdrawals.length,
-        conversionRate:
-          ((data.deposits.length / (data.visitorsCount || 1)) * 100).toFixed(
-            2
-          ) + "%",
-      } as AdminDashboardStats;
+        totalUsers: totalUsers || 0,
+        activeUsers,
+        transactionVolume: totalDeposits,
+        totalTransactions: deposits.length + withdrawals.length,
+        deposits: {
+          total: deposits.length,
+          pending: deposits.filter((d) => d.status === "pending").length,
+          approved: deposits.filter((d) => d.status === "completed").length,
+          thisMonth: deposits.filter(
+            (d) => new Date(d.created_at).getMonth() === new Date().getMonth()
+          ).length,
+        },
+        withdrawals: {
+          total: withdrawals.length,
+          pending: withdrawals.filter((w) => w.status === "pending").length,
+          approved: withdrawals.filter((w) => w.status === "completed").length,
+          thisMonth: withdrawals.filter(
+            (w) => new Date(w.created_at).getMonth() === new Date().getMonth()
+          ).length,
+        },
+        totalDeposits,
+        totalWithdrawals,
+        pendingTransactions:
+          deposits.filter((d) => d.status === "pending").length +
+          withdrawals.filter((w) => w.status === "pending").length,
+        conversionRate: activeVisitors?.count
+          ? ((deposits.length / activeVisitors.count) * 100).toFixed(2) + "%"
+          : "N/A",
+      };
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       throw new Error("Failed to fetch dashboard stats");
@@ -140,9 +266,19 @@ export const adminService = {
 
   getSystemHealth: async (): Promise<SystemHealth> => {
     try {
-      const response = await apiRequest("GET", "/api/admin/health");
-      const data = await response.json();
-      return data as SystemHealth;
+      // Check Supabase connection
+      const { data, error } = await supabase
+        .from("users")
+        .select("count", { count: "exact", head: true });
+
+      return {
+        status: error ? "error" : "healthy",
+        database: {
+          status: error ? "error" : "connected",
+          error: error?.message,
+        },
+        lastChecked: new Date().toISOString(),
+      };
     } catch (error) {
       throw new Error("Failed to fetch system health");
     }
@@ -150,8 +286,12 @@ export const adminService = {
 
   getSystemSettings: async (): Promise<SystemSettings> => {
     try {
-      const response = await apiRequest("GET", "/api/admin/settings");
-      const data = await response.json();
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("*")
+        .single();
+
+      if (error) throw error;
       return data as SystemSettings;
     } catch (error) {
       throw new Error("Failed to fetch system settings");
@@ -162,12 +302,13 @@ export const adminService = {
     settings: Partial<SystemSettings>
   ): Promise<SystemSettings> => {
     try {
-      const response = await apiRequest(
-        "POST",
-        "/api/admin/settings",
-        settings
-      );
-      const data = await response.json();
+      const { data, error } = await supabase
+        .from("system_settings")
+        .upsert(settings)
+        .select()
+        .single();
+
+      if (error) throw error;
       return data as SystemSettings;
     } catch (error) {
       throw new Error("Failed to update system settings");
@@ -178,35 +319,39 @@ export const adminService = {
     filters?: Partial<TransactionFilters>
   ): Promise<PaginatedResponse<User>> => {
     try {
-      const searchParams = filters
-        ? new URLSearchParams(
-            Object.entries(filters).map(([key, value]) => [key, String(value)])
-          )
-        : "";
-      const url = `/api/admin/users${searchParams ? `?${searchParams}` : ""}`;
-      const response = await apiRequest("GET", url);
-      const data = await response.json();
-      return data as PaginatedResponse<User>;
+      const page = filters?.page || 1;
+      const limit = filters?.limit || 10;
+      const offset = (page - 1) * limit;
+
+      let query = supabase
+        .from("users")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (filters?.search) {
+        query = query.or(
+          `email.ilike.%${filters.search}%,username.ilike.%${filters.search}%`
+        );
+      }
+
+      query = query.range(offset, offset + limit - 1);
+
+      const { data: users, error, count } = await query;
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: users || [],
+        pagination: {
+          page,
+          limit,
+          total: count || 0,
+          pages: Math.ceil((count || 0) / limit),
+        },
+      };
     } catch (error) {
       throw new Error("Failed to fetch users");
-    }
-  },
-
-  getTransactions: async (
-    filters?: Partial<TransactionFilters>
-  ): Promise<PaginatedResponse<Transaction>> => {
-    try {
-      const searchParams = filters
-        ? new URLSearchParams(
-            Object.entries(filters).map(([key, value]) => [key, String(value)])
-          )
-        : "";
-      const url = `/api/admin/transactions${searchParams ? `?${searchParams}` : ""}`;
-      const response = await apiRequest("GET", url);
-      const data = await response.json();
-      return data as PaginatedResponse<Transaction>;
-    } catch (error) {
-      throw new Error("Failed to fetch transactions");
     }
   },
 
@@ -214,23 +359,52 @@ export const adminService = {
     filters?: Partial<TransactionFilters>
   ): Promise<PaginatedResponse<AuditLog>> => {
     try {
-      const searchParams = filters
-        ? new URLSearchParams(
-            Object.entries(filters).map(([key, value]) => [key, String(value)])
-          )
-        : "";
-      const url = `/api/admin/audit-logs${searchParams ? `?${searchParams}` : ""}`;
-      const response = await apiRequest("GET", url);
-      const data = await response.json();
-      return data as PaginatedResponse<AuditLog>;
+      const page = filters?.page || 1;
+      const limit = filters?.limit || 10;
+      const offset = (page - 1) * limit;
+
+      let query = supabase
+        .from("audit_logs")
+        .select("*, users!left(id, username, email)", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (filters?.search) {
+        query = query.or(
+          `description.ilike.%${filters.search}%,action.ilike.%${filters.search}%`
+        );
+      }
+
+      query = query.range(offset, offset + limit - 1);
+
+      const { data: logs, error, count } = await query;
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: logs || [],
+        pagination: {
+          page,
+          limit,
+          total: count || 0,
+          pages: Math.ceil((count || 0) / limit),
+        },
+      };
     } catch (error) {
       throw new Error("Failed to fetch audit logs");
     }
   },
 
-  updateAdminPassword: async (data: AdminPasswordUpdate): Promise<void> => {
+  updateAdminPassword: async ({
+    currentPassword,
+    newPassword,
+  }: AdminPasswordUpdate): Promise<void> => {
     try {
-      await apiRequest("POST", "/api/admin/password", data);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
     } catch (error) {
       throw new Error("Failed to update admin password");
     }
@@ -238,7 +412,20 @@ export const adminService = {
 
   bulkAction: async (payload: BulkActionPayload): Promise<void> => {
     try {
-      await apiRequest("POST", "/api/admin/bulk-action", payload);
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({
+          status:
+            payload.action === "approve"
+              ? "completed"
+              : payload.action === "reject"
+                ? "rejected"
+                : undefined,
+        })
+        .in("id", payload.ids)
+        .eq("type", payload.type === "deposits" ? "deposit" : "withdrawal");
+
+      if (error) throw error;
     } catch (error) {
       throw new Error("Failed to perform bulk action");
     }

@@ -28,7 +28,7 @@ import { Link, useLocation } from "wouter";
 import { z } from "zod";
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
+  identifier: z.string().min(1, { message: "Email or username is required" }),
   password: z.string().min(1, { message: "Password is required" }),
   rememberMe: z.boolean().optional(),
 });
@@ -62,7 +62,7 @@ const Login: React.FC = () => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
       rememberMe: false,
     },
@@ -84,7 +84,7 @@ const Login: React.FC = () => {
           "Authentication service is not available. Please try again later."
         );
       }
-      const userData = await login(values.email, values.password);
+      const userData = await login(values.identifier, values.password);
 
       // Successfully logged in
       toast({
@@ -153,14 +153,14 @@ const Login: React.FC = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Email or Username</FormLabel>
                     <FormControl>
                       <Input
-                        type="email"
-                        placeholder="Enter your email address"
+                        type="text"
+                        placeholder="Enter your email or username"
                         {...field}
                       />
                     </FormControl>

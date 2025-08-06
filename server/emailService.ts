@@ -1,10 +1,10 @@
 // Email service for sending emails using templates
 import { User } from "@shared/schema";
 import nodemailer from "nodemailer";
+import { sendDevModeEmail, setupDevEmailTransport } from "./emailFallback";
 import {
   generateDepositApprovalEmailHTML,
   generateDepositConfirmationEmailHTML,
-  generateNotificationEmailHTML,
   generateWelcomeEmailHTML,
   generateWithdrawalConfirmationEmailHTML,
   generateWithdrawalRequestEmailHTML,
@@ -15,6 +15,9 @@ let transporter: nodemailer.Transporter;
 
 // Store Ethereal credentials for development testing
 export let etherealAccount: { user: string; pass: string } | null = null;
+
+// Flag to track if we're in dev mode fallback
+let isDevMode = false;
 
 /**
  * Get the configured 'from' email address
@@ -42,12 +45,23 @@ export function isConfigured(): boolean {
 // Initialize the email transporter
 export async function initializeEmailTransporter(): Promise<boolean> {
   try {
+    // Check if we should use dev mode (fallback to console)
+    if (
+      process.env.EMAIL_DEV_MODE === "true" ||
+      process.env.NODE_ENV === "development"
+    ) {
+      console.log("📧 Using development mode email service (logs to console)");
+      transporter = setupDevEmailTransport();
+      isDevMode = true;
+      return true;
+    }
+
     // Priority 1: Use Resend SMTP if configured
     if (process.env.RESEND_API_KEY) {
       console.log("Initializing email service with Resend SMTP...");
       transporter = nodemailer.createTransport({
-        host: "smtp.resend.com",
-        port: 587,
+        host: process.env.SMTP_HOST || "smtp.resend.com",
+        port: parseInt(process.env.SMTP_PORT || "587"),
         secure: false, // Use STARTTLS
         auth: {
           user: "resend", // Resend SMTP username is always 'resend'
@@ -118,45 +132,23 @@ export async function initializeEmailTransporter(): Promise<boolean> {
 
 // Send password reset email
 // Send general notification email
-export async function sendNotificationEmail(
-  user: User,
-  subject: string,
-  message: string,
-  isImportant: boolean = false
-): Promise<boolean> {
-  try {
-    if (!transporter) {
-      await initializeEmailTransporter();
-    }
-
-    const mailOptions = {
-      from: getFromEmail(),
-      to: user.email,
-      subject: `${isImportant ? "🚨 " : "📢 "}Axix Finance - ${subject}`,
-      html: generateNotificationEmailHTML(
-        user,
-        subject,
-        message,
-        isImportant
-          ? "Important: Please review this message carefully."
-          : undefined
-      ),
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log("📧 Notification email sent successfully!");
-    return true;
-  } catch (error) {
-    console.error("Failed to send notification email:", error);
-    return false;
-  }
-}
-
 // Send welcome email to new users
 export async function sendWelcomeEmail(user: User): Promise<boolean> {
   try {
     if (!transporter) {
       await initializeEmailTransporter();
+    }
+
+    // If in dev mode, use the dev mode fallback
+    if (isDevMode) {
+      sendDevModeEmail({
+        to: user.email,
+        subject: "Welcome to Axix Finance",
+        html: generateWelcomeEmailHTML(user),
+        text: undefined,
+      });
+      console.log("📧 Welcome email logged to console (dev mode)");
+      return true;
     }
 
     const mailOptions = {
@@ -171,6 +163,19 @@ export async function sendWelcomeEmail(user: User): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Failed to send welcome email:", error);
+
+    // Fallback to dev mode on error
+    if (process.env.NODE_ENV === "development") {
+      sendDevModeEmail({
+        to: user.email,
+        subject: "Welcome to Axix Finance",
+        html: generateWelcomeEmailHTML(user),
+        text: undefined,
+      });
+      console.log("📧 Welcome email logged to console (fallback after error)");
+      return true;
+    }
+
     return false;
   }
 }
@@ -315,10 +320,40 @@ export async function sendWithdrawalApprovedEmail(
   }
 }
 
-// Initialize email service when module is loaded
-initializeEmailTransporter().catch((error) => {
-  console.error("Failed to initialize email service:", error);
-});
+/**
+ * Send deposit success email after user makes a deposit
+ */
+export async function sendDepositSuccessEmail(
+  user: User,
+  amount: string,
+  planName?: string
+): Promise<boolean> {
+  try {
+    if (!transporter) {
+      await initializeEmailTransporter();
+    }
+
+    const mailOptions = {
+      from: getFromEmail(),
+      to: user.email,
+      subject: "Axix Finance - Deposit Confirmation",
+      html: generateDepositConfirmationEmailHTML(
+        user,
+        parseFloat(amount),
+        "USD",
+        "pending-review",
+        planName
+      ),
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log("📧 Deposit success email sent successfully!");
+    return true;
+  } catch (error) {
+    console.error("Failed to send deposit success email:", error);
+    return false;
+  }
+}
 
 // Initialize email service when module is loaded
 initializeEmailTransporter().catch((error) => {

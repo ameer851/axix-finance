@@ -2,6 +2,9 @@ import cors from "cors";
 import "dotenv/config"; // Load .env file
 import express, { NextFunction, type Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+import session from "express-session";
+import memorystore from "memorystore";
+import passport from "passport";
 import { setupAdminPanel } from "./admin-panel";
 import { setupCookiePolicy } from "./cookiePolicy"; // Import our cookie policy middleware
 import { checkDatabaseConnection } from "./db"; // Import our enhanced database connection check
@@ -15,6 +18,33 @@ import { log, serveStatic, setupVite } from "./vite";
 
 // Initialize Express app
 const app = express();
+
+// Initialize session and passport before any routes or middleware
+const MemoryStore = memorystore(session);
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-secret",
+    resave: false,
+    saveUninitialized: false,
+    store: new MemoryStore({
+      checkPeriod: 86400000 * 2, // Clean up expired sessions every 48 hours
+    }),
+    cookie: {
+      maxAge: 86400000 * 7, // Set cookie expiry to 7 days
+      secure: process.env.NODE_ENV === "production", // Only use secure cookies in production
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      path: "/",
+      domain:
+        process.env.NODE_ENV === "production" ? ".axixfinance.com" : undefined,
+    },
+    rolling: true, // Refresh session expiry on each request
+    name: "axix.sid", // Custom session cookie name
+    proxy: process.env.NODE_ENV === "production", // Trust the reverse proxy in production
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Health check endpoint - no rate limiting
 app.get("/health", async (req: Request, res: Response) => {

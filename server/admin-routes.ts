@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { Router } from "express";
+import { requireAdminRole } from "./auth";
+import {
+  sendDepositApprovedEmail,
+  sendWithdrawalApprovedEmail,
+} from "./emailService";
 
 const adminRouter = Router();
 const supabase = createClient(
@@ -8,7 +13,7 @@ const supabase = createClient(
 );
 
 // Transactions endpoint (used for both deposits and withdrawals)
-adminRouter.get("/transactions", async (req, res) => {
+adminRouter.get("/transactions", requireAdminRole, async (req, res) => {
   try {
     // Get query parameters
     const type = req.query.type as string;
@@ -67,7 +72,7 @@ adminRouter.get("/transactions", async (req, res) => {
 });
 
 // Stats endpoint
-adminRouter.get("/stats", async (req, res) => {
+adminRouter.get("/stats", requireAdminRole, async (req, res) => {
   try {
     // Get user counts
     const { count: totalUsers } = await supabase
@@ -159,7 +164,7 @@ adminRouter.get("/stats", async (req, res) => {
 });
 
 // Audit logs endpoint
-adminRouter.get("/audit-logs", async (req, res) => {
+adminRouter.get("/audit-logs", requireAdminRole, async (req, res) => {
   try {
     // Get query parameters
     const page = parseInt(req.query.page as string) || 1;
@@ -214,55 +219,260 @@ adminRouter.get("/audit-logs", async (req, res) => {
 });
 
 // Update transaction status
-adminRouter.patch("/transactions/:id/status", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+adminRouter.patch(
+  "/transactions/:id/status",
+  requireAdminRole,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
 
-    const { data, error } = await supabase
-      .from("transactions")
-      .update({ status })
-      .eq("id", id)
-      .select()
-      .single();
+      // First get the transaction details
+      const { data: transaction, error: fetchError } = await supabase
+        .from("transactions")
+        .select(
+          `
+        *,
+        users!inner(id, username, email, first_name, last_name)
+      `
+        )
+        .eq("id", id)
+        .single();
 
-    if (error) {
-      console.error("Supabase error:", error);
+      if (fetchError || !transaction) {
+        console.error("Failed to fetch transaction:", fetchError);
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Update the transaction status
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ status })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        return res
+          .status(500)
+          .json({ message: "Failed to update transaction status" });
+      }
+
+      // Send email notifications when transactions are approved
+      if (status === "completed") {
+        const user = transaction.users;
+        const amount = transaction.amount;
+
+        try {
+          if (transaction.type === "deposit") {
+            await sendDepositApprovedEmail(
+              user,
+              amount,
+              transaction.description || "Investment Deposit"
+            );
+            console.log(`📧 Deposit approval email sent to ${user.email}`);
+          } else if (transaction.type === "withdrawal") {
+            await sendWithdrawalApprovedEmail(
+              user,
+              amount,
+              transaction.destination || "Your Crypto Wallet"
+            );
+            console.log(`📧 Withdrawal approval email sent to ${user.email}`);
+          }
+        } catch (emailError) {
+          console.error("Failed to send notification email:", emailError);
+          // Don't fail the transaction update if email fails
+        }
+      }
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error("Update transaction status error:", error);
       return res
         .status(500)
         .json({ message: "Failed to update transaction status" });
     }
-
-    return res.status(200).json(data);
-  } catch (error) {
-    console.error("Update transaction status error:", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to update transaction status" });
   }
-});
+);
 
 // Bulk update transaction status
-adminRouter.post("/transactions/bulk-status", async (req, res) => {
-  try {
-    const { ids, status } = req.body;
+adminRouter.post(
+  "/transactions/bulk-status",
+  requireAdminRole,
+  async (req, res) => {
+    try {
+      const { ids, status } = req.body;
 
-    const { data, error } = await supabase
-      .from("transactions")
-      .update({ status })
-      .in("id", ids)
-      .select();
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ status })
+        .in("id", ids)
+        .select();
 
-    if (error) {
-      console.error("Supabase error:", error);
+      if (error) {
+        console.error("Supabase error:", error);
+        return res
+          .status(500)
+          .json({ message: "Failed to update transactions" });
+      }
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error("Bulk update transactions error:", error);
       return res.status(500).json({ message: "Failed to update transactions" });
     }
+  }
+);
 
-    return res.status(200).json(data);
+// User Management Endpoints
+
+// Get all users (simplified list)
+adminRouter.get("/users/list", requireAdminRole, async (req, res) => {
+  try {
+    const { data: users, error } = await supabase
+      .from("users")
+      .select(
+        "id, username, email, first_name, last_name, role, created_at, email_confirmed_at"
+      )
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch users:", error);
+      return res.status(500).json({ message: "Failed to fetch users" });
+    }
+
+    return res.status(200).json({ users: users || [] });
   } catch (error) {
-    console.error("Bulk update transactions error:", error);
-    return res.status(500).json({ message: "Failed to update transactions" });
+    console.error("Get users error:", error);
+    return res.status(500).json({ message: "Failed to fetch users" });
   }
 });
+
+// Delete user entirely
+adminRouter.delete(
+  "/users/:userId/delete",
+  requireAdminRole,
+  async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      // First, get user info for logging
+      const { data: user, error: getUserError } = await supabase
+        .from("users")
+        .select("email, username, role")
+        .eq("id", userId)
+        .single();
+
+      if (getUserError || !user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Prevent deletion of admin users (optional safety check)
+      if (user.role === "admin") {
+        return res.status(403).json({
+          message: "Cannot delete admin users. Please change role first.",
+        });
+      }
+
+      // Delete related data first to avoid foreign key constraints
+      // Delete transactions
+      await supabase.from("transactions").delete().eq("user_id", userId);
+
+      // Delete user
+      const { error: deleteError } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", userId);
+
+      if (deleteError) {
+        console.error("Failed to delete user:", deleteError);
+        return res.status(500).json({ message: "Failed to delete user" });
+      }
+
+      console.log(`✅ User deleted: ${user.email} (ID: ${userId})`);
+
+      return res.status(200).json({
+        message: "User deleted successfully",
+        deletedUser: {
+          id: userId,
+          email: user.email,
+          username: user.username,
+        },
+      });
+    } catch (error) {
+      console.error("Delete user error:", error);
+      return res.status(500).json({ message: "Failed to delete user" });
+    }
+  }
+);
+
+// Change user password
+adminRouter.post(
+  "/users/:userId/change-password",
+  requireAdminRole,
+  async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { newPassword } = req.body;
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({
+          message: "Password must be at least 6 characters long",
+        });
+      }
+
+      // Get user info
+      const { data: user, error: getUserError } = await supabase
+        .from("users")
+        .select("email, username")
+        .eq("id", userId)
+        .single();
+
+      if (getUserError || !user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update password using Supabase Admin API
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        userId.toString(),
+        {
+          password: newPassword,
+        }
+      );
+
+      if (updateError) {
+        console.error("Failed to update password:", updateError);
+        return res.status(500).json({
+          message: "Failed to update password: " + updateError.message,
+        });
+      }
+
+      console.log(
+        `✅ Password changed for user: ${user.email} (ID: ${userId})`
+      );
+
+      return res.status(200).json({
+        message: "Password updated successfully",
+        user: {
+          id: userId,
+          email: user.email,
+          username: user.username,
+        },
+      });
+    } catch (error) {
+      console.error("Change password error:", error);
+      return res.status(500).json({ message: "Failed to change password" });
+    }
+  }
+);
 
 export default adminRouter;
