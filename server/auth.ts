@@ -16,10 +16,14 @@ import { DatabaseStorage } from "./storage";
 const storage = new DatabaseStorage();
 
 // Initialize Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL || "",
-  process.env.SUPABASE_ANON_KEY || ""
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Supabase URL and API key must be configured in environment variables");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Define base user interface to avoid recursion
 interface BaseUser {
