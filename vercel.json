@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": "public",
+  "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
     "api/*.ts": {
