@@ -314,24 +314,22 @@ app.use((req, res, next) => {
   applyRoutePatches(app);
   console.log("🔄 Legacy route patches applied for compatibility");
 
-  // Add a simple root endpoint for testing
-  app.get("/", (req, res) => {
-    res.json({ 
-      message: "Axix Finance Server is running", 
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || "development"
-    });
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    console.log("🔄 Setting up Vite middleware AFTER API routes");
-    await setupVite(app, server);
+  // Setup Vite middleware after API routes
+  if (process.env.NODE_ENV !== "production") {
+    log("🔄 Setting up Vite middleware AFTER API routes");
+    await setupVite(app);
   } else {
-    console.log("🔄 Setting up static file serving AFTER API routes");
+    // Serve static files in production
     serveStatic(app);
+
+    // Add a simple root endpoint for testing in production only
+    app.get("/api/health", (req, res) => {
+      res.json({
+        message: "Axix Finance Server is running",
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || "production",
+      });
+    });
   }
 
   // ALWAYS serve the app on a configurable port
