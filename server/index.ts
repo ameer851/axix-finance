@@ -398,16 +398,7 @@ app.use((req, res, next) => {
       console.log(`🔗 Local: http://localhost:${port}`);
       console.log(`🔗 Network: http://${host}:${port}`);
       console.log(`📱 Preview should be available at the webview URL`);
-    }).on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${port} is already in use. Trying to kill existing processes...`);
-        process.exit(1);
-      } else {
-        console.error('❌ Server failed to start:', err);
-        process.exit(1);
-      }
-    });
-
+      
       if (dbConnected) {
         console.log("📊 Database connection established");
 
@@ -484,6 +475,14 @@ app.use((req, res, next) => {
           process.exit(1);
         });
       });
+    }).on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use. Trying to kill existing processes...`);
+        process.exit(1);
+      } else {
+        console.error('❌ Server failed to start:', err);
+        process.exit(1);
+      }
     });
   } catch (err) {
     console.error("Failed to check database connection:", err);
@@ -491,16 +490,17 @@ app.use((req, res, next) => {
 
     // Start the server anyway
     server.listen(port, host, () => {
-      if (process.env.NODE_ENV !== "production")
-        console.log(
-          `🚀 Server running in ${process.env.NODE_ENV || "development"} mode`
-        );
-      if (process.env.NODE_ENV !== "production")
-        console.log(`🔗 http://localhost:${port}`);
-      if (process.env.NODE_ENV !== "production")
-        console.log(
-          "⚠️ Running with limited functionality due to database connection issues"
-        );
+      console.log(`🚀 Server running in ${process.env.NODE_ENV || "development"} mode`);
+      console.log(`🔗 http://localhost:${port}`);
+      console.log("⚠️ Running with limited functionality due to database connection issues");
+    }).on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use`);
+        process.exit(1);
+      } else {
+        console.error('❌ Server failed to start:', err);
+        process.exit(1);
+      }
     });
   }
 })().catch((err) => {
