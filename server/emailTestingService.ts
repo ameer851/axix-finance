@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail, getActiveEmailService } from './emailManager';
 import { DatabaseStorage } from './storage';
-import { DatabaseStorage } from './storage';
 import { User } from '@shared/schema';
 
 // Create a storage instance
@@ -72,6 +71,8 @@ export async function sendTestEmail(req: Request, res: Response) {
         break;
         
       case 'welcome':
+        result = await sendWelcomeEmail(testUser);
+        break;e':
         result = await sendWelcomeEmail(testUser);
         break;
         
