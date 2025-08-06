@@ -47,10 +47,15 @@ export function initGlobalErrorHandling() {
       message.includes('failed to connect to websocket') ||
       message.includes('WebSocket connection') ||
       message.includes('vite:ws') ||
+      message.includes('NS_ERROR_CONTENT_BLOCKED') ||
+      message.includes('createConnection') ||
+      message.includes('@vite/client') ||
       
       // Content Security Policy violations we can't control
       message.includes('Content-Security-Policy') ||
       message.includes('Refused to connect') ||
+      message.includes('violates the following directive') ||
+      message.includes('blocked the loading of a resource') ||
       
       // Network errors for external services
       message.includes('NetworkError') ||
