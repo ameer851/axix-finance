@@ -314,6 +314,15 @@ app.use((req, res, next) => {
   applyRoutePatches(app);
   console.log("🔄 Legacy route patches applied for compatibility");
 
+  // Add a simple root endpoint for testing
+  app.get("/", (req, res) => {
+    res.json({ 
+      message: "Axix Finance Server is running", 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -381,16 +390,13 @@ app.use((req, res, next) => {
 
     // Start the server
     server.listen(port, host, () => {
-      if (process.env.NODE_ENV !== "production")
-        console.log(
-          `🚀 Server running in ${process.env.NODE_ENV || "development"} mode`
-        );
-      if (process.env.NODE_ENV !== "production")
-        console.log(`🔗 http://localhost:${port}`);
+      console.log(`🚀 Server running in ${process.env.NODE_ENV || "development"} mode`);
+      console.log(`🔗 Local: http://localhost:${port}`);
+      console.log(`🔗 Network: http://${host}:${port}`);
+      console.log(`📱 Preview should be available at the webview URL`);
 
       if (dbConnected) {
-        if (process.env.NODE_ENV !== "production")
-          console.log("📊 Database connection established");
+        console.log("📊 Database connection established");
 
         // Initialize database with required settings
         if (process.env.NODE_ENV === "production") {
