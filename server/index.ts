@@ -398,7 +398,7 @@ app.use((req, res, next) => {
       console.log(`🔗 Local: http://localhost:${port}`);
       console.log(`🔗 Network: http://${host}:${port}`);
       console.log(`📱 Preview should be available at the webview URL`);
-      
+
       if (dbConnected) {
         console.log("📊 Database connection established");
 
@@ -409,14 +409,14 @@ app.use((req, res, next) => {
           });
         }
       } else {
-        if (process.env.NODE_ENV !== "production")
-          console.log(
-            "⚠️ Running with limited functionality due to database connection issues"
-          );
-        if (process.env.NODE_ENV !== "production")
-          console.log(
-            "⚠️ The application will automatically retry connecting to the database"
-          );
+        if (process.env.NODE_ENV !== "production") {
+          console.log("⚠️ Running with limited functionality due to database connection issues");
+          console.log("⚠️ The application will automatically retry connecting to the database");
+        }
+        if (process.env.NODE_ENV !== "production") {
+          console.log("⚠️ Running with limited functionality due to database connection issues");
+          console.log("⚠️ The application will automatically retry connecting to the database");
+        }
       }
 
       // Set up periodic database connection check (every 30 seconds)
