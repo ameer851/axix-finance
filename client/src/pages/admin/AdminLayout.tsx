@@ -4,7 +4,7 @@ import { Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Shield } from "lucide-react";
 
-export default function AdminLayout() {
+const AdminLayout: React.FC = () => {
   const handleLogout = async () => {
     // Clear any stored auth data
     localStorage.removeItem('token');
@@ -40,4 +40,6 @@ export default function AdminLayout() {
       </main>
     </div>
   );
-}
+};
+
+export default AdminLayout;
