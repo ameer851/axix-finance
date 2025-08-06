@@ -337,6 +337,12 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000");
   const host = "0.0.0.0"; // Use 0.0.0.0 for Replit compatibility
 
+  // Ensure port is available
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error("Invalid port number:", process.env.PORT);
+    process.exit(1);
+  }
+
   // Check database connection before starting the server
   try {
     // Always check database connection regardless of environment
@@ -386,12 +392,21 @@ app.use((req, res, next) => {
       console.error("⚠️ Error initializing email services:", error);
     }
 
-    // Start the server
+    // Start the server with error handling
     server.listen(port, host, () => {
       console.log(`🚀 Server running in ${process.env.NODE_ENV || "development"} mode`);
       console.log(`🔗 Local: http://localhost:${port}`);
       console.log(`🔗 Network: http://${host}:${port}`);
       console.log(`📱 Preview should be available at the webview URL`);
+    }).on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use. Trying to kill existing processes...`);
+        process.exit(1);
+      } else {
+        console.error('❌ Server failed to start:', err);
+        process.exit(1);
+      }
+    });
 
       if (dbConnected) {
         console.log("📊 Database connection established");
@@ -436,13 +451,38 @@ app.use((req, res, next) => {
 
       // Clean up interval on process exit
       process.on("SIGTERM", () => {
+        console.log('📝 Received SIGTERM, shutting down gracefully...');
         clearInterval(dbCheckInterval);
-        server.close();
+        server.close(() => {
+          console.log('✅ Server closed');
+          process.exit(0);
+        });
       });
 
       process.on("SIGINT", () => {
+        console.log('📝 Received SIGINT, shutting down gracefully...');
         clearInterval(dbCheckInterval);
-        server.close();
+        server.close(() => {
+          console.log('✅ Server closed');
+          process.exit(0);
+        });
+      });
+
+      // Handle uncaught exceptions
+      process.on('uncaughtException', (err) => {
+        console.error('❌ Uncaught Exception:', err);
+        clearInterval(dbCheckInterval);
+        server.close(() => {
+          process.exit(1);
+        });
+      });
+
+      process.on('unhandledRejection', (reason, promise) => {
+        console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+        clearInterval(dbCheckInterval);
+        server.close(() => {
+          process.exit(1);
+        });
       });
     });
   } catch (err) {
