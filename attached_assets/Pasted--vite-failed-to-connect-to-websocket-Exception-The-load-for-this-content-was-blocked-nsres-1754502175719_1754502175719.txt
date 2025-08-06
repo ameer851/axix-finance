@@ -1,0 +1,15 @@
+[vite] failed to connect to websocket ([Exception... "The load for this content was blocked."  nsresult: "0x805e0006 (NS_ERROR_CONTENT_BLOCKED)"  location: "JS frame :: https://5b1be493-ef8f-41bc-90af-e89556450c97-00-2ikgqb0ccp2sc.spock.replit.dev:5000/@vite/client :: createConnection :: line 756"  data: no]). client:792:19
+Content-Security-Policy: The page’s settings blocked the loading of a resource (connect-src) at wss://5b1be493-ef8f-41bc-90af-e89556450c97-00-2ikgqb0ccp2sc.spock.replit.dev:24678/ because it violates the following directive: “connect-src 'self' https://*.google.com https://*.googleapis.com https://*.gstatic.com wss://*.tradingview.com https://*.supabase.co https://oyqanlnqfyyaqheehsmw.supabase.co http://localhost:* ws://localhost:*” client:756:31
+Uncaught (in promise) NS_ERROR_CONTENT_BLOCKED: 
+    createConnection client:756
+    connect client:426
+    connect client:762
+    connect client:279
+    connect client:372
+    <anonymous> client:859
+client:756
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at http://localhost:5000/api/visitors/track. (Reason: CORS request did not succeed). Status code: (null). 2
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at http://localhost:5000/api/visitors/session. (Reason: CORS request did not succeed). Status code: (null). 2
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at http://localhost:5000/api/visitors/track. (Reason: CORS request did not succeed). Status code: (null). 2
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://translate.googleapis.com/element/log?format=json&hasfast=true&authuser=0. (Reason: CORS request did not succeed). Status code: (null).
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at http://localhost:5000/api/visitors/track. (Reason: CORS request did not succeed). Status code: (null). 2
