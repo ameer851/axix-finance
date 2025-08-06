@@ -204,7 +204,7 @@ export async function sendWithdrawalRequestEmail(
     console.error("❌ Error sending withdrawal request email:", error);
     return false;
   }
-}est email:", error);
+console.error("❌ Error sending withdrawal request email:", error);
     return false;
   }
 }
