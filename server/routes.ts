@@ -1095,7 +1095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             return {
               ...user,
-              balance: availableBalance,
+              balance: availableBalance.toFixed(2),
             };
           })
         );
@@ -1112,7 +1112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isActive: user.isActive,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            balance: user.balance, // Now included and dynamic!
+            balance: user.balance,
           })),
           totalPages: Math.ceil(totalUsers / Number(limit)),
           currentPage: Number(page),
@@ -1125,6 +1125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Update user endpoint
   app.put(
     "/api/admin/users/:id",
     isAuthenticated,
@@ -1143,28 +1144,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "User not found" });
         }
 
-        // Log admin action
-        await storage.createLog({
-          type: "info",
-          userId: req.user!.id,
-          message: `Admin updated user ${userId}`,
-          details: {
-            updatedFields: Object.keys(updates),
-            targetUserId: userId,
-          },
-        });
+        // Calculate balance for the updated user
+        const transactions = await storage.getUserTransactions(userId);
+        let availableBalance = 0;
+        for (const tx of transactions) {
+          if (tx.status === "completed") {
+            if (tx.type === "deposit" || tx.type === "transfer") {
+              availableBalance += parseFloat(tx.amount);
+            } else if (tx.type === "withdrawal" || tx.type === "investment") {
+              availableBalance -= parseFloat(tx.amount);
+            }
+          }
+        }
 
         res.json({
-          id: updatedUser.id,
-          username: updatedUser.username,
-          email: updatedUser.email,
-          firstName: updatedUser.firstName,
-          lastName: updatedUser.lastName,
-          role: updatedUser.role,
-          isVerified: updatedUser.isVerified,
-          isActive: updatedUser.isActive,
-          createdAt: updatedUser.createdAt,
-          updatedAt: updatedUser.updatedAt,
+          ...updatedUser,
+          balance: availableBalance.toFixed(2),
         });
       } catch (error) {
         console.error("Error updating user:", error);
@@ -1173,6 +1168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Delete user endpoint
   app.delete(
     "/api/admin/users/:id",
     isAuthenticated,
@@ -1181,86 +1177,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const userId = parseInt(req.params.id);
 
-        // Validate user ID
-        if (isNaN(userId)) {
-          return res.status(400).json({ message: "Invalid user ID" });
-        }
+        const deletedUser = await storage.deleteUser(userId);
 
-        // Prevent admin from deleting themselves
-        if (userId === req.user!.id) {
-          return res
-            .status(400)
-            .json({ message: "Cannot delete your own account" });
-        }
-
-        // Check if user exists before attempting to delete
-        const userToDelete = await storage.getUser(userId);
-        if (!userToDelete) {
+        if (!deletedUser) {
           return res.status(404).json({ message: "User not found" });
         }
 
-        // Check if user can be safely deleted
-        const deleteCheck = await storage.canUserBeDeleted(userId);
-
-        const deleted = await storage.deleteUser(userId);
-
-        if (!deleted) {
-          return res.status(500).json({
-            message: "Failed to delete user due to database constraints",
-          });
-        }
-
-        // Determine what actually happened and provide appropriate response
-        const wasDeactivated = !deleteCheck.canDelete;
-
-        // Log admin action with appropriate message
-        const actionMessage = wasDeactivated
-          ? `Admin deactivated user ${userId} (${userToDelete.username}) - had ${deleteCheck.associatedRecords.transactions} transactions and ${deleteCheck.associatedRecords.auditLogs} audit logs`
-          : `Admin deleted user ${userId} (${userToDelete.username})`;
-
-        await storage.createLog({
-          type: "warning",
-          userId: req.user!.id,
-          message: actionMessage,
-          details: {
-            targetUserId: userId,
-            targetUsername: userToDelete.username,
-            targetEmail: userToDelete.email,
-            hadAssociatedRecords: wasDeactivated,
-            associatedRecords: deleteCheck.associatedRecords,
-          },
-        });
-
-        // Provide appropriate response message
-        const responseMessage = wasDeactivated
-          ? `User account deactivated successfully (user had ${deleteCheck.associatedRecords.transactions} transactions and ${deleteCheck.associatedRecords.auditLogs} audit logs)`
-          : "User deleted successfully";
-
-        res.json({
-          message: responseMessage,
-          action: wasDeactivated ? "deactivated" : "deleted",
-          deletedUser: {
-            id: userId,
-            username: userToDelete.username,
-            email: userToDelete.email,
-          },
-        });
+        res.json({ message: "User deleted successfully", user: deletedUser });
       } catch (error) {
         console.error("Error deleting user:", error);
+        res.status(500).json({ message: "Failed to delete user" });
+      }
+    }
+  );
 
-        // Check if it's a foreign key constraint error
-        if (
-          error instanceof Error &&
-          error.message.includes("foreign key constraint")
-        ) {
-          return res.status(409).json({
-            message:
-              "Cannot delete user: User has associated records that prevent deletion",
-            error: "foreign_key_constraint",
+  // Change user password endpoint
+  app.post(
+    "/api/admin/users/:id/change-password",
+    isAuthenticated,
+    requireAdminRole,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        const { newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 6) {
+          return res.status(400).json({
+            message: "Password must be at least 6 characters long",
           });
         }
 
-        res.status(500).json({ message: "Failed to delete user" });
+        const hashedPassword = await hashPassword(newPassword);
+        const updatedUser = await storage.updateUser(userId, {
+          password: hashedPassword,
+        });
+
+        if (!updatedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json({ message: "Password changed successfully" });
+      } catch (error) {
+        console.error("Error changing password:", error);
+        res.status(500).json({ message: "Failed to change password" });
       }
     }
   );
@@ -4646,7 +4605,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status,
             daily_return_rate,
             duration_days,
-            total_return,
             earned_amount,
             remaining_days,
             start_date,
@@ -4673,7 +4631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (row: any) => ({
             id: row.id,
             amount: row.amount ? parseFloat(row.amount.toString()) : 0,
-            plan: row.plan_name || "",
+            planName: row.plan_name || "",
             method: row.payment_method || "",
             status: row.status || "",
             dailyReturn: row.daily_return_rate
@@ -5476,7 +5434,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           supabase
             .from("users")
             .select("id")
-            .or(`username.eq.${username},email.eq.${username}`)
+            .or(
+              `username.eq.${username},email.eq.${username}`
+            )
             .single()
             .then(({ data }) => {
               const userId = data?.id;
