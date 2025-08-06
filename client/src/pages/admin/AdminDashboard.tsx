@@ -41,8 +41,10 @@ export default function AdminDashboard() {
     refetch: refetchStats
   } = useQuery<AdminStats>({
     queryKey: ['admin-stats'],
-    queryFn: adminService.getStats,
-    refetchInterval: 30000 // Refresh every 30 seconds
+    queryFn: () => adminService.getStats(),
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Fetch users
@@ -52,7 +54,9 @@ export default function AdminDashboard() {
   } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => adminService.getUsers(1, 100),
-    refetchInterval: 60000 // Refresh every minute
+    refetchInterval: 60000, // Refresh every minute
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Fetch pending deposits
@@ -62,7 +66,9 @@ export default function AdminDashboard() {
   } = useQuery({
     queryKey: ['admin-pending-deposits'],
     queryFn: () => adminService.getDeposits('pending'),
-    refetchInterval: 15000 // Refresh every 15 seconds
+    refetchInterval: 15000, // Refresh every 15 seconds
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Fetch pending withdrawals
@@ -72,7 +78,9 @@ export default function AdminDashboard() {
   } = useQuery({
     queryKey: ['admin-pending-withdrawals'],
     queryFn: () => adminService.getWithdrawals('pending'),
-    refetchInterval: 15000 // Refresh every 15 seconds
+    refetchInterval: 15000, // Refresh every 15 seconds
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Mutations for transaction approval/rejection
