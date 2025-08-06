@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +23,7 @@ import {
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
+
   // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -133,7 +132,7 @@ export default function AdminDashboard() {
   // Handle admin password change
   const handleAdminPasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({
         title: "Error",
@@ -167,7 +166,7 @@ export default function AdminDashboard() {
         title: "Success",
         description: "Admin password updated successfully",
       });
-      
+
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -224,7 +223,7 @@ export default function AdminDashboard() {
           Refresh
         </Button>
       </div>
-      
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -248,7 +247,7 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats?.totalDeposits || 0)}</div>
             <p className="text-xs text-muted-foreground">
-              {stats?.pendingDeposits || 0} pending approval
+              {stats?.deposits?.pending || stats?.pendingDeposits || 0} pending approval
             </p>
           </CardContent>
         </Card>
@@ -261,7 +260,7 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats?.totalWithdrawals || 0)}</div>
             <p className="text-xs text-muted-foreground">
-              {stats?.pendingWithdrawals || 0} pending approval
+              {stats?.withdrawals?.pending || stats?.pendingWithdrawals || 0} pending approval
             </p>
           </CardContent>
         </Card>
@@ -459,7 +458,7 @@ export default function AdminDashboard() {
                               />
                               <Button
                                 size="sm"
-                                onClick={() => updateUserPasswordMutation.mutate({
+                                onClick={() =>updateUserPasswordMutation.mutate({
                                   userId: user.id,
                                   password: newUserPassword
                                 })}

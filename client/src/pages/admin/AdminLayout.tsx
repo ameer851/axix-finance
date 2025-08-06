@@ -1,16 +1,17 @@
 
-import { Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Shield } from "lucide-react";
 
 export default function AdminLayout() {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/login");
+    // Clear any stored auth data
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Redirect to login page
+    window.location.href = "/login";
   };
 
   return (
