@@ -328,7 +328,7 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on a configurable port
   // this serves both the API and the client
   const port = parseInt(process.env.PORT || "4000");
-  const host = "127.0.0.1"; // Force IPv4 localhost for Windows compatibility
+  const host = "0.0.0.0"; // Use 0.0.0.0 for Replit compatibility
 
   // Check database connection before starting the server
   try {
