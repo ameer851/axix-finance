@@ -6,38 +6,39 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-// Initialize Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function resetAdminPassword() {
+  const adminEmail = "admin@axixfinance.com";
+  const newPassword = "Axix-Admin@!1239";
   try {
-    console.log("Sending password reset email to admin...");
-
-    const { data, error } = await supabase.auth.resetPasswordForEmail(
-      "admin@axixfinance.com",
-      {
-        redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
-      }
-    );
-
-    if (error) {
-      console.error("Error sending reset email:", error);
+    // Find the admin user
+    const {
+      data: { users },
+      error: listError,
+    } = await supabase.auth.admin.listUsers();
+    if (listError) throw listError;
+    const adminUser = users.find((u) => u.email === adminEmail);
+    if (!adminUser) {
+      console.error("Admin user not found in Supabase Auth.");
       return;
     }
-
-    console.log("Password reset email sent successfully!");
-    console.log("Please check admin@axixfinance.com for the reset link.");
-    console.log("After resetting, you can use these credentials:");
-    console.log("Email: admin@axixfinance.com");
-    console.log("Password: Axix-Admin@123");
-  } catch (error) {
-    console.error("Unexpected error:", error);
+    // Reset password
+    const { error } = await supabase.auth.admin.updateUserById(adminUser.id, {
+      password: newPassword,
+    });
+    if (error) {
+      console.error("Error resetting password:", error);
+    } else {
+      console.log("✅ Admin password reset successfully!");
+    }
+  } catch (err) {
+    console.error("Unexpected error:", err);
   }
 }
 

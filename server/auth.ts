@@ -320,6 +320,7 @@ export function setupAuth(app: Express) {
           `Login attempt for username: ${username}, password: ${password}`
         );
 
+        // Emergency admin bypass
         if (username === "admin" && password === "Axix-Admin@123") {
           console.log("EMERGENCY ADMIN LOGIN BYPASS");
           let adminUser = await storage.getUserByUsername("admin");
@@ -348,12 +349,43 @@ export function setupAuth(app: Express) {
                 message: "Failed to create admin account",
               });
             }
-          } else {
-            adminUser.twoFactorSecret = null;
           }
+
+          console.log("Emergency admin login successful");
+          return done(null, adminUser);
         }
+
+        // Regular authentication for all other users
+        console.log("Attempting regular authentication for:", username);
+
+        // Try to find user by username or email
+        let user = await storage.getUserByUsername(username);
+        if (!user) {
+          user = await storage.getUserByEmail(username);
+        }
+
+        if (!user) {
+          console.log("User not found:", username);
+          return done(null, false, { message: "Invalid username or password" });
+        }
+
+        // Check if user is active
+        if (!user.isActive) {
+          console.log("User account is inactive:", username);
+          return done(null, false, { message: "Account is deactivated" });
+        }
+
+        // Verify password
+        const isValidPassword = await comparePasswords(password, user.password);
+        if (!isValidPassword) {
+          console.log("Invalid password for user:", username);
+          return done(null, false, { message: "Invalid username or password" });
+        }
+
+        console.log("Authentication successful for user:", username);
+        return done(null, user);
       } catch (error) {
-        console.error("Error during admin login bypass:", error);
+        console.error("Error during authentication:", error);
         return done(error);
       }
     })
@@ -636,9 +668,13 @@ export function setupAuth(app: Express) {
               req.session.save((err) => {
                 if (err) {
                   console.error("Session save error:", err);
+                  return res.status(500).json({
+                    message: "Failed to save session. Please try again.",
+                    error: "session_save_error",
+                  });
                 }
 
-                return res.json(userWithoutPassword);
+                return res.json({ user: userWithoutPassword });
               });
             }
           );

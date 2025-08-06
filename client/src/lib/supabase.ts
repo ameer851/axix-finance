@@ -186,7 +186,7 @@ export const dbHelpers = {
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
-      .eq("userId", userId)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     return { data, error };
@@ -208,7 +208,7 @@ export const dbHelpers = {
     const { data, error } = await supabase
       .from("notifications")
       .select("*")
-      .eq("userId", userId)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(limit);
     return { data, error };
@@ -239,7 +239,7 @@ export const subscriptions = {
           event: "*",
           schema: "public",
           table: "transactions",
-          filter: `userId=eq.${userId}`,
+          filter: `user_id=eq.${userId}`,
         },
         callback
       )
@@ -258,7 +258,7 @@ export const subscriptions = {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `userId=eq.${userId}`,
+          filter: `user_id=eq.${userId}`,
         },
         callback
       )

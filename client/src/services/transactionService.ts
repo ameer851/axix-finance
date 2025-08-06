@@ -106,7 +106,7 @@ export async function getTransactions(
     let query = supabase.from("transactions").select("*", { count: "exact" });
 
     // Apply filters
-    if (filters.userId) query = query.eq("userId", filters.userId);
+    if (filters.userId) query = query.eq("user_id", filters.userId);
     if (filters.status) query = query.eq("status", filters.status);
     if (filters.type) query = query.eq("type", filters.type);
     if (filters.startDate) query = query.gte("createdAt", filters.startDate);

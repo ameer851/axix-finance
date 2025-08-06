@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from "express";
+import { VercelResponse } from "@vercel/node";
 import { supabase } from "../supabase";
 
 export interface AuthUser {
@@ -11,7 +11,7 @@ export interface AuthUser {
 }
 
 // Custom interface for authenticated request with proper type safety
-export interface RequestWithAuth extends Request {
+interface RequestWithAuth extends Request {
   authUser?: AuthUser;
 }
 
@@ -52,21 +52,10 @@ export const createAuthMiddleware = (
       // Specific check for account status
       if (!dbUser.is_active) {
         console.error("Account deactivated for user:", dbUser.id);
-
-        // Special handling for admin accounts
-        if (dbUser.role === "admin") {
-          console.warn(
-            "Admin account is deactivated. Consider running the fix-admin-users.js script."
-          );
-
-          // We'll allow admin login even if deactivated to prevent lockout scenarios
-          console.log("Allowing admin login despite deactivated status");
-        } else {
-          return res.status(403).json({
-            error: "invalid_credentials",
-            message: "Account is deactivated",
-          });
-        }
+        return res.status(403).json({ 
+          error: "invalid_credentials",
+          message: "Account is deactivated" 
+        });
       }
 
       // Check admin requirement if specified
@@ -81,7 +70,7 @@ export const createAuthMiddleware = (
         role: dbUser.role,
         isVerified: dbUser.is_verified,
         isAdmin: dbUser.is_admin,
-        isActive: dbUser.is_active,
+        isActive: dbUser.is_active
       };
 
       next();

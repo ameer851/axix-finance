@@ -64,7 +64,7 @@ async function getUserTransactionStats(
   const { data, error, count } = await supabase
     .from("transactions")
     .select("*", { count: "exact" })
-    .eq("userId", userId)
+    .eq("user_id", userId)
     .eq("type", type)
     .order("created_at", { ascending: false })
     .limit(5);

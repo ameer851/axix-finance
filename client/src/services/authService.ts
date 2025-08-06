@@ -35,12 +35,18 @@ export async function checkServerConnection(): Promise<boolean> {
 
 export async function logout(): Promise<void> {
   try {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error);
+    // Use session-based logout endpoint
+    const response = await fetch("/api/logout", {
+      method: "POST",
+      credentials: "include", // Include cookies for session management
+    });
+
+    // Don't throw error if logout endpoint fails - still clear local storage
+    if (!response.ok) {
+      console.warn("Logout endpoint failed, but proceeding with local cleanup");
     }
 
-    // Clear all auth-related data from localStorage regardless of API error
+    // Clear all auth-related data from localStorage
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
     console.log("User successfully logged out");
@@ -66,74 +72,38 @@ export async function login(
       throw new Error("Cannot connect to authentication service.");
     }
 
-    // Check if identifier is an email or username
-    const isEmail = identifier.includes("@");
+    // Use session-based login endpoint for all users (including admin)
+    console.log("Using session-based login endpoint");
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies for session management
+      body: JSON.stringify({
+        username: identifier,
+        password: password,
+      }),
+    });
 
-    // If it's a username, get the email first
-    let email = identifier;
-    if (!isEmail) {
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("email")
-        .eq("username", identifier)
-        .single();
+    console.log("Login response status:", response.status);
 
-      if (userError || !userData) {
-        throw new Error("User not found.");
-      }
-
-      email = userData.email;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Login error response:", errorData);
+      throw new Error(errorData.message || "Invalid username or password.");
     }
 
-    // Use Supabase Auth for login
-    const { data: auth, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const userData = await response.json();
+    console.log("Login successful, user data received");
 
-    console.log("Auth response:", authError ? "Failed" : "Success");
-    if (authError) {
-      console.error("Auth error:", authError);
-      throw new Error("Invalid email or password.");
-    }
-
-    if (!auth?.user) {
-      console.error("No user data in auth response");
-      throw new Error("Authentication failed - no user data.");
-    }
-
-    console.log("Fetching user profile for uid:", auth.user.id);
-
-    // Get user profile from our users table
-    const result = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", auth.user.email)
-      .single();
-
-    if (result.error || !result.data) {
-      throw new Error("User profile not found.");
-    }
-
-    // Update uid if it doesn't match (handles existing users)
-    if (result.data.uid !== auth.user.id) {
-      await supabase
-        .from("users")
-        .update({ uid: auth.user.id })
-        .eq("id", result.data.id);
-      result.data.uid = auth.user.id;
-    }
-
-    // Store auth token
-    const session = await supabase.auth.getSession();
-    if (session.data.session?.access_token) {
-      localStorage.setItem("authToken", session.data.session.access_token);
+    if (!userData || !userData.user) {
+      throw new Error("Invalid response from server.");
     }
 
     // Store the authenticated user in localStorage
-    localStorage.setItem("user", JSON.stringify(result.data));
-    return result.data as User;
+    localStorage.setItem("user", JSON.stringify(userData.user));
+    return userData.user as User;
   } catch (error: any) {
     console.error("Login error details:", error);
     throw new Error(

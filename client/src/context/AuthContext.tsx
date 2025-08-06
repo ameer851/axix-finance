@@ -1,15 +1,14 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useLocation } from 'wouter';
-import { User } from '@shared/schema';
-import { 
-  login as loginService, 
-  register as registerService, 
-  logout as logoutService, 
+import { useToast } from "@/hooks/use-toast";
+import {
+  checkServerConnection,
   getCurrentUser,
-  checkServerConnection
-} from '@/services/authService';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+  login as loginService,
+  logout as logoutService,
+  register as registerService,
+} from "@/services/authService";
+import { User } from "@shared/schema";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 interface AuthContextType {
   user: User | null;
@@ -28,9 +27,12 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -55,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error("Auth initialization error:", err);
         // Clear invalid session
-        localStorage.removeItem('user');
+        localStorage.removeItem("user");
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -65,54 +67,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
 
     // Set up periodic session validation (every 15 minutes)
-    const intervalId = setInterval(async () => {
-      if (user) {
-        const isValid = await checkServerConnection();
-        if (!isValid) {
-          toast({
-            title: "Session expired",
-            description: "Your session has expired. Please log in again.",
-            variant: "destructive",
-          });
-          await logout();
+    const intervalId = setInterval(
+      async () => {
+        if (user) {
+          const isValid = await checkServerConnection();
+          if (!isValid) {
+            toast({
+              title: "Session expired",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive",
+            });
+            await logout();
+          }
         }
-      }
-    }, 15 * 60 * 1000);
+      },
+      15 * 60 * 1000
+    );
 
     return () => clearInterval(intervalId);
   }, []);
   const refreshUserData = async () => {
     try {
       // Import api at the top of the file to use our improved client
-      const { api } = await import('@/lib/api');
-      
+      const { api } = await import("@/lib/api");
+
       // First get the user profile with our enhanced API client
       try {
         // Use enhanced api client
-        const userData = await api.get('/api/profile');
-        
+        const userData = await api.get("/api/profile");
+
         // Then try to get the latest balance - important to have real-time balance
         try {
           if (userData.id) {
-            const balanceData = await api.get(`/api/users/${userData.id}/balance`);
+            const balanceData = await api.get(
+              `/api/users/${userData.id}/balance`
+            );
             // Update the user data with the latest balance
             if (balanceData.availableBalance) {
               userData.balance = balanceData.availableBalance.toString();
             }
           }
         } catch (balanceErr) {
-          console.warn('Failed to fetch latest balance during user refresh:', balanceErr);
+          console.warn(
+            "Failed to fetch latest balance during user refresh:",
+            balanceErr
+          );
           // Continue with existing balance - don't fail the whole refresh
         }
-        
+
         setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem("user", JSON.stringify(userData));
       } catch (error: any) {
         // Handle specific error codes
         if (error.status === 401) {
-          localStorage.removeItem('user');
+          localStorage.removeItem("user");
           setUser(null);
-          
+
           // Don't show notification during initial page load
           if (user !== null) {
             toast({
@@ -123,21 +133,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else {
           // For other errors, just log them without disrupting the user experience
-          console.warn('Failed to refresh user data:', error);
+          console.warn("Failed to refresh user data:", error);
         }
       }
     } catch (err: any) {
       // This is our top-level error handler - it should catch any errors not caught above
       console.error("Failed to refresh user data (top level):", err);
-      
+
       // Check if it's a network/offline error
-      const isNetworkError = err.message && (
-        err.message.includes('Network error') || 
-        err.message.includes('Failed to fetch') ||
-        err.message.includes('network') ||
-        err.message.includes('offline')
-      );
-      
+      const isNetworkError =
+        err.message &&
+        (err.message.includes("Network error") ||
+          err.message.includes("Failed to fetch") ||
+          err.message.includes("network") ||
+          err.message.includes("offline"));
+
       // Show offline notification only if we have a user and it's a network error
       if (user && isNetworkError) {
         toast({
@@ -156,34 +166,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userData = await loginService(username, password);
       setUser(userData);
-      
+
       toast({
         title: "Login successful",
         description: `Welcome back, ${userData.firstName || username}!`,
         variant: "default",
       });
-      
+
       return userData; // Return the user data for immediate access to role
     } catch (err: any) {
       console.error("Login error:", err);
-      setError(err.message || 'Failed to login');
-      
+      setError(err.message || "Failed to login");
+
       // Show appropriate toast based on error type
-      let errorMessage = 'Login failed. Please try again.';
+      let errorMessage = "Login failed. Please try again.";
       if (err.isOffline || err.isNetworkError) {
-        errorMessage = 'Cannot connect to server. Please check your internet connection.';
+        errorMessage =
+          "Cannot connect to server. Please check your internet connection.";
       } else if (err.status === 401) {
-        errorMessage = 'Invalid username or password.';
+        errorMessage = "Invalid username or password.";
       } else if (err.status === 403) {
-        errorMessage = 'Your account has been deactivated.';
+        errorMessage = "Your account has been deactivated.";
       }
-      
+
       toast({
         title: "Login error",
         description: errorMessage,
         variant: "destructive",
       });
-      
+
       throw err;
     } finally {
       setIsLoading(false);
@@ -195,16 +206,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     try {
       const registrationResult = await registerService(userData);
-      
+
       // Don't set user or log them in automatically
       // The backend now returns registration info instead of user object
       if ((registrationResult as any)._shouldRedirectToLogin) {
         toast({
           title: "Registration successful! 🎉",
-          description: (registrationResult as any)._registrationMessage || "Account created successfully! Check your email for login credentials.",
+          description:
+            (registrationResult as any)._registrationMessage ||
+            "Account created successfully! Check your email for login credentials.",
           variant: "default",
         });
-        
+
         // Don't set the user in state - they need to login manually
         return registrationResult;
       } else {
@@ -218,24 +231,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return registrationResult;
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to register');
-      
+      setError(err.message || "Failed to register");
+
       // Show appropriate toast based on error type
-      let errorMessage = 'Registration failed. Please try again.';
+      let errorMessage = "Registration failed. Please try again.";
       if (err.isOffline || err.isNetworkError) {
-        errorMessage = 'Cannot connect to server. Please check your internet connection.';
-      } else if (err.message.includes('Username already exists')) {
-        errorMessage = 'This username is already taken.';
-      } else if (err.message.includes('Email already exists')) {
-        errorMessage = 'This email is already registered.';
+        errorMessage =
+          "Cannot connect to server. Please check your internet connection.";
+      } else if (err.message.includes("Username already exists")) {
+        errorMessage = "This username is already taken.";
+      } else if (err.message.includes("Email already exists")) {
+        errorMessage = "This email is already registered.";
       }
-      
+
       toast({
         title: "Registration error",
         description: errorMessage,
         variant: "destructive",
       });
-      
+
       throw err;
     } finally {
       setIsLoading(false);
@@ -247,31 +261,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await logoutService();
       setUser(null);
-      
+
       toast({
         title: "Logout successful",
         description: "You have been successfully logged out.",
         variant: "default",
       });
-      
+
       // Navigate to home page after successful logout
-      setLocation('/');
+      setLocation("/");
     } catch (err: any) {
       console.error("Logout error:", err);
       // Even if there's an error, we still want to log out locally
       setUser(null);
-      localStorage.removeItem('user');
-      
+      localStorage.removeItem("user");
+
       if (!err.isOffline && !err.isNetworkError) {
         toast({
           title: "Logout issue",
-          description: "You have been logged out, but there was an issue with the server.",
+          description:
+            "You have been logged out, but there was an issue with the server.",
           variant: "default",
         });
       }
-      
+
       // Navigate to home page even if there was an error
-      setLocation('/');
+      setLocation("/");
     } finally {
       setIsLoading(false);
     }
@@ -281,7 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       const updatedUser = { ...user, balance: newBalance.toString() };
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      localStorage.setItem("user", JSON.stringify(updatedUser));
     }
   };
 

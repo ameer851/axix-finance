@@ -53,7 +53,8 @@ export const adminService = {
         if (filters?.status) query = query.eq("status", filters.status);
         if (filters?.search)
           query = query.ilike("description", `%${filters.search}%`);
-        if (filters?.dateFrom) query = query.gte("created_at", filters.dateFrom);
+        if (filters?.dateFrom)
+          query = query.gte("created_at", filters.dateFrom);
         if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
         if (filters?.amountMin) query = query.gte("amount", filters.amountMin);
         if (filters?.amountMax) query = query.lte("amount", filters.amountMax);
@@ -132,7 +133,8 @@ export const adminService = {
         if (filters?.status) query = query.eq("status", filters.status);
         if (filters?.search)
           query = query.ilike("description", `%${filters.search}%`);
-        if (filters?.dateFrom) query = query.gte("created_at", filters.dateFrom);
+        if (filters?.dateFrom)
+          query = query.gte("created_at", filters.dateFrom);
         if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
         if (filters?.amountMin) query = query.gte("amount", filters.amountMin);
         if (filters?.amountMax) query = query.lte("amount", filters.amountMax);
