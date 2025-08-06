@@ -199,8 +199,7 @@ app.use((req, res, next) => {
           }
 
           // Always console log in production, formatted as JSON for easier parsing
-          if (process.env.NODE_ENV !== "production")
-            console.log(JSON.stringify(logData));
+          console.log(JSON.stringify(logData));
         }
       }
     });
@@ -223,18 +222,17 @@ app.use((req, res, next) => {
           if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
           log(logLine);
         } else {
-          if (process.env.NODE_ENV !== "production")
-            console.log(
-              JSON.stringify({
-                timestamp: new Date().toISOString(),
-                method: req.method,
-                path,
-                status: res.statusCode,
-                duration: `${duration}ms`,
-                ip,
-                userId: req.user?.id || "anonymous",
-              })
-            );
+          console.log(
+            JSON.stringify({
+              timestamp: new Date().toISOString(),
+              method: req.method,
+              path,
+              status: res.statusCode,
+              duration: `${duration}ms`,
+              ip,
+              userId: req.user?.id || "anonymous",
+            })
+          );
         }
       }
     });
