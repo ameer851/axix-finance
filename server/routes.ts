@@ -1095,7 +1095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             return {
               ...user,
-              balance: availableBalance,
+              balance: availableBalance.toFixed(2),
             };
           })
         );
@@ -1112,7 +1112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isActive: user.isActive,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            balance: user.balance, // Now included and dynamic!
+            balance: user.balance,
           })),
           totalPages: Math.ceil(totalUsers / Number(limit)),
           currentPage: Number(page),
@@ -1125,6 +1125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Update user endpoint
   app.put(
     "/api/admin/users/:id",
     isAuthenticated,
@@ -1141,6 +1142,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (!updatedUser) {
           return res.status(404).json({ message: "User not found" });
+        }
+
+        // Calculate balance for the updated user
+        const transactions = await storage.getUserTransactions(userId);
+        let availableBalance = 0;
+        for (const tx of transactions) {
+          if (tx.status === "completed") {
+            if (tx.type === "deposit" || tx.type === "transfer") {
+              availableBalance += parseFloat(tx.amount);
+            } else if (tx.type === "withdrawal" || tx.type === "investment") {
+              availableBalance -= parseFloat(tx.amount);
+            }
+          }
+        }
+
+        res.json({
+          ...updatedUser,
+          balance: availableBalance.toFixed(2),
+        });
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ message: "Failed to update user" });
+      }
+    }
+  );
+
+  // Delete user endpoint
+  app.delete(
+    "/api/admin/users/:id",
+    isAuthenticated,
+    requireAdminRole,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+        const deletedUser = await storage.deleteUser(userId);
+        
+        if (!deletedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json({ message: "User deleted successfully", user: deletedUser });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ message: "Failed to delete user" });
+      }
+    }
+  );
+
+  // Change user password endpoint
+  app.post(
+    "/api/admin/users/:id/change-password",
+    isAuthenticated,
+    requireAdminRole,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        const { newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 6) {
+          return res.status(400).json({ 
+            message: "Password must be at least 6 characters long" 
+          });
+        }
+
+        const hashedPassword = await hashPassword(newPassword);
+        const updatedUser = await storage.updateUser(userId, { 
+          password: hashedPassword 
+        });
+
+        if (!updatedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json({ message: "Password changed successfully" });
+      } catch (error) {
+        console.error("Error changing password:", error);
+        res.status(500).json({ message: "Failed to change password" });
+      }
+    }
+  );" });
         }
 
         // Log admin action

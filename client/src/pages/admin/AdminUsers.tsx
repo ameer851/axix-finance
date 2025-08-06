@@ -34,7 +34,10 @@ interface FundingFormData {
   description?: string;
 }
 
-
+interface PasswordChangeData {
+  newPassword: string;
+  confirmPassword: string;
+}
 
 interface UsersResponse {
   users: User[];
@@ -53,14 +56,11 @@ export default function AdminUsers() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterState>({});
   const [fundingUser, setFundingUser] = useState<User | null>(null);
+  const [changingPasswordUser, setChangingPasswordUser] = useState<User | null>(null);
   const { toast } = useToast();
-  
-  const {
-    register: registerFunding,
-    handleSubmit: handleSubmitFunding,
-    formState: { errors: fundingErrors },
-    reset: resetFunding
-  } = useForm<FundingFormData>();
+
+  const { register: registerFunding, handleSubmit: handleSubmitFunding, formState: { errors: fundingErrors }, reset: resetFunding } = useForm<FundingFormData>();
+  const { register: registerPassword, handleSubmit: handleSubmitPassword, reset: resetPassword, watch, formState: { errors: passwordErrors } } = useForm<PasswordChangeData>();
 
   const onSubmitFunding = async (data: FundingFormData) => {
     if (!fundingUser) return;
@@ -129,12 +129,12 @@ export default function AdminUsers() {
 
   // Handle export functionality
   const handleExport = (format: 'csv' | 'pdf') => {
-    const exportData = selectedUsers.length > 0 
+    const exportData = selectedUsers.length > 0
       ? users.filter(user => selectedUsers.includes(user.id.toString()))
       : users;
-    
+
     exportUsers(exportData, format);
-    
+
     toast({
       title: "Export Started",
       description: `Exporting ${exportData.length} users to ${format.toUpperCase()}...`,
@@ -214,7 +214,7 @@ export default function AdminUsers() {
   const handleBulkExport = async (userIds: string[]) => {
     const exportData = users.filter(user => userIds.includes(user.id.toString()));
     exportUsers(exportData, 'csv');
-    
+
     toast({
       title: "Export Started",
       description: `Exporting ${exportData.length} selected users...`,
@@ -230,8 +230,8 @@ export default function AdminUsers() {
   );
   // User selection handlers
   const handleSelectUser = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
+    setSelectedUsers(prev =>
+      prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
@@ -260,10 +260,11 @@ export default function AdminUsers() {
 
   const handleUpdateUser = async (data: UserFormData) => {
     if (!editingUser) return;
-    
-    try {      const response = await apiRequest("PUT", `/api/admin/users/${editingUser.id}`, data);
+
+    try {
+      const response = await apiRequest("PUT", `/api/admin/users/${editingUser.id}`, data);
       const updatedUser = await response.json() as User;
-      setUsers(prev => prev.map(user => 
+      setUsers(prev => prev.map(user =>
         user.id === editingUser.id ? updatedUser : user
       ));
       setEditingUser(null);
@@ -271,7 +272,8 @@ export default function AdminUsers() {
       toast({
         title: "Success",
         description: "User updated successfully"
-      });    } catch (error) {
+      });
+    } catch (error) {
       console.error("Failed to update user:", error);
       toast({
         title: "Error",
@@ -287,7 +289,7 @@ export default function AdminUsers() {
     if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
       return;
     }
-    
+
     try {
       await apiRequest("DELETE", `/api/admin/users/${userId}`);
       setUsers(prev => prev.filter(user => user.id !== userId));
@@ -301,6 +303,27 @@ export default function AdminUsers() {
         title: "Error",
         description: "Failed to delete user. Please try again.",
         variant: "destructive"
+      });
+    }
+  };
+
+  const handleChangePassword = async (data: PasswordChangeData) => {
+    if (!changingPasswordUser) return;
+
+    try {
+      await apiRequest("POST", `/api/admin/users/${changingPasswordUser.id}/change-password`, data);
+      toast({
+        title: "Success",
+        description: `Password for ${changingPasswordUser.username} changed successfully.`
+      });
+      setChangingPasswordUser(null);
+      resetPassword();
+    } catch (error) {
+      console.error("Failed to change password:", error);
+      toast({
+        title: "Error",
+        description: "Failed to change password. Please try again.",
+        variant: "destructive",
       });
     }
   };
@@ -358,7 +381,8 @@ export default function AdminUsers() {
         }}
       />
 
-      {/* Bulk Actions */}      <BulkActions
+      {/* Bulk Actions */}
+      <BulkActions
         selectedItems={selectedUsers}
         onClearSelection={() => setSelectedUsers([])}
         actions={bulkActions}
@@ -454,12 +478,18 @@ export default function AdminUsers() {
                   >
                     Delete
                   </button>
+                  <button
+                    onClick={() => setChangingPasswordUser(user)}
+                    className="text-blue-600 hover:text-blue-900"
+                  >
+                    Change Password
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        
+
         {users.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="text-gray-500">No users found</div>
@@ -478,7 +508,7 @@ export default function AdminUsers() {
             >
               Previous
             </button>
-            
+
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
               .map((page, idx, arr) => (
@@ -498,7 +528,7 @@ export default function AdminUsers() {
                   </button>
                 </span>
               ))}
-            
+
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
@@ -566,7 +596,7 @@ export default function AdminUsers() {
                     />
                     <span className="ml-2 text-sm text-gray-700">Account Active</span>
                   </label>
-                  
+
                   <label className="flex items-center">
                     <input
                       {...register("isVerified")}
@@ -593,6 +623,59 @@ export default function AdminUsers() {
                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                   >
                     Update User
+                  </button>
+                </div>
+              </form>
+            </div>          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {changingPasswordUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password</h3>
+              <form onSubmit={handleSubmitPassword(handleChangePassword)} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New Password</label>
+                  <input
+                    {...registerPassword("newPassword", { required: "New password is required", minLength: { value: 6, message: "Password must be at least 6 characters long" } })}
+                    type="password"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {passwordErrors.newPassword && <p className="text-red-500 text-xs mt-1">{passwordErrors.newPassword.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                  <input
+                    {...registerPassword("confirmPassword", {
+                      required: "Please confirm your password",
+                      validate: value => value === watch("newPassword") || "Passwords do not match"
+                    })}
+                    type="password"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {passwordErrors.confirmPassword && <p className="text-red-500 text-xs mt-1">{passwordErrors.confirmPassword.message}</p>}
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangingPasswordUser(null);
+                      resetPassword();
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  >
+                    Change Password
                   </button>
                 </div>
               </form>
@@ -685,4 +768,3 @@ export default function AdminUsers() {
     </div>
   );
 }
-

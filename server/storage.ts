@@ -1505,4 +1505,85 @@ export class DatabaseStorage {
       throw error;
     }
   }
+
+  async updateUserPassword(userId: number, hashedPassword: string) {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .update({ password: hashedPassword })
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Failed to update user password:", error);
+      return null;
+    }
+  }
+
+  async getUserTransactions(userId: number) {
+    try {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Failed to get user transactions:", error);
+      return [];
+    }
+  }
+
+  async updateUser(userId: number, updates: any) {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .update(updates)
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      return null;
+    }
+  }
+
+  async deleteUser(userId: number) {
+    try {
+      // First get the user data before deletion
+      const { data: userData, error: getUserError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (getUserError) throw getUserError;
+
+      // Delete user transactions first (cascade delete)
+      await supabase
+        .from("transactions")
+        .delete()
+        .eq("user_id", userId);
+
+      // Delete the user
+      const { error: deleteError } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", userId);
+
+      if (deleteError) throw deleteError;
+      return userData;
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      return null;
+    }
+  }
 }
