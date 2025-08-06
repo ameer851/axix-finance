@@ -12,6 +12,7 @@ export const securityMiddleware = helmet({
         "wss://*.tradingview.com",
         "https://*.supabase.co",
         "https://oyqanlnqfyyaqheehsmw.supabase.co",
+        "wss://*.replit.dev", "ws://*.replit.dev", "wss://*.replit.com", "ws://*.replit.com",
         ...(process.env.NODE_ENV === "development"
           ? ["http://localhost:*", "ws://localhost:*"]
           : []),

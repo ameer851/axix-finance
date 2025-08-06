@@ -21,7 +21,7 @@ import {
 // API Functions
 const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error('User ID is required');
-  
+
   try {
     const response = await fetch(`/api/users/${userId}/balance`, {
       method: 'GET',
@@ -129,7 +129,7 @@ const NewWithdraw: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [amount, setAmount] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('bitcoin');
   const [walletAddress, setWalletAddress] = useState('');
@@ -162,8 +162,30 @@ const NewWithdraw: React.FC = () => {
 
   // Withdrawal mutation
   const withdrawalMutation = useMutation({
-    mutationFn: async ({ amount, method, address }: { amount: number, method: string, address: string }) => {
-      return await submitWithdrawal(user?.id as number, amount, method, address);
+    mutationFn: async (data: {
+      amount: number;
+      method: string;
+      walletAddress: string;
+    }) => {
+      const response = await fetch('/api/transactions/withdrawal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          amount: data.amount,
+          method: data.method,
+          walletAddress: data.walletAddress
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to submit withdrawal');
+      }
+
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries(['userBalance', user?.id]);
@@ -188,7 +210,7 @@ const NewWithdraw: React.FC = () => {
   // Handle withdrawal submission
   const handleWithdrawal = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast({
         title: 'Invalid Amount',
@@ -251,10 +273,10 @@ const NewWithdraw: React.FC = () => {
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock },
       rejected: { bg: 'bg-red-100', text: 'text-red-800', icon: AlertCircle }
     };
-    
+
     const style = styles[status as keyof typeof styles] || styles.pending;
     const Icon = style.icon;
-    
+
     return (
       <Badge className={`${style.bg} ${style.text} border-0`}>
         <Icon className="h-3 w-3 mr-1" />

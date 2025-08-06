@@ -16,6 +16,7 @@ import {
   sendDepositApprovedEmail,
   sendWelcomeEmail,
   sendWithdrawalApprovedEmail,
+  sendWithdrawalRequestEmail,
 } from "./emailManager";
 import { sendTestEmail } from "./emailTestingService";
 import { setupAdminPanel } from "./fixed-admin-panel";
@@ -1508,12 +1509,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send appropriate email based on status
         try {
           if (status === "completed" && user) {
-            await sendDepositApprovedEmail(
+            console.log("Sending deposit approval email to:", user.email);
+            const emailSent = await sendDepositApprovedEmail(
               user,
               deposit.amount,
               deposit.cryptoType || "Crypto",
               deposit.planName || undefined
             );
+            if (!emailSent) {
+              console.warn("Failed to send deposit approval email");
+            }
           }
           // Could add rejection email here if needed
         } catch (emailError) {
@@ -2232,11 +2237,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Send withdrawal approved email
           try {
             if (user) {
-              await sendWithdrawalApprovedEmail(
+              console.log("Sending withdrawal approval email to:", user.email);
+              const emailSent = await sendWithdrawalApprovedEmail(
                 user,
                 withdrawal.amount,
                 withdrawal.walletAddress || "Your crypto account"
               );
+              if (!emailSent) {
+                console.warn("Failed to send withdrawal approval email");
+              }
             }
           } catch (emailError) {
             console.error(
@@ -3331,6 +3340,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error fetching transactions:", error);
         res.status(500).json({ message: "Failed to fetch transactions" });
+      }
+    }
+  );
+
+  // Add withdrawal request endpoint
+  app.post(
+    "/api/transactions/withdrawal",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { amount, method, walletAddress } = req.body;
+
+        // Validate input
+        if (!amount || isNaN(amount) || amount <= 0) {
+          return res
+            .status(400)
+            .json({ message: "Valid positive amount is required" });
+        }
+
+        if (!walletAddress || walletAddress.trim().length < 10) {
+          return res
+            .status(400)
+            .json({ message: "Valid wallet address is required" });
+        }
+
+        // Create withdrawal transaction
+        const transaction = await storage.createTransaction({
+          userId: userId,
+          type: "withdrawal",
+          amount: amount.toString(),
+          status: "pending",
+          description: `Withdrawal request via ${method || "crypto"}`,
+          cryptoType: method || "BTC",
+          walletAddress: walletAddress.trim(),
+        });
+
+        // Get user for email
+        const user = await storage.getUser(userId);
+        
+        // Send withdrawal request email
+        if (user) {
+          try {
+            console.log("Sending withdrawal request email to:", user.email);
+            const emailSent = await sendWithdrawalRequestEmail(
+              user,
+              amount.toString(),
+              req.ip
+            );
+            if (!emailSent) {
+              console.warn("Failed to send withdrawal request email");
+            }
+          } catch (emailError) {
+            console.error("Failed to send withdrawal request email:", emailError);
+          }
+        }
+
+        // Create notification for the user
+        await storage.createNotification({
+          userId: userId,
+          type: "transaction",
+          title: "Withdrawal Requested",
+          message: `Your withdrawal request of $${amount.toLocaleString()} has been submitted for admin review.`,
+          relatedEntityType: "transaction",
+          relatedEntityId: transaction.id,
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Withdrawal request submitted successfully",
+          transactionId: transaction.id,
+        });
+      } catch (error) {
+        console.error("Error processing withdrawal:", error);
+        res.status(500).json({ message: "Failed to process withdrawal" });
       }
     }
   );

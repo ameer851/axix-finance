@@ -41,7 +41,25 @@ export function initGlobalErrorHandling() {
       message.includes('Warning: React does not recognize') ||
       
       // Common initial auth errors during page load
-      (message.includes('API Error (401)') && message.includes('You must be logged in'))
+      (message.includes('API Error (401)') && message.includes('You must be logged in')) ||
+      
+      // Vite WebSocket connection errors
+      message.includes('failed to connect to websocket') ||
+      message.includes('WebSocket connection') ||
+      message.includes('vite:ws') ||
+      message.includes('NS_ERROR_CONTENT_BLOCKED') ||
+      message.includes('createConnection') ||
+      message.includes('@vite/client') ||
+      
+      // Content Security Policy violations we can't control
+      message.includes('Content-Security-Policy') ||
+      message.includes('Refused to connect') ||
+      message.includes('violates the following directive') ||
+      message.includes('blocked the loading of a resource') ||
+      
+      // Network errors for external services
+      message.includes('NetworkError') ||
+      message.includes('Failed to fetch')
     ) {
       // Log to debug instead if we need to track these
       if (process.env.NODE_ENV !== 'production') {
@@ -69,7 +87,14 @@ export function initGlobalErrorHandling() {
           error.message.includes('SyntaxError: JSON.parse')
         )) ||
         // Suppress network errors for external domains
-        (error.stack && error.stack.includes('googleusercontent.com'))
+        (error.stack && error.stack.includes('googleusercontent.com')) ||
+        
+        // Suppress WebSocket connection errors
+        (error.message && (
+          error.message.includes('WebSocket') ||
+          error.message.includes('websocket') ||
+          error.message.includes('vite:ws')
+        ))
       )
     ) {
       // Prevent the error from showing in the console
@@ -90,7 +115,9 @@ export function initGlobalErrorHandling() {
         event.filename.includes('translate.google') ||
         event.filename.includes('googleapis.com') ||
         event.filename.includes('googleusercontent.com') ||
-        event.filename.includes('coin360.com')
+        event.filename.includes('coin360.com') ||
+        event.filename.includes('vite') ||
+        event.filename.includes('websocket')
       )
     ) {
       // Prevent the error from showing in the console
