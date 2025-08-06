@@ -70,20 +70,8 @@ export const adminService = {
     }
   },
 
-  // Get all users
-  getUsers: async (page = 1, limit = 10): Promise<{ users: User[], total: number, totalPages: number }> => {
-    try {
-      const response = await apiRequest("GET", `/api/admin/users?page=${page}&limit=${limit}`);
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      throw new Error("Failed to fetch users");
-    }
-  },
-
   // Get deposits
-  getDeposits: async (status?: string): Promise<{ deposits: Transaction[], totalDeposits: number }> => {
+  getDeposits: async (status?: string): Promise<{ transactions: Transaction[], total: number }> => {
     try {
       const url = status ? `/api/admin/deposits-simple?status=${status}` : "/api/admin/deposits-simple";
       const response = await fetch(url, {
@@ -97,7 +85,11 @@ export const adminService = {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      return {
+        transactions: data.deposits || data.transactions || [],
+        total: data.totalDeposits || data.total || 0
+      };
     } catch (error) {
       console.error("Error fetching deposits:", error);
       throw new Error("Failed to fetch deposits");

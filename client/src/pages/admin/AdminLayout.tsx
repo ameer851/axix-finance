@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Shield } from "lucide-react";
 
 export default function AdminLayout() {
-
   const handleLogout = async () => {
     // Clear any stored auth data
     localStorage.removeItem('token');
