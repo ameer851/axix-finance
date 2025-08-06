@@ -413,10 +413,6 @@ app.use((req, res, next) => {
           console.log("⚠️ Running with limited functionality due to database connection issues");
           console.log("⚠️ The application will automatically retry connecting to the database");
         }
-        if (process.env.NODE_ENV !== "production") {
-          console.log("⚠️ Running with limited functionality due to database connection issues");
-          console.log("⚠️ The application will automatically retry connecting to the database");
-        }
       }
 
       // Set up periodic database connection check (every 30 seconds)
