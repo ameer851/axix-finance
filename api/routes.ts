@@ -15,7 +15,7 @@ import {
   getUserDeposits,
   getUserWithdrawals,
 } from "./supabase";
-import { AuthenticatedRequest } from "./utils/auth-middleware";
+import { RequestWithAuth as AuthenticatedRequest } from "./utils/auth-middleware";
 import { registerDebugRoutes } from "./utils/debug-env";
 import { registerVisitorsApi } from "./utils/visitors-api";
 

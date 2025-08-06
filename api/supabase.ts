@@ -121,7 +121,7 @@ export async function getAdminDeposits(filters?: {
       deposits: data || [],
       totalDeposits: count || 0,
       currentPage: 1,
-      totalPages: 1
+      totalPages: 1,
     };
   } catch (error) {
     console.error("Error in getAdminDeposits function:", error);
@@ -170,7 +170,7 @@ export async function getAdminWithdrawals(filters?: {
       withdrawals: data || [],
       totalWithdrawals: count || 0,
       currentPage: 1,
-      totalPages: 1
+      totalPages: 1,
     };
   } catch (error) {
     console.error("Error in getAdminWithdrawals function:", error);
@@ -181,7 +181,7 @@ export async function getAdminWithdrawals(filters?: {
 export async function approveDeposit(depositId: string) {
   try {
     const { error } = await supabase.rpc("approve_deposit", {
-      p_deposit_id: depositId
+      p_deposit_id: depositId,
     });
 
     if (error) {
@@ -199,7 +199,7 @@ export async function approveDeposit(depositId: string) {
 export async function approveWithdrawal(withdrawalId: string) {
   try {
     const { error } = await supabase.rpc("approve_withdrawal", {
-      p_withdrawal_id: withdrawalId
+      p_withdrawal_id: withdrawalId,
     });
 
     if (error) {
@@ -232,29 +232,6 @@ export async function getUserDeposits(userId: string | number) {
   } catch (error) {
     console.error("Error in getUserDeposits function:", error);
     return null;
-  }
-}
-
-// Function to get user withdrawals
-export async function getUserWithdrawals(userId: string | number) {
-  try {
-    const { data, error } = await supabase
-      .from("withdrawals")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching user withdrawals:", error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error("Error in getUserWithdrawals function:", error);
-    return null;
-  }
-}
   }
 }
 
