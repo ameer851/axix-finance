@@ -1,6 +1,7 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import bcrypt from "bcryptjs";
 import {
   comparePasswords,
   hashPassword,
@@ -215,7 +216,7 @@ if (process.env.NODE_ENV !== "production") {
 // Email sending routes
 router.post("/send-welcome-email", async (req, res) => {
   try {
-    const { email, full_name } = req.body;
+    const { email, firstName, lastName } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
@@ -2204,304 +2205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Simple deposit approval
-  app.post(
-    "/api/admin/deposits/:id/approve",
-    isAuthenticated,
-    requireAdminRole,
-    async (req: Request, res: Response) => {
-      try {
-        const idParam = req.params.id;
-
-        // Check if this is a deposits_history entry (starts with "hist_")
-        if (idParam.startsWith("hist_")) {
-          const historyId = parseInt(idParam.replace("hist_", ""));
-
-          // Get deposit from deposits_history table
-          const { data: historyData, error: historyError } = await supabase
-            .from("deposits_history")
-            .select("*")
-            .eq("id", historyId)
-            .eq("status", "pending")
-            .single();
-
-          if (historyError || !historyData) {
-            return res.status(404).json({ message: "Deposit not found" });
-          }
-
-          // Update deposits_history status to completed
-          const { error: updateError } = await supabase
-            .from("deposits_history")
-            .update({
-              status: "completed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", historyId);
-
-          if (updateError) {
-            console.error("Error updating deposit status:", updateError);
-            return res
-              .status(500)
-              .json({ message: "Failed to update deposit status" });
-          }
-
-          // Add to user balance using RPC function
-          const { error: balanceError } = await supabase.rpc(
-            "increment_user_balance",
-            {
-              user_id: historyData.user_id,
-              amount: parseFloat(historyData.amount),
-            }
-          );
-
-          if (balanceError) {
-            console.error("Error updating user balance:", balanceError);
-            return res
-              .status(500)
-              .json({ message: "Failed to update user balance" });
-          }
-
-          // Create notification
-          await storage.createNotification({
-            userId: historyData.user_id,
-            type: "transaction",
-            title: "Deposit Approved",
-            message: `Your deposit of $${historyData.amount} has been approved and added to your account.`,
-            relatedEntityType: "transaction",
-            relatedEntityId: historyId,
-          });
-
-          await storage.createLog({
-            type: "info",
-            userId: req.user!.id,
-            message: `Admin approved deposit #${idParam} of $${historyData.amount}`,
-            details: {
-              depositId: idParam,
-              amount: historyData.amount,
-              userId: historyData.user_id,
-            },
-          });
-
-          res.json({
-            success: true,
-            message: "Deposit approved successfully",
-            amount: historyData.amount,
-          });
-        } else {
-          // Handle regular transaction table entries
-          const depositId = parseInt(idParam);
-
-          // Get the deposit details first
-          const deposit = await storage.getTransactionById(depositId);
-          if (!deposit) {
-            return res.status(404).json({ message: "Deposit not found" });
-          }
-
-          // Update to completed status
-          const updated = await storage.updateTransactionStatus(
-            depositId,
-            "completed"
-          );
-
-          if (updated) {
-            // Add to user balance using RPC function
-            const { error: balanceError } = await supabase.rpc(
-              "increment_user_balance",
-              {
-                user_id: deposit.userId,
-                amount: parseFloat(deposit.amount),
-              }
-            );
-
-            if (balanceError) {
-              console.error("Error updating user balance:", balanceError);
-              return res
-                .status(500)
-                .json({ message: "Failed to update user balance" });
-            }
-
-            // Notify the user
-            // Notify user via notification and email
-            await Promise.all([
-              storage.createNotification({
-                userId: deposit.userId,
-                type: "transaction",
-                title: "Deposit Approved",
-                message: `Your deposit of $${deposit.amount} has been approved and added to your account.`,
-                relatedEntityType: "transaction",
-                relatedEntityId: depositId,
-              }),
-              // Get user details for sending email
-              storage.getUser(deposit.userId).then((user) => {
-                if (user) {
-                  sendDepositApprovedEmail(
-                    user,
-                    deposit.amount,
-                    deposit.cryptoType || "account balance",
-                    deposit.planName || undefined
-                  ).catch((error) => {
-                    console.error(
-                      "Failed to send deposit approved email:",
-                      error
-                    );
-                    // Don't fail the request if email fails
-                  });
-                }
-              }),
-            ]);
-
-            await storage.createLog({
-              type: "info",
-              userId: req.user!.id,
-              message: `Admin approved deposit #${depositId} of $${deposit.amount}`,
-              details: {
-                depositId,
-                amount: deposit.amount,
-                userId: deposit.userId,
-              },
-            });
-
-            res.json({
-              success: true,
-              message: "Deposit approved successfully",
-              amount: deposit.amount,
-            });
-          } else {
-            res.status(404).json({ message: "Deposit not found" });
-          }
-        }
-      } catch (error) {
-        console.error("Error approving deposit:", error);
-        res.status(500).json({ message: "Failed to approve deposit" });
-      }
-    }
-  );
-
-  // Simple deposit rejection
-  app.post(
-    "/api/admin/deposits/:id/reject",
-    isAuthenticated,
-    requireAdminRole,
-    async (req: Request, res: Response) => {
-      try {
-        const idParam = req.params.id;
-        const { reason } = req.body;
-
-        // Check if this is a deposits_history entry (starts with "hist_")
-        if (idParam.startsWith("hist_")) {
-          const historyId = parseInt(idParam.replace("hist_", ""));
-
-          // Get deposit from deposits_history table
-          const { data: historyData, error: historyError } = await supabase
-            .from("deposits_history")
-            .select("*")
-            .eq("id", historyId)
-            .eq("status", "pending")
-            .single();
-
-          if (historyError || !historyData) {
-            return res.status(404).json({ message: "Deposit not found" });
-          }
-
-          // Update deposits_history status to rejected
-          const { error: updateError } = await supabase
-            .from("deposits_history")
-            .update({
-              status: "rejected",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", historyId);
-
-          if (updateError) {
-            console.error("Error updating deposit status:", updateError);
-            return res
-              .status(500)
-              .json({ message: "Failed to update deposit status" });
-          }
-
-          // Create notification
-          await storage.createNotification({
-            userId: historyData.user_id,
-            type: "transaction",
-            title: "Deposit Rejected",
-            message: `Your deposit of $${historyData.amount} has been rejected.${reason ? ` Reason: ${reason}` : ""}`,
-            relatedEntityType: "transaction",
-            relatedEntityId: historyId,
-          });
-
-          await storage.createLog({
-            type: "info",
-            userId: req.user!.id,
-            message: `Admin rejected deposit #${idParam} of $${historyData.amount}${reason ? ` - Reason: ${reason}` : ""}`,
-            details: {
-              depositId: idParam,
-              amount: historyData.amount,
-              userId: historyData.user_id,
-              reason,
-            },
-          });
-
-          res.json({
-            success: true,
-            message: "Deposit rejected successfully",
-            reason: reason,
-          });
-        } else {
-          // Handle regular transaction table entries
-          const depositId = parseInt(idParam);
-
-          // Get the deposit details first
-          const deposit = await storage.getTransactionById(depositId);
-          if (!deposit) {
-            return res.status(404).json({ message: "Deposit not found" });
-          }
-
-          // Update to rejected status
-          const updated = await storage.updateTransactionStatus(
-            depositId,
-            "rejected",
-            reason
-          );
-
-          if (updated) {
-            // Notify the user
-            await storage.createNotification({
-              userId: deposit.userId,
-              type: "transaction",
-              title: "Deposit Rejected",
-              message: `Your deposit of $${deposit.amount} has been rejected.${reason ? ` Reason: ${reason}` : ""}`,
-              relatedEntityType: "transaction",
-              relatedEntityId: depositId,
-            });
-
-            await storage.createLog({
-              type: "info",
-              userId: req.user!.id,
-              message: `Admin rejected deposit #${depositId} of $${deposit.amount}${reason ? ` - Reason: ${reason}` : ""}`,
-              details: {
-                depositId,
-                amount: deposit.amount,
-                userId: deposit.userId,
-                reason,
-              },
-            });
-
-            res.json({
-              success: true,
-              message: "Deposit rejected successfully",
-              reason: reason,
-            });
-          } else {
-            res.status(404).json({ message: "Deposit not found" });
-          }
-        }
-      } catch (error) {
-        console.error("Error rejecting deposit:", error);
-        res.status(500).json({ message: "Failed to reject deposit" });
-      }
-    }
-  );
-
   // Individual Withdrawal Actions
   app.post(
     "/api/admin/withdrawals/:id/approve",
@@ -3328,7 +3031,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status,
             daily_return_rate,
             duration_days,
-            total_return,
             earned_amount,
             remaining_days,
             start_date,
@@ -3413,9 +3115,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? parseFloat(row.daily_return_rate.toString())
             : 0,
           durationDays: row.duration_days || 0,
-          totalReturn: row.total_return
-            ? parseFloat(row.total_return.toString())
-            : 0,
           earnedAmount: row.earned_amount
             ? parseFloat(row.earned_amount.toString())
             : 0,
@@ -3842,18 +3541,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // User-specific transactions endpoint
-  app.get(
-    "/api/transactions/:userId",
-    isAuthenticated,
+  router.get(
+    "/api/users/:userId/transactions",
+    requireEmailVerification,
     async (req: Request, res: Response) => {
       try {
         const userId = parseInt(req.params.userId);
+        const user = req.user;
 
         // Only allow users to access their own transactions
-        if (req.user?.id !== userId) {
-          return res.status(403).json({
-            message: "You do not have permission to view these transactions",
-          });
+        if (!user || (user.role !== "admin" && user.id !== userId)) {
+          return res.status(403).json({ message: "Access denied" });
         }
 
         const transactions = await storage.getUserTransactions(userId);
@@ -4638,9 +4336,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? parseFloat(row.daily_return_rate.toString())
               : 0,
             duration: row.duration_days || 0,
-            totalReturn: row.total_return
-              ? parseFloat(row.total_return.toString())
-              : 0,
             earnedAmount: row.earned_amount
               ? parseFloat(row.earned_amount.toString())
               : 0,
@@ -5289,7 +4984,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               0
             ),
             totalCount: filteredEarnings.length,
-            hasMore: filteredEarnings.length > endIndex,
+            hasMore:
+              (filteredEarnings.length) >
+              parseInt(offset as string) + parseInt(limit as string),
           });
         } catch (fallbackError) {
           console.error("Error generating mock earnings:", fallbackError);
