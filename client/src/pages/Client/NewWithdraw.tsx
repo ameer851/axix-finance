@@ -1,227 +1,223 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  ArrowUpRight, 
-  DollarSign, 
-  Wallet, 
-  CreditCard,
-  RefreshCw,
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
   AlertCircle,
+  ArrowUpRight,
   CheckCircle,
-  Clock 
-} from 'lucide-react';
+  Clock,
+  RefreshCw,
+  Wallet,
+} from "lucide-react";
+import React, { useState } from "react";
 
 // API Functions
 const fetchUserBalance = async (userId: number) => {
-  if (!userId) throw new Error('User ID is required');
-  
+  if (!userId) throw new Error("User ID is required");
+
   try {
-    const response = await fetch(`/api/users/${userId}/balance`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include'
-    });
+    const response = await api.get(`/api/users/${userId}/balance`);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch balance: ${response.status}`);
-    }
-
-    const data = await response.json();
     return {
-      availableBalance: Number(data.availableBalance) || 0,
-      pendingBalance: Number(data.pendingBalance) || 0,
-      totalBalance: Number(data.totalBalance) || Number(data.availableBalance) || 0,
-      lastUpdated: data.lastUpdated || new Date().toISOString()
+      availableBalance: Number(response.data.availableBalance) || 0,
+      pendingBalance: Number(response.data.pendingBalance) || 0,
+      totalBalance:
+        Number(response.data.totalBalance) ||
+        Number(response.data.availableBalance) ||
+        0,
+      lastUpdated: response.data.lastUpdated || new Date().toISOString(),
     };
-  } catch (error) {
-    console.error('Balance fetch error:', error);
-    throw error;
+  } catch (error: any) {
+    console.error("Balance fetch error:", error);
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      "An unknown error occurred while fetching balance.";
+    throw new Error(message);
   }
 };
 
-const submitWithdrawal = async (userId: number, amount: number, method: string, address: string) => {
-  const response = await fetch('/api/transactions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({
-      userId,
-      amount,
-      type: 'withdrawal',
-      description: `Withdrawal of $${amount} via ${method}`,
-      cryptoType: method,
-      walletAddress: address
-    })
+const submitWithdrawal = async (
+  userId: number,
+  amount: number,
+  method: string,
+  address: string
+) => {
+  const response = await api.post("/api/transactions", {
+    userId,
+    amount,
+    type: "withdrawal",
+    description: `Withdrawal of $${amount} via ${method}`,
+    cryptoType: method,
+    walletAddress: address,
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to submit withdrawal');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 const fetchWithdrawalHistory = async (userId: number) => {
-  const response = await fetch(`/api/users/${userId}/transactions?type=withdrawal&limit=10`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include'
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch withdrawal history');
-  }
-
-  return response.json();
+  const response = await api.get(
+    `/api/users/${userId}/transactions?type=withdrawal&limit=10`
+  );
+  return response.data;
 };
 
 // Withdrawal Methods
 const WITHDRAWAL_METHODS = [
   {
-    id: 'bitcoin',
-    name: 'Bitcoin (BTC)',
-    icon: '₿',
+    id: "bitcoin",
+    name: "Bitcoin (BTC)",
+    icon: "₿",
     minAmount: 50,
-    fee: '0.0005 BTC',
-    processingTime: '1-3 hours'
+    fee: "0.0005 BTC",
+    processingTime: "1-3 hours",
   },
   {
-    id: 'ethereum',
-    name: 'Ethereum (ETH)',
-    icon: 'Ξ',
+    id: "ethereum",
+    name: "Ethereum (ETH)",
+    icon: "Ξ",
     minAmount: 50,
-    fee: '0.01 ETH',
-    processingTime: '10-30 minutes'
+    fee: "0.01 ETH",
+    processingTime: "10-30 minutes",
   },
   {
-    id: 'usdt',
-    name: 'USDT (TRC20)',
-    icon: '₮',
+    id: "usdt",
+    name: "USDT (TRC20)",
+    icon: "₮",
     minAmount: 50,
-    fee: '1 USDT',
-    processingTime: '5-15 minutes'
+    fee: "1 USDT",
+    processingTime: "5-15 minutes",
   },
   {
-    id: 'bnb',
-    name: 'BNB (BSC)',
-    icon: 'BNB',
+    id: "bnb",
+    name: "BNB (BSC)",
+    icon: "BNB",
     minAmount: 50,
-    fee: '0.001 BNB',
-    processingTime: '5-15 minutes'
-  }
+    fee: "0.001 BNB",
+    processingTime: "5-15 minutes",
+  },
 ];
 
 const NewWithdraw: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const [amount, setAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState('bitcoin');
-  const [walletAddress, setWalletAddress] = useState('');
+
+  const [amount, setAmount] = useState("");
+  const [selectedMethod, setSelectedMethod] = useState("bitcoin");
+  const [walletAddress, setWalletAddress] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch user balance
-  const { 
-    data: balance, 
-    isLoading: balanceLoading, 
+  const {
+    data: balance,
+    isLoading: balanceLoading,
     error: balanceError,
-    refetch: refetchBalance 
+    refetch: refetchBalance,
   } = useQuery({
-    queryKey: ['userBalance', user?.id],
+    queryKey: ["userBalance", user?.id],
     queryFn: () => fetchUserBalance(user?.id as number),
     enabled: !!user?.id,
     staleTime: 30000,
-    retry: 3
+    retry: 3,
   });
 
   // Fetch withdrawal history
-  const { 
-    data: withdrawalHistory = [], 
-    isLoading: historyLoading 
-  } = useQuery({
-    queryKey: ['withdrawalHistory', user?.id],
+  const { data: withdrawalHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["withdrawalHistory", user?.id],
     queryFn: () => fetchWithdrawalHistory(user?.id as number),
     enabled: !!user?.id,
-    staleTime: 60000
+    staleTime: 60000,
   });
 
   // Withdrawal mutation
   const withdrawalMutation = useMutation({
-    mutationFn: async ({ amount, method, address }: { amount: number, method: string, address: string }) => {
-      return await submitWithdrawal(user?.id as number, amount, method, address);
+    mutationFn: async ({
+      amount,
+      method,
+      address,
+    }: {
+      amount: number;
+      method: string;
+      address: string;
+    }) => {
+      return await submitWithdrawal(
+        user?.id as number,
+        amount,
+        method,
+        address
+      );
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries(['userBalance', user?.id]);
-      queryClient.invalidateQueries(['withdrawalHistory', user?.id]);
-      queryClient.invalidateQueries(['userTransactions', user?.id]);
+      queryClient.invalidateQueries({ queryKey: ["userBalance", user?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["withdrawalHistory", user?.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["userTransactions", user?.id],
+      });
       toast({
-        title: 'Withdrawal Submitted',
+        title: "Withdrawal Submitted",
         description: `Your withdrawal of $${amount} has been submitted for processing.`,
       });
-      setAmount('');
-      setWalletAddress('');
+      setAmount("");
+      setWalletAddress("");
     },
     onError: (error: any) => {
       toast({
-        title: 'Withdrawal Failed',
-        description: error.message || 'There was an error submitting your withdrawal.',
-        variant: 'destructive'
+        title: "Withdrawal Failed",
+        description:
+          error.message || "There was an error submitting your withdrawal.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Handle withdrawal submission
   const handleWithdrawal = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast({
-        title: 'Invalid Amount',
-        description: 'Please enter a valid withdrawal amount.',
-        variant: 'destructive'
+        title: "Invalid Amount",
+        description: "Please enter a valid withdrawal amount.",
+        variant: "destructive",
       });
       return;
     }
 
-    const selectedMethodData = WITHDRAWAL_METHODS.find(m => m.id === selectedMethod);
+    const selectedMethodData = WITHDRAWAL_METHODS.find(
+      (m) => m.id === selectedMethod
+    );
     if (Number(amount) < (selectedMethodData?.minAmount || 50)) {
       toast({
-        title: 'Minimum Amount',
+        title: "Minimum Amount",
         description: `Minimum withdrawal amount is $${selectedMethodData?.minAmount || 50}.`,
-        variant: 'destructive'
+        variant: "destructive",
       });
       return;
     }
 
     if (Number(amount) > (balance?.availableBalance || 0)) {
       toast({
-        title: 'Insufficient Balance',
-        description: 'You do not have enough balance for this withdrawal.',
-        variant: 'destructive'
+        title: "Insufficient Balance",
+        description: "You do not have enough balance for this withdrawal.",
+        variant: "destructive",
       });
       return;
     }
 
     if (!walletAddress.trim()) {
       toast({
-        title: 'Wallet Address Required',
-        description: 'Please enter your wallet address.',
-        variant: 'destructive'
+        title: "Wallet Address Required",
+        description: "Please enter your wallet address.",
+        variant: "destructive",
       });
       return;
     }
@@ -231,7 +227,7 @@ const NewWithdraw: React.FC = () => {
       await withdrawalMutation.mutateAsync({
         amount: Number(amount),
         method: selectedMethod,
-        address: walletAddress.trim()
+        address: walletAddress.trim(),
       });
     } finally {
       setIsSubmitting(false);
@@ -239,22 +235,26 @@ const NewWithdraw: React.FC = () => {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(value);
   };
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      completed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock },
-      rejected: { bg: 'bg-red-100', text: 'text-red-800', icon: AlertCircle }
+      completed: {
+        bg: "bg-green-100",
+        text: "text-green-800",
+        icon: CheckCircle,
+      },
+      pending: { bg: "bg-yellow-100", text: "text-yellow-800", icon: Clock },
+      rejected: { bg: "bg-red-100", text: "text-red-800", icon: AlertCircle },
     };
-    
+
     const style = styles[status as keyof typeof styles] || styles.pending;
     const Icon = style.icon;
-    
+
     return (
       <Badge className={`${style.bg} ${style.text} border-0`}>
         <Icon className="h-3 w-3 mr-1" />
@@ -294,9 +294,19 @@ const NewWithdraw: React.FC = () => {
                   <span>Loading balance...</span>
                 </div>
               ) : balanceError ? (
-                <div className="flex items-center gap-2 text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Error loading balance</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Available Balance:</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      {formatCurrency(0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Pending Balance:</span>
+                    <span className="text-lg font-semibold text-yellow-600">
+                      {formatCurrency(0)}
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -306,7 +316,7 @@ const NewWithdraw: React.FC = () => {
                       {formatCurrency(balance?.availableBalance || 0)}
                     </span>
                   </div>
-                  {balance?.pendingBalance > 0 && (
+                  {balance && balance.pendingBalance > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Pending Balance:</span>
                       <span className="text-lg font-semibold text-yellow-600">
@@ -327,12 +337,12 @@ const NewWithdraw: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {WITHDRAWAL_METHODS.map((method) => (
-                  <div 
+                  <div
                     key={method.id}
                     className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                      selectedMethod === method.id 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-gray-300'
+                      selectedMethod === method.id
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
                     onClick={() => setSelectedMethod(method.id)}
                   >
@@ -371,13 +381,19 @@ const NewWithdraw: React.FC = () => {
                     className="text-lg"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Minimum withdrawal: ${WITHDRAWAL_METHODS.find(m => m.id === selectedMethod)?.minAmount || 50}
+                    Minimum withdrawal: $
+                    {WITHDRAWAL_METHODS.find((m) => m.id === selectedMethod)
+                      ?.minAmount || 50}
                   </p>
                 </div>
 
                 <div>
                   <Label htmlFor="address">
-                    {WITHDRAWAL_METHODS.find(m => m.id === selectedMethod)?.name} Address
+                    {
+                      WITHDRAWAL_METHODS.find((m) => m.id === selectedMethod)
+                        ?.name
+                    }{" "}
+                    Address
                   </Label>
                   <Input
                     id="address"
@@ -387,7 +403,8 @@ const NewWithdraw: React.FC = () => {
                     className="font-mono text-sm"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Double-check your address. Incorrect addresses may result in permanent loss of funds.
+                    Double-check your address. Incorrect addresses may result in
+                    permanent loss of funds.
                   </p>
                 </div>
 
@@ -398,7 +415,9 @@ const NewWithdraw: React.FC = () => {
                       <p className="font-medium mb-1">Important Notice:</p>
                       <ul className="space-y-1 text-xs">
                         <li>• Withdrawals are processed within 24 hours</li>
-                        <li>• Network fees will be deducted from your withdrawal</li>
+                        <li>
+                          • Network fees will be deducted from your withdrawal
+                        </li>
                         <li>• Verify your wallet address carefully</li>
                         <li>• Contact support if you need assistance</li>
                       </ul>
@@ -406,10 +425,15 @@ const NewWithdraw: React.FC = () => {
                   </div>
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full h-12 text-lg"
-                  disabled={!amount || !walletAddress || isSubmitting || Number(amount) > (balance?.availableBalance || 0)}
+                  disabled={
+                    !amount ||
+                    !walletAddress ||
+                    isSubmitting ||
+                    Number(amount) > (balance?.availableBalance || 0)
+                  }
                 >
                   {isSubmitting ? (
                     <>
@@ -450,22 +474,27 @@ const NewWithdraw: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {withdrawalHistory.slice(0, 5).map((withdrawal: any, index: number) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-medium">
-                          {formatCurrency(Number(withdrawal.amount))}
-                        </span>
-                        {getStatusBadge(withdrawal.status)}
-                      </div>
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <div>Method: {withdrawal.method?.toUpperCase()}</div>
-                        <div>
-                          Date: {new Date(withdrawal.createdAt || withdrawal.date).toLocaleDateString()}
+                  {withdrawalHistory
+                    .slice(0, 5)
+                    .map((withdrawal: any, index: number) => (
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-medium">
+                            {formatCurrency(Number(withdrawal.amount))}
+                          </span>
+                          {getStatusBadge(withdrawal.status)}
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <div>Method: {withdrawal.method?.toUpperCase()}</div>
+                          <div>
+                            Date:{" "}
+                            {new Date(
+                              withdrawal.createdAt || withdrawal.date
+                            ).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </CardContent>

@@ -113,7 +113,25 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/client/dashboard">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <Dashboard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/deposit">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Deposit />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/deposit">
         {() => (
           <ProtectedRoute>
             <DashboardLayout>
@@ -240,6 +258,97 @@ function Router() {
         )}
       </Route>
       <Route path="/withdrawal-history">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <WithdrawalsHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      {/* Client prefixed routes for routing consistency */}
+      <Route path="/client/withdraw">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Withdraw />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/history">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <History />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/profile">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Profile />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/referrals">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Referrals />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/marketing">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Marketing />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/edit-account">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <EditAccountPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/simple-edit-account">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <SimpleEditAccount />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/settings">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ClientSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/deposits-history">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <DepositsHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/withdrawal-history">
         {() => (
           <ProtectedRoute requireVerified>
             <DashboardLayout>

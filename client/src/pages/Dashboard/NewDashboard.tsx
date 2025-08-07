@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -12,6 +13,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  Clock,
   DollarSign,
   RefreshCw,
 } from "lucide-react";
@@ -21,62 +23,47 @@ import React, { useState } from "react";
 const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
-  const response = await fetch(`/api/users/${userId}/balance`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Balance fetch error:", errorText);
-    throw new Error(`Failed to fetch balance: ${response.status}`);
+  try {
+    const response = await api.get(`/api/users/${userId}/balance`);
+    if (!response.data) {
+      // Handle cases where response.data is undefined
+      console.error("Balance fetch error: Response data is undefined.");
+      return {
+        availableBalance: 0,
+        pendingBalance: 0,
+        totalBalance: 0,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
+    return {
+      availableBalance: Number(response.data.availableBalance) || 0,
+      pendingBalance: Number(response.data.pendingBalance) || 0,
+      totalBalance:
+        Number(response.data.totalBalance) ||
+        Number(response.data.availableBalance) ||
+        0,
+      lastUpdated: response.data.lastUpdated || new Date().toISOString(),
+    };
+  } catch (error: any) {
+    console.error("Balance fetch error:", error);
+    // Return zero balance instead of throwing for better UX
+    return {
+      availableBalance: 0,
+      pendingBalance: 0,
+      totalBalance: 0,
+      lastUpdated: new Date().toISOString(),
+    };
   }
-
-  const data = await response.json();
-  return {
-    availableBalance: Number(data.availableBalance) || 0,
-    pendingBalance: Number(data.pendingBalance) || 0,
-    totalBalance:
-      Number(data.totalBalance) || Number(data.availableBalance) || 0,
-    lastUpdated: data.lastUpdated || new Date().toISOString(),
-  };
 };
 
 const fetchUserTransactions = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response = await fetch(`/api/users/${userId}/transactions?limit=10`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      // Handle specific errors without causing auth logout
-      if (response.status === 404) {
-        console.warn("No transactions found for user");
-        return [];
-      } else if (response.status === 403) {
-        console.warn("Access denied to transactions");
-        return [];
-      } else if (response.status >= 500) {
-        console.error("Server error fetching transactions");
-        return [];
-      }
-
-      const errorText = await response.text();
-      console.error("Transactions fetch error:", errorText);
-      return [];
-    }
-
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    const response = await api.get(
+      `/api/users/${userId}/transactions?limit=10`
+    );
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error("Network error fetching transactions:", error);
     return [];
@@ -96,8 +83,14 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
     transactions?.filter(
       (t) => t.type === "withdrawal" && t.status === "completed"
     ) || [];
-  const pendingTransactions =
-    transactions?.filter((t) => t.status === "pending") || [];
+  const pendingDeposits =
+    transactions?.filter(
+      (t) => t.type === "deposit" && t.status === "pending"
+    ) || [];
+  const pendingWithdrawals =
+    transactions?.filter(
+      (t) => t.type === "withdrawal" && t.status === "pending"
+    ) || [];
 
   const totalDeposits = completedDeposits.reduce(
     (sum, t) => sum + Number(t.amount),
@@ -107,7 +100,14 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
     (sum, t) => sum + Number(t.amount),
     0
   );
-  const profit = totalDeposits - totalWithdrawals;
+  const pendingDepositAmount = pendingDeposits.reduce(
+    (sum, t) => sum + Number(t.amount),
+    0
+  );
+  const pendingWithdrawalAmount = pendingWithdrawals.reduce(
+    (sum, t) => sum + Number(t.amount),
+    0
+  );
 
   const stats = [
     {
@@ -116,27 +116,33 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
       icon: DollarSign,
       color: "text-green-600",
       bg: "bg-green-50",
+      description: "Ready to withdraw",
     },
     {
-      title: "Total Deposits",
-      value: `$${totalDeposits.toFixed(2)}`,
+      title: "Pending Balance",
+      value: `$${balance?.pendingBalance?.toFixed(2) || "0.00"}`,
+      icon: Clock,
+      color: "text-yellow-600",
+      bg: "bg-yellow-50",
+      description: "Awaiting approval",
+    },
+    {
+      title: "Pending Deposits",
+      value: `$${pendingDepositAmount.toFixed(2)}`,
+      count: `(${pendingDeposits.length})`,
       icon: ArrowDownRight,
       color: "text-blue-600",
       bg: "bg-blue-50",
+      description: "Waiting for approval",
     },
     {
-      title: "Total Withdrawals",
-      value: `$${totalWithdrawals.toFixed(2)}`,
+      title: "Pending Withdrawals",
+      value: `$${pendingWithdrawalAmount.toFixed(2)}`,
+      count: `(${pendingWithdrawals.length})`,
       icon: ArrowUpRight,
       color: "text-orange-600",
       bg: "bg-orange-50",
-    },
-    {
-      title: "Pending Transactions",
-      value: pendingTransactions.length.toString(),
-      icon: Activity,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50",
+      description: "Being processed",
     },
   ];
 
@@ -151,6 +157,14 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
                   {stat.title}
                 </p>
                 <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                {stat.count && (
+                  <p className="text-sm text-gray-500 mt-1">{stat.count}</p>
+                )}
+                {stat.description && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {stat.description}
+                  </p>
+                )}
               </div>
               <div className={`p-3 rounded-full ${stat.bg}`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />

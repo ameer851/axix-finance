@@ -12,6 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminActions, useAdminData } from "@/hooks/use-admin-data";
 import { useToast } from "@/hooks/use-toast";
+import { adminQueryConfig } from "@/lib/adminQueryConfig";
+import { adminService } from "@/services/adminService";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, Clock, DollarSign, TrendingDown } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -24,6 +27,8 @@ interface Withdrawal {
     lastName?: string;
     username: string;
   };
+  // Supabase returns related users as an array
+  users?: Array<{ id: number; username: string; email: string }>;
   amount: number;
   status: "pending" | "approved" | "rejected" | "processing";
   crypto_type?: string;
@@ -57,11 +62,10 @@ export default function WithdrawalsPage() {
   const [notes, setNotes] = useState("");
 
   const {
-    data: withdrawals,
+    data: withdrawals = [],
     loading,
     currentPage,
     totalPages,
-    totalItems,
     setPage,
     setFilters,
     refresh,
@@ -70,15 +74,14 @@ export default function WithdrawalsPage() {
     transform: (data) => data.withdrawals || data,
   });
 
-  const { data: stats } = useAdminData<WithdrawalStats>({
-    endpoint: "/api/admin/stats",
-    transform: (data) =>
-      data?.withdrawals || {
-        total: 0,
-        pending: 0,
-        approved: 0,
-        thisMonth: 0,
-      },
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: adminService.getDashboardStats,
+    ...adminQueryConfig.mediumFrequency,
   });
 
   const { executeAction, loading: actionLoading } = useAdminActions(
@@ -176,19 +179,23 @@ export default function WithdrawalsPage() {
     {
       header: "User",
       accessor: "user",
-      cell: (withdrawal: Withdrawal) => (
-        <div>
-          <div className="font-medium">{withdrawal.user.username}</div>
-          <div className="text-sm text-gray-500">{withdrawal.user.email}</div>
-          {(withdrawal.user.firstName || withdrawal.user.lastName) && (
-            <div className="text-xs text-gray-400">
-              {[withdrawal.user.firstName, withdrawal.user.lastName]
-                .filter(Boolean)
-                .join(" ")}
+      cell: (withdrawal: Withdrawal) => {
+        const usr =
+          Array.isArray((withdrawal as any).users) &&
+          (withdrawal as any).users!.length
+            ? (withdrawal as any).users![0]
+            : undefined;
+        return (
+          <div>
+            <div className="font-medium">
+              {usr?.username || `User ${withdrawal.userId}`}
             </div>
-          )}
-        </div>
-      ),
+            {usr?.email && (
+              <div className="text-sm text-gray-500">{usr.email}</div>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: "Amount",
@@ -315,44 +322,46 @@ export default function WithdrawalsPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Withdrawals
-            </CardTitle>
+          <CardHeader className="flex justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${stats?.total?.toLocaleString() || "0"}
+              ${stats?.withdrawals?.total.toLocaleString() || "0"}
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.pending || 0}</div>
+            <div className="text-2xl font-bold">
+              {stats?.withdrawals?.pending || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex justify-between pb-2">
             <CardTitle className="text-sm font-medium">Approved</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.approved || 0}</div>
+            <div className="text-2xl font-bold">
+              {stats?.withdrawals?.approved || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex justify-between pb-2">
             <CardTitle className="text-sm font-medium">This Month</CardTitle>
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${stats?.thisMonth?.toLocaleString() || "0"}
+              ${stats?.withdrawals?.thisMonth.toLocaleString() || "0"}
             </div>
           </CardContent>
         </Card>
@@ -366,7 +375,7 @@ export default function WithdrawalsPage() {
           showAmountRange: true,
           showPaymentMethod: true,
           customStatuses: ["pending", "processing", "approved", "rejected"],
-          paymentMethods: ["Bank Transfer", "Crypto"],
+          customPaymentMethods: ["Bank Transfer", "Crypto"],
         }}
       />
 
@@ -378,17 +387,14 @@ export default function WithdrawalsPage() {
           {
             label: "Approve Selected",
             onClick: (ids) => handleBulkAction("approve", ids),
-            variant: "success",
           },
           {
             label: "Reject Selected",
             onClick: (ids) => handleBulkAction("reject", ids),
-            variant: "warning",
           },
           {
             label: "Delete Selected",
             onClick: (ids) => handleBulkAction("delete", ids),
-            variant: "danger",
           },
         ]}
         pagination={

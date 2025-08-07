@@ -68,13 +68,45 @@ function safeJsonParse(text: string) {
  * Get the current Supabase session token for authentication
  */
 async function getAuthToken(): Promise<string | null> {
+  console.log("Attempting to get auth token from Supabase...");
   try {
     const {
       data: { session },
+      error,
     } = await supabase.auth.getSession();
-    return session?.access_token || null;
+
+    if (error) {
+      console.error("Error getting session from Supabase:", error);
+      return null;
+    }
+
+    if (!session) {
+      console.warn("No active session found after login attempt.");
+      return null;
+    }
+
+    console.log("✅ Supabase session retrieved successfully!");
+    console.log(
+      "Session expires at:",
+      new Date(session.expires_at * 1000).toLocaleString()
+    );
+    console.log("Token length:", session.access_token?.length || 0);
+
+    return session.access_token;
   } catch (error) {
-    console.error("Error getting auth token:", error);
+    console.error(
+      "🚨 CRITICAL ERROR in getAuthToken - This is likely a network issue:",
+      error
+    );
+    console.error("Error type:", typeof error);
+    console.error(
+      "Error name:",
+      error instanceof Error ? error.name : "Unknown"
+    );
+    console.error(
+      "Error message:",
+      error instanceof Error ? error.message : "No message"
+    );
     return null;
   }
 }
@@ -97,11 +129,25 @@ export async function apiFetch<T = any>(
   const authToken = await getAuthToken();
 
   // Add default headers with authentication
-  const headers = {
+  const headers: Record<string, string> = {
     Accept: "application/json",
     ...(authToken && { Authorization: `Bearer ${authToken}` }),
     ...(fetchOptions.headers || {}),
   };
+
+  // Add Content-Type for methods that have a body
+  if (
+    fetchOptions.body &&
+    !headers["Content-Type"] &&
+    typeof fetchOptions.body === "string"
+  ) {
+    try {
+      JSON.parse(fetchOptions.body); // Check if it's a JSON string
+      headers["Content-Type"] = "application/json";
+    } catch (e) {
+      // Not a JSON string, do not set header
+    }
+  }
 
   // Create abort controller for timeout
   const controller = new AbortController();

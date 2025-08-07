@@ -37,6 +37,7 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
 
+  // Use hook to fetch users
   const {
     data: users,
     loading,
@@ -64,70 +65,6 @@ export default function AdminUsers() {
     setValue,
     formState: { errors },
   } = useForm<UserFormData>();
-
-  // Fetch users from API with advanced filtering
-  const [, navigate] = window.wouter
-    ? window.wouter.useLocation()
-    : [null, (url: string) => (window.location.href = url)];
-  const fetchUsers = async (page = 1, appliedFilters: FilterState = {}) => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "10",
-      });
-
-      // Add filter parameters
-      if (appliedFilters.search) params.set("search", appliedFilters.search);
-      if (appliedFilters.dateFrom)
-        params.set("dateFrom", appliedFilters.dateFrom);
-      if (appliedFilters.dateTo) params.set("dateTo", appliedFilters.dateTo);
-      if (appliedFilters.status) params.set("status", appliedFilters.status);
-      if (appliedFilters.amountMin)
-        params.set("amountMin", appliedFilters.amountMin.toString());
-      if (appliedFilters.amountMax)
-        params.set("amountMax", appliedFilters.amountMax.toString());
-
-      const response = await apiRequest("GET", `/api/admin/users?${params}`);
-      if (response.status === 401 || response.status === 403) {
-        toast({
-          title: "Session expired",
-          description: "Your session has expired. Please log in again.",
-          variant: "destructive",
-        });
-        // Use wouter navigate if available, else fallback
-        if (navigate) navigate("/login");
-        else window.location.href = "/login";
-        return;
-      }
-      const data = (await response.json()) as UsersResponse;
-      setUsers(data.users);
-      setTotalPages(data.totalPages);
-      setCurrentPage(data.currentPage);
-      setTotalUsers(data.totalUsers);
-      setSelectedUsers([]); // Clear selection when data changes
-    } catch (error) {
-      // Only show error toast if error is not just empty data
-      const message =
-        typeof error === "object" && error && "message" in error
-          ? (error as any).message
-          : String(error);
-      if (message !== "No data found") {
-        console.error("Failed to fetch users:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch users. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers(currentPage, filters);
-  }, [currentPage, filters]);
 
   // Handle filter changes
   const handleFilterChange = (newFilters: FilterState) => {

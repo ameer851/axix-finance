@@ -20,11 +20,20 @@ import { useLocation } from "wouter";
 
 interface DepositDetails {
   amount: string;
-  selectedPlan: string;
-  selectedMethod: string;
+  plan: string;
+  method: string;
   walletAddress: string;
   planName: string;
 }
+// Fallback crypto address map (in case depositDetails missing walletAddress)
+const CRYPTO_ADDRESSES: Record<string, string> = {
+  bitcoin: "bc1qs0fygvepn2e6am0camsnxgwz8g6sexnmupwu58",
+  ethereum: "0x742d35Cc7dB8C4B62b5F9BBD3D9C56E1234567890",
+  usdt: "TQrZZs0fygvepn2e6am0camsnxgwz8g6sexnmupwu58",
+  bnb: "bnb1s0fygvepn2e6am0camsnxgwz8g6sexnmupwu58",
+};
+
+import { api } from "@/lib/api";
 
 // API function for submitting deposit confirmation
 const submitDepositConfirmation = async (
@@ -34,90 +43,19 @@ const submitDepositConfirmation = async (
   console.log("🔍 Submitting deposit confirmation for user:", userId);
   console.log("📦 Confirmation data:", confirmationData);
 
-  try {
-    const response = await fetch("/api/transactions/deposit/confirm", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        userId,
-        ...confirmationData,
-      }),
-    });
+  const response = await api.post("/api/transactions", {
+    userId,
+    amount: confirmationData.amount,
+    type: "deposit",
+    status: "pending",
+    description: `Crypto deposit of $${confirmationData.amount} via ${confirmationData.method.toUpperCase()} - ${confirmationData.planName}`,
+    cryptoType: confirmationData.method,
+    planName: confirmationData.planName,
+    transactionHash: confirmationData.transactionHash,
+    walletAddress: confirmationData.walletAddress,
+  });
 
-    console.log("📡 Response status:", response.status);
-    console.log(
-      "📡 Response headers:",
-      Object.fromEntries(response.headers.entries())
-    );
-
-    if (!response.ok) {
-      // Try to get error message from response
-      let errorMessage;
-      let errorData;
-      try {
-        const responseText = await response.text();
-        console.log("❌ Raw error response:", responseText);
-
-        // Try to parse as JSON first
-        try {
-          errorData = JSON.parse(responseText);
-          errorMessage = errorData.message;
-          console.log("❌ Parsed error data:", errorData);
-        } catch (jsonError) {
-          // If not JSON, it might be HTML - extract useful info
-          console.log("❌ Response is not JSON, might be HTML");
-          errorMessage = `Server returned HTML instead of JSON (status: ${response.status})`;
-
-          // Try to extract title or error message from HTML
-          const titleMatch = responseText.match(/<title>(.*?)<\/title>/i);
-          if (titleMatch) {
-            console.log("❌ HTML title found:", titleMatch[1]);
-            errorMessage += ` - ${titleMatch[1]}`;
-          }
-        }
-      } catch (e) {
-        errorMessage = `Request failed with status: ${response.status}`;
-        console.log("❌ Failed to read error response:", e);
-      }
-
-      // Handle specific error status codes
-      if (response.status === 401) {
-        throw new Error("Authentication failed. Please log in again.");
-      } else if (response.status === 403) {
-        throw new Error("Access denied. Please verify your account.");
-      } else if (response.status === 404) {
-        throw new Error("API endpoint not found. Please contact support.");
-      }
-
-      throw new Error(
-        errorMessage || `Request failed with status: ${response.status}`
-      );
-    }
-
-    // Parse successful response
-    try {
-      const result = await response.json();
-      console.log("✅ Success response:", result);
-      return result;
-    } catch (parseError) {
-      console.log("❌ Failed to parse success response as JSON:", parseError);
-      const responseText = await response.text();
-      console.log("❌ Raw success response:", responseText);
-      throw new Error("Server returned invalid JSON response");
-    }
-  } catch (error: any) {
-    console.log("💥 API call error:", error);
-    // Handle network errors
-    if (error.name === "TypeError" && error.message.includes("fetch")) {
-      throw new Error(
-        "Network error. Please check your connection and try again."
-      );
-    }
-    throw error;
-  }
+  return response.data;
 };
 
 const NewDepositConfirmation: React.FC = () => {
@@ -141,6 +79,10 @@ const NewDepositConfirmation: React.FC = () => {
       setLocation("/client/deposit");
     }
   }, [depositDetails, setLocation]);
+  // Derive wallet address: use stored or fallback by method
+  const address =
+    depositDetails?.walletAddress ||
+    CRYPTO_ADDRESSES[depositDetails?.method || ""];
 
   // Submit confirmation mutation
   const confirmationMutation = useMutation({
@@ -162,8 +104,8 @@ const NewDepositConfirmation: React.FC = () => {
       const payload = {
         transactionHash: data.transactionHash,
         amount: data.depositDetails.amount,
-        selectedPlan: data.depositDetails.selectedPlan,
-        selectedMethod: data.depositDetails.selectedMethod,
+        plan: data.depositDetails.plan,
+        method: data.depositDetails.method,
         walletAddress: data.depositDetails.walletAddress,
         planName: data.depositDetails.planName,
       };
@@ -172,17 +114,6 @@ const NewDepositConfirmation: React.FC = () => {
       return await submitDepositConfirmation(user.id, payload);
     },
     onSuccess: (data) => {
-      // Store thank you data in localStorage for the dashboard thank you message
-      const thankYouData = {
-        transactionId: data.transactionId || Date.now(),
-        amount: depositDetails?.amount || "0",
-        crypto: depositDetails?.selectedMethod || "bitcoin",
-        transactionHash: transactionHash,
-        planName: depositDetails?.planName || "Investment Plan",
-        timestamp: Date.now(),
-      };
-      localStorage.setItem("depositThankYou", JSON.stringify(thankYouData));
-
       // Clear deposit details from localStorage
       localStorage.removeItem("depositDetails");
 
@@ -192,17 +123,18 @@ const NewDepositConfirmation: React.FC = () => {
         queryKey: ["userTransactions", user?.id],
       });
 
-      // Show success toast
+      // Show thank you message
       toast({
-        title: "Deposit Submitted Successfully! 🎉",
+        title: "Thank You! 🎉",
         description:
-          "Your deposit confirmation has been submitted for admin review. Thank you!",
+          "Your deposit has been submitted and is waiting for admin approval. You will be notified once it's processed.",
+        duration: 5000,
       });
 
-      // Redirect to dashboard
+      // Redirect to dashboard after showing the message
       setTimeout(() => {
         setLocation("/client/dashboard");
-      }, 1500);
+      }, 2000);
     },
     onError: (error: any) => {
       // Handle authentication errors specifically
@@ -351,7 +283,7 @@ const NewDepositConfirmation: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-500">Payment Method</p>
                 <p className="font-semibold capitalize">
-                  {depositDetails.selectedMethod}
+                  {depositDetails.method}
                 </p>
               </div>
               <div>
@@ -384,9 +316,7 @@ const NewDepositConfirmation: React.FC = () => {
                     </li>
                     <li>
                       2. Use the{" "}
-                      <strong>
-                        {depositDetails.selectedMethod.toUpperCase()}
-                      </strong>{" "}
+                      <strong>{depositDetails.method.toUpperCase()}</strong>{" "}
                       network only
                     </li>
                     <li>3. Copy the transaction hash after sending</li>
@@ -400,18 +330,22 @@ const NewDepositConfirmation: React.FC = () => {
 
             <div>
               <Label className="text-sm font-medium">
-                {depositDetails.selectedMethod.toUpperCase()} Wallet Address
+                {depositDetails.method.toUpperCase()} Wallet Address
               </Label>
               <div className="flex gap-2 mt-1">
-                <Input
-                  value={depositDetails.walletAddress}
-                  readOnly
-                  className="font-mono text-sm"
-                />
+                <Input value={address} readOnly className="font-mono text-sm" />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleCopyAddress}
+                  onClick={() => {
+                    navigator.clipboard.writeText(address || "");
+                    setCopiedAddress(true);
+                    toast({
+                      title: "Address Copied",
+                      description: "Wallet address copied to clipboard.",
+                    });
+                    setTimeout(() => setCopiedAddress(false), 3000);
+                  }}
                   className="shrink-0"
                 >
                   {copiedAddress ? (
@@ -426,9 +360,8 @@ const NewDepositConfirmation: React.FC = () => {
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
                 <strong>Note:</strong> Send only{" "}
-                {depositDetails.selectedMethod.toUpperCase()} to this address.
-                Sending any other cryptocurrency will result in permanent loss
-                of funds.
+                {depositDetails.method.toUpperCase()} to this address. Sending
+                any other cryptocurrency will result in permanent loss of funds.
               </p>
             </div>
           </div>

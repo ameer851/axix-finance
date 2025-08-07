@@ -1,19 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Axix Finance</title>
-  <!-- Supabase configuration - override environment variables -->
-  <script>
-    window.SUPABASE_CONFIG = {
-      supabaseUrl: "https://wvnyiinrmfysabsfztii.supabase.co",
-      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k"
-    };
-  </script>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Axix Finance</title>
+    <!-- Supabase configuration - override environment variables -->
+    <script>
+      window.SUPABASE_CONFIG = {
+        supabaseUrl: "https://wvnyiinrmfysabsfztii.supabase.co",
+        supabaseAnonKey:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bnlpaW5ybWZ5c2Fic2Z6dGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTQzNjcsImV4cCI6MjA2ODY3MDM2N30.BF008qPmpqtA4IZVQZE_P52CBoI3lVZQKc_yUg2rN4k",
+      };
+    </script>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' 
+                   https://translate.google.com 
+                   https://translate.googleapis.com 
+                   https://www.google.com 
+                   https://s3.tradingview.com 
+                   https://static.tradingview.com 
+                   https://*.tradingview.com 
+                   https://www.tradingview-widget.com 
+                   https://translate-pa.googleapis.com 
+                   https://*.gstatic.com 
+                   https://www.gstatic.com 
+                   https://www.googletagmanager.com 
+                   https://*.translate.goog 
+                   blob: 
+                   https://www.tradingview.com 
+                   https://co-in.io 
+                   https://cdn.jsdelivr.net;
+        connect-src 'self' 
+                    https://*.google.com 
+                    https://*.googleapis.com 
+                    https://*.gstatic.com 
+                    wss://*.tradingview.com 
+                    https://*.supabase.co 
+                    https://oyqanlnqfyyaqheehsmw.supabase.co 
+                    https://co-in.io 
+                    https://min-api.cryptocompare.com 
+                    wss://ws.coincap.io 
+                    http://localhost:* 
+                    ws://localhost:*;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.tradingview.com https://co-in.io;
+        font-src 'self' data: https://fonts.gstatic.com;
+        img-src 'self' data: https:;
+        frame-src 'self' https://www.google.com https://*.tradingview.com https://www.tradingview-widget.com;
+      "
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

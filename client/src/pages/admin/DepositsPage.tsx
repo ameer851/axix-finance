@@ -1,3 +1,4 @@
+import { useAdminActions, useAdminData } from "@/hooks/use-admin-data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
@@ -9,7 +10,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import BulkActions from "../../components/BulkActions";
 import TransactionFilter from "../../components/TransactionFilter";
 import { Badge } from "../../components/ui/badge";
@@ -25,81 +26,43 @@ import { adminQueryConfig } from "../../lib/adminQueryConfig";
 import { adminService } from "../../services/adminService";
 
 export default function DepositsPage() {
-  const [selectedDeposits, setSelectedDeposits] = useState<string[]>([]);
-  const [filters, setFilters] = useState({
-    status: "",
-    dateFrom: "",
-    dateTo: "",
-    amountMin: "",
-    amountMax: "",
-  });
   const queryClient = useQueryClient();
 
+  // Use hook to fetch deposits
   const {
-    data: depositsData,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["admin-deposits", filters],
-    queryFn: async () => {
-      // Convert string amounts to numbers for the API
-      const apiFilters = {
-        ...filters,
-        amountMin: filters.amountMin
-          ? parseFloat(filters.amountMin)
-          : undefined,
-        amountMax: filters.amountMax
-          ? parseFloat(filters.amountMax)
-          : undefined,
-      };
-      return await adminService.deposits.getAll(apiFilters);
-    },
-    staleTime: 15000, // 15 seconds
-    refetchInterval: 30000, // Refetch every 30 seconds
-    retry: (failureCount, error: any) => {
-      // Don't retry on specific errors
-      if (
-        error?.message?.includes("Rate limit exceeded") ||
-        error?.message?.includes("429") ||
-        error?.message?.includes("Invalid response format") ||
-        error?.message?.includes("JSON.parse")
-      ) {
-        return false;
-      }
-      return failureCount < 2;
-    },
+    data: deposits = [],
+    loading,
+    currentPage,
+    totalPages,
+    totalItems,
+    setPage,
+    setFilters,
+    refresh,
+  } = useAdminData<{
+    id: number;
+    user: string;
+    amount: number;
+    plan: string;
+    createdAt: string;
+    status: string;
+  }>({
+    endpoint: "/api/admin/deposits",
+    transform: (res) => res.data || [],
   });
 
-  React.useEffect(() => {
-    if (error) {
-      let errorMessage = "Failed to fetch deposits. Please try again.";
-      if (error && typeof error === "object" && "message" in error) {
-        if (error.message?.includes("Rate limit exceeded")) {
-          errorMessage = error.message;
-        } else if (error.message?.includes("429")) {
-          errorMessage =
-            "Too many requests. Please wait a moment before refreshing.";
-        } else if (error.message?.includes("Invalid response format")) {
-          errorMessage =
-            "Server returned invalid data. Please refresh the page.";
-        } else if (error.message?.includes("JSON.parse")) {
-          errorMessage = "Unable to process server response. Please try again.";
-        }
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
-    }
-  }, [error]);
+  // Use hook for approve/reject actions
+  const { executeAction, loading: actionLoading } = useAdminActions(
+    "/api/admin/deposits",
+    { onSuccess: refresh }
+  );
 
-  const deposits = Array.isArray(depositsData?.data) ? depositsData.data : [];
-  const totalPages = depositsData?.pagination?.pages || 1;
-  const currentPage = depositsData?.pagination?.page || 1;
-  const totalDeposits = depositsData?.pagination?.total || 0;
+  const [selectedDeposits, setSelectedDeposits] = useState<string[]>([]);
 
-  const { data: stats } = useQuery({
+  const {
+    data: stats,
+    isLoading: isLoadingStats,
+    error: errorStats,
+  } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: adminService.getDashboardStats,
     ...adminQueryConfig.mediumFrequency,
@@ -187,25 +150,6 @@ export default function DepositsPage() {
     }
   };
 
-  const filteredDeposits = deposits.filter((deposit: any) => {
-    if (filters.status && deposit.status !== filters.status) return false;
-    if (
-      filters.dateFrom &&
-      new Date(deposit.createdAt) < new Date(filters.dateFrom)
-    )
-      return false;
-    if (
-      filters.dateTo &&
-      new Date(deposit.createdAt) > new Date(filters.dateTo)
-    )
-      return false;
-    if (filters.amountMin && deposit.amount < parseFloat(filters.amountMin))
-      return false;
-    if (filters.amountMax && deposit.amount > parseFloat(filters.amountMax))
-      return false;
-    return true;
-  });
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
@@ -235,7 +179,7 @@ export default function DepositsPage() {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -302,18 +246,18 @@ export default function DepositsPage() {
       {/* Filters */}
       <TransactionFilter
         onFilter={(newFilters) => {
-          setFilters((prev) => ({
-            ...prev,
-            status: newFilters.status === "all" ? "" : newFilters.status,
+          setFilters({
+            status: newFilters.status === "all" ? undefined : newFilters.status,
             dateFrom: newFilters.dateRange.from
               ? newFilters.dateRange.from.toISOString().split("T")[0]
-              : "",
+              : undefined,
             dateTo: newFilters.dateRange.to
               ? newFilters.dateRange.to.toISOString().split("T")[0]
-              : "",
+              : undefined,
             amountMin: newFilters.amount.min,
             amountMax: newFilters.amount.max,
-          }));
+          });
+          setPage(1);
         }}
       />
 
@@ -321,7 +265,7 @@ export default function DepositsPage() {
       <BulkActions
         selectedItems={selectedDeposits}
         onClearSelection={() => setSelectedDeposits([])}
-        totalItems={depositsData?.totalDeposits || 0}
+        totalItems={totalItems || 0}
         actions={[
           {
             id: "approve",
@@ -422,7 +366,9 @@ export default function DepositsPage() {
                       />
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {deposit.user?.username || `User ${deposit.user_id}`}
+                      {Array.isArray(deposit.users) && deposit.users.length > 0
+                        ? deposit.users[0].username
+                        : `User ${deposit.user_id}`}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 font-semibold">
                       ${deposit.amount.toLocaleString()}
@@ -482,7 +428,9 @@ export default function DepositsPage() {
                       {getStatusBadge(deposit.status)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(deposit.created_at).toLocaleDateString()}
+                      {new Date(
+                        (deposit.created_at as string) || deposit.createdAt
+                      ).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm space-x-2">
                       {deposit.status === "pending" && (

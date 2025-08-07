@@ -4471,7 +4471,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
   }
 
-  // Initialize visitor session
+  // Visitor tracking endpoints (disabled)
+  /*
   app.post("/api/visitors/session", async (req: Request, res: Response) => {
     try {
       const visitorId =
@@ -4589,6 +4590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to end session" });
     }
   });
+  */
 
   // Admin: Get active visitors
   app.get(
