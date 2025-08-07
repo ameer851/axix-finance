@@ -9,7 +9,7 @@ export interface AuthUser {
 }
 
 // Custom interface for authenticated request with proper type safety
-interface RequestWithAuth extends Request {
+export interface RequestWithAuth extends Request {
   authUser?: AuthUser;
 }
 

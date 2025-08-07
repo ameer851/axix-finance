@@ -1,46 +1,34 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Clock, Save, Server, Settings } from "lucide-react";
-import { useState } from "react";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import { Switch } from "../../components/ui/switch";
-import { Textarea } from "../../components/ui/textarea";
-import { useToast } from "../../components/ui/use-toast";
+import React, { useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Switch } from '../../components/ui/switch';
+import { Textarea } from '../../components/ui/textarea';
+import { Badge } from '../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { useToast } from '../../components/ui/use-toast';
+import { Settings, AlertTriangle, Clock, Users, Server, Database, Shield, Save } from 'lucide-react';
 
 export default function MaintenancePage() {
   const { toast } = useToast();
-
+  
   const [maintenance, setMaintenance] = useState({
     enabled: false,
-    message:
-      "The system is currently under maintenance. Please try again later.",
-    scheduledStart: "",
-    scheduledEnd: "",
+    message: 'The system is currently under maintenance. Please try again later.',
+    scheduledStart: '',
+    scheduledEnd: '',
     allowAdminAccess: true,
-    maintenanceType: "system",
-    affectedServices: [] as string[],
+    maintenanceType: 'system',
+    affectedServices: [] as string[]
   });
 
   // Mock query for maintenance settings
   const { data: maintenanceData, isLoading } = useQuery({
-    queryKey: ["maintenance"],
+    queryKey: ['maintenance'],
     queryFn: () => Promise.resolve(maintenance),
-    initialData: maintenance,
+    initialData: maintenance
   });
 
   // Mock mutation for updating maintenance settings
@@ -50,35 +38,28 @@ export default function MaintenancePage() {
       return Promise.resolve(data);
     },
     onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Maintenance settings updated successfully",
-      });
+      toast({ title: 'Success', description: 'Maintenance settings updated successfully' });
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update maintenance settings",
-        variant: "destructive",
-      });
-    },
+      toast({ title: 'Error', description: 'Failed to update maintenance settings', variant: 'destructive' });
+    }
   });
 
   const handleInputChange = (field: string, value: any) => {
-    setMaintenance((prev) => ({
+    setMaintenance(prev => ({
       ...prev,
-      [field]: value,
+      [field]: value
     }));
   };
 
   const handleServiceToggle = (service: string) => {
-    setMaintenance((prev) => {
+    setMaintenance(prev => {
       const currentServices = prev.affectedServices || [];
       return {
         ...prev,
         affectedServices: currentServices.includes(service)
-          ? currentServices.filter((s) => s !== service)
-          : [...currentServices, service],
+          ? currentServices.filter(s => s !== service)
+          : [...currentServices, service]
       };
     });
   };
@@ -90,68 +71,66 @@ export default function MaintenancePage() {
   const enableMaintenanceNow = () => {
     const now = new Date();
     const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
-
-    setMaintenance((prev) => ({
+    
+    setMaintenance(prev => ({
       ...prev,
       enabled: true,
       scheduledStart: now.toISOString().slice(0, 16),
-      scheduledEnd: endTime.toISOString().slice(0, 16),
+      scheduledEnd: endTime.toISOString().slice(0, 16)
     }));
   };
 
   const disableMaintenanceNow = () => {
-    setMaintenance((prev) => ({
+    setMaintenance(prev => ({
       ...prev,
-      enabled: false,
+      enabled: false
     }));
   };
 
   const availableServices = [
-    "deposits",
-    "withdrawals",
-    "trading",
-    "portfolio",
-    "messaging",
-    "registration",
+    'deposits',
+    'withdrawals', 
+    'trading',
+    'portfolio',
+    'messaging',
+    'registration'
   ];
 
   const systemStats = {
-    uptime: "15 days, 7 hours, 23 minutes",
-    lastBackup: "2 hours ago",
-    systemHealth: "Excellent",
+    uptime: '15 days, 7 hours, 23 minutes',
+    lastBackup: '2 hours ago',
+    systemHealth: 'Excellent',
     activeUsers: 1247,
     databaseConnections: 25,
-    serverLoad: "18%",
-    diskUsage: "45%",
-    memoryUsage: "62%",
+    serverLoad: '18%',
+    diskUsage: '45%',
+    memoryUsage: '62%',
   };
 
   const recentMaintenances = [
     {
       id: 1,
-      type: "Security Update",
-      date: "2024-01-15",
-      duration: "2 hours",
-      status: "Completed",
-      description:
-        "Applied critical security patches and updated SSL certificates",
+      type: 'Security Update',
+      date: '2024-01-15',
+      duration: '2 hours',
+      status: 'Completed',
+      description: 'Applied critical security patches and updated SSL certificates',
     },
     {
       id: 2,
-      type: "Database Optimization",
-      date: "2024-01-10",
-      duration: "4 hours",
-      status: "Completed",
-      description: "Optimized database queries and updated indexing strategies",
+      type: 'Database Optimization',
+      date: '2024-01-10',
+      duration: '4 hours',
+      status: 'Completed',
+      description: 'Optimized database queries and updated indexing strategies',
     },
     {
       id: 3,
-      type: "Server Upgrade",
-      date: "2024-01-05",
-      duration: "6 hours",
-      status: "Completed",
-      description:
-        "Upgraded server hardware and migrated to new infrastructure",
+      type: 'Server Upgrade',
+      date: '2024-01-05',
+      duration: '6 hours',
+      status: 'Completed',
+      description: 'Upgraded server hardware and migrated to new infrastructure',
     },
   ];
 
@@ -170,12 +149,8 @@ export default function MaintenancePage() {
           <Settings className="h-6 w-6 text-blue-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Maintenance Management
-          </h1>
-          <p className="text-gray-600">
-            Monitor system health and manage maintenance windows
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Maintenance Management</h1>
+          <p className="text-gray-600">Monitor system health and manage maintenance windows</p>
         </div>
       </div>
 
@@ -207,23 +182,15 @@ export default function MaintenancePage() {
             <div className="mt-6 space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">System Uptime</span>
-                <span className="text-sm text-gray-600">
-                  {systemStats.uptime}
-                </span>
+                <span className="text-sm text-gray-600">{systemStats.uptime}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">
-                  Database Connections
-                </span>
-                <span className="text-sm text-gray-600">
-                  {systemStats.databaseConnections}
-                </span>
+                <span className="text-sm font-medium">Database Connections</span>
+                <span className="text-sm text-gray-600">{systemStats.databaseConnections}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Server Load</span>
-                <span className="text-sm text-gray-600">
-                  {systemStats.serverLoad}
-                </span>
+                <span className="text-sm text-gray-600">{systemStats.serverLoad}</span>
               </div>
             </div>
           </CardContent>
@@ -240,25 +207,14 @@ export default function MaintenancePage() {
           <CardContent>
             <div className="space-y-4">
               {recentMaintenances.map((maintenance) => (
-                <div
-                  key={maintenance.id}
-                  className="border-l-4 border-blue-500 pl-4"
-                >
+                <div key={maintenance.id} className="border-l-4 border-blue-500 pl-4">
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="font-medium">{maintenance.type}</h4>
-                    <Badge
-                      variant={
-                        maintenance.status === "Completed"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
+                    <Badge variant={maintenance.status === 'Completed' ? 'default' : 'secondary'}>
                       {maintenance.status}
                     </Badge>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {maintenance.description}
-                  </p>
+                  <p className="text-sm text-gray-600 mb-2">{maintenance.description}</p>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <span>📅 {maintenance.date}</span>
                     <span>⏱️ {maintenance.duration}</span>
@@ -282,45 +238,30 @@ export default function MaintenancePage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Memory Usage</span>
-                  <span className="text-sm text-gray-600">
-                    {systemStats.memoryUsage}
-                  </span>
+                  <span className="text-sm text-gray-600">{systemStats.memoryUsage}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full"
-                    style={{ width: systemStats.memoryUsage }}
-                  ></div>
+                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: systemStats.memoryUsage }}></div>
                 </div>
               </div>
-
+              
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Disk Usage</span>
-                  <span className="text-sm text-gray-600">
-                    {systemStats.diskUsage}
-                  </span>
+                  <span className="text-sm text-gray-600">{systemStats.diskUsage}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-500 h-2 rounded-full"
-                    style={{ width: systemStats.diskUsage }}
-                  ></div>
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: systemStats.diskUsage }}></div>
                 </div>
               </div>
-
+              
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Server Load</span>
-                  <span className="text-sm text-gray-600">
-                    {systemStats.serverLoad}
-                  </span>
+                  <span className="text-sm text-gray-600">{systemStats.serverLoad}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-yellow-500 h-2 rounded-full"
-                    style={{ width: "25%" }}
-                  ></div>
+                  <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '25%' }}></div>
                 </div>
               </div>
             </div>
@@ -346,24 +287,18 @@ export default function MaintenancePage() {
             {/* Maintenance Status */}
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base font-medium">
-                  Maintenance Mode
-                </Label>
-                <p className="text-sm text-gray-600">
-                  Enable to put the system in maintenance mode
-                </p>
+                <Label className="text-base font-medium">Maintenance Mode</Label>
+                <p className="text-sm text-gray-600">Enable to put the system in maintenance mode</p>
               </div>
               <Switch
                 checked={maintenance.enabled}
-                onCheckedChange={(checked) =>
-                  handleInputChange("enabled", checked)
-                }
+                onCheckedChange={(checked) => handleInputChange('enabled', checked)}
               />
             </div>
 
             {/* Quick Actions */}
             <div className="flex gap-2">
-              <Button
+              <Button 
                 onClick={enableMaintenanceNow}
                 variant="outline"
                 size="sm"
@@ -371,9 +306,9 @@ export default function MaintenancePage() {
               >
                 Enable Now (2 hours)
               </Button>
-              <Button
+              <Button 
                 onClick={disableMaintenanceNow}
-                variant="outline"
+                variant="outline" 
                 size="sm"
                 className="text-green-600 border-green-300 hover:bg-green-50"
               >
@@ -387,7 +322,7 @@ export default function MaintenancePage() {
               <Textarea
                 id="message"
                 value={maintenance.message}
-                onChange={(e) => handleInputChange("message", e.target.value)}
+                onChange={(e) => handleInputChange('message', e.target.value)}
                 placeholder="Enter the message to display to users during maintenance"
                 rows={3}
               />
@@ -401,9 +336,7 @@ export default function MaintenancePage() {
                   id="start"
                   type="datetime-local"
                   value={maintenance.scheduledStart}
-                  onChange={(e) =>
-                    handleInputChange("scheduledStart", e.target.value)
-                  }
+                  onChange={(e) => handleInputChange('scheduledStart', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -412,9 +345,7 @@ export default function MaintenancePage() {
                   id="end"
                   type="datetime-local"
                   value={maintenance.scheduledEnd}
-                  onChange={(e) =>
-                    handleInputChange("scheduledEnd", e.target.value)
-                  }
+                  onChange={(e) => handleInputChange('scheduledEnd', e.target.value)}
                 />
               </div>
             </div>
@@ -422,11 +353,9 @@ export default function MaintenancePage() {
             {/* Maintenance Type */}
             <div className="space-y-2">
               <Label htmlFor="type">Maintenance Type</Label>
-              <Select
-                value={maintenance.maintenanceType}
-                onValueChange={(value) =>
-                  handleInputChange("maintenanceType", value)
-                }
+              <Select 
+                value={maintenance.maintenanceType} 
+                onValueChange={(value) => handleInputChange('maintenanceType', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select maintenance type" />
@@ -436,9 +365,7 @@ export default function MaintenancePage() {
                   <SelectItem value="security">Security Update</SelectItem>
                   <SelectItem value="database">Database Maintenance</SelectItem>
                   <SelectItem value="network">Network Maintenance</SelectItem>
-                  <SelectItem value="emergency">
-                    Emergency Maintenance
-                  </SelectItem>
+                  <SelectItem value="emergency">Emergency Maintenance</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -467,32 +394,24 @@ export default function MaintenancePage() {
             {/* Admin Access */}
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base font-medium">
-                  Allow Admin Access
-                </Label>
-                <p className="text-sm text-gray-600">
-                  Allow administrators to bypass maintenance mode
-                </p>
+                <Label className="text-base font-medium">Allow Admin Access</Label>
+                <p className="text-sm text-gray-600">Allow administrators to bypass maintenance mode</p>
               </div>
               <Switch
                 checked={maintenance.allowAdminAccess}
-                onCheckedChange={(checked) =>
-                  handleInputChange("allowAdminAccess", checked)
-                }
+                onCheckedChange={(checked) => handleInputChange('allowAdminAccess', checked)}
               />
             </div>
 
             {/* Save Button */}
             <div className="pt-4">
-              <Button
+              <Button 
                 onClick={handleSave}
                 className="bg-blue-600 hover:bg-blue-700"
                 disabled={updateMutation.isPending}
               >
                 <Save className="w-4 h-4 mr-2" />
-                {updateMutation.isPending
-                  ? "Saving..."
-                  : "Save Maintenance Settings"}
+                {updateMutation.isPending ? 'Saving...' : 'Save Maintenance Settings'}
               </Button>
             </div>
           </CardContent>

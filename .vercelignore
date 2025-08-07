@@ -1,17 +1,35 @@
+# Server and development files
+
 server/
 scripts/
 migrations/
 docs/
 logs/
-*.log
+_.log
 .env.local
 .env.development
 node_modules/
 .git/
-*.md
+_.md
 !README.md
 supabase/
 ngrok.exe
 ngrok.zip
-*.backup*
-*.bak
+_.backup_
+\*.bak
+
+# Ignore individual API files to prevent creating separate serverless functions
+
+api/auth.ts
+api/health.ts
+api/server.ts
+api/supabase.ts
+api/fallback.ts
+api/routes.ts.new
+
+# Keep only the main index.ts file and necessary dependencies
+
+!api/index.ts
+!api/routes.ts
+!api/middleware/
+!api/utils/

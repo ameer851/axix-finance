@@ -1,8 +1,10 @@
 // Import minimal routes for Vercel serverless function
-import { VercelResponse } from "@vercel/node";
 import type { Express, Request, Response } from "express";
 import express from "express";
-import { requireAuth } from "./middleware/auth-middleware";
+import {
+  RequestWithAuth as AuthenticatedRequest,
+  requireAuth,
+} from "./middleware/auth-middleware";
 import {
   approveDeposit,
   approveWithdrawal,
@@ -15,7 +17,6 @@ import {
   getUserDeposits,
   getUserWithdrawals,
 } from "./supabase";
-import { RequestWithAuth as AuthenticatedRequest } from "./utils/auth-middleware";
 import { registerDebugRoutes } from "./utils/debug-env";
 import { registerVisitorsApi } from "./utils/visitors-api";
 
@@ -48,12 +49,16 @@ export async function registerRoutes(app: Express) {
   // Get user balance endpoint - requires authentication
   app.get(
     "/api/users/:userId/balance",
-    requireAuth(async (req: AuthenticatedRequest, res: Response) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
         const userId = req.params.userId;
 
         // Verify user is requesting their own data or is admin
-        if (req.user?.id !== parseInt(userId) && req.user?.role !== "admin") {
+        if (
+          req.authUser?.id !== parseInt(userId) &&
+          req.authUser?.role !== "admin"
+        ) {
           return res.status(403).json({ message: "Unauthorized access" });
         }
 
@@ -69,15 +74,16 @@ export async function registerRoutes(app: Express) {
         console.error("Get balance error:", error);
         return res.status(500).json({ message: "Failed to get user balance" });
       }
-    })
+    }
   );
 
   // Admin dashboard data endpoint
   app.get(
     "/api/admin/dashboard",
-    requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
-        if (req.user?.role !== "admin") {
+        if (req.authUser?.role !== "admin") {
           return res.status(403).json({ message: "Admin access required" });
         }
 
@@ -89,15 +95,16 @@ export async function registerRoutes(app: Express) {
           .status(500)
           .json({ message: "Failed to fetch admin dashboard data" });
       }
-    })
+    }
   );
 
   // Admin deposits endpoint
   app.get(
     "/api/admin/deposits",
-    requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
-        if (req.user?.role !== "admin") {
+        if (req.authUser?.role !== "admin") {
           return res.status(403).json({ message: "Admin access required" });
         }
 
@@ -120,15 +127,16 @@ export async function registerRoutes(app: Express) {
         console.error("Admin deposits error:", error);
         return res.status(500).json({ message: "Failed to fetch deposits" });
       }
-    })
+    }
   );
 
   // Admin approve deposit endpoint
   app.post(
     "/api/admin/deposits/:id/approve",
-    requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
-        if (req.user?.role !== "admin") {
+        if (req.authUser?.role !== "admin") {
           return res.status(403).json({ message: "Admin access required" });
         }
 
@@ -145,15 +153,16 @@ export async function registerRoutes(app: Express) {
         console.error("Admin approve deposit error:", error);
         return res.status(500).json({ message: "Failed to approve deposit" });
       }
-    })
+    }
   );
 
   // Admin withdrawals endpoint
   app.get(
     "/api/admin/withdrawals",
-    requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
-        if (req.user?.role !== "admin") {
+        if (req.authUser?.role !== "admin") {
           return res.status(403).json({ message: "Admin access required" });
         }
 
@@ -178,15 +187,16 @@ export async function registerRoutes(app: Express) {
         console.error("Admin withdrawals error:", error);
         return res.status(500).json({ message: "Failed to fetch withdrawals" });
       }
-    })
+    }
   );
 
   // Admin approve withdrawal endpoint
   app.post(
     "/api/admin/withdrawals/:id/approve",
-    requireAuth(async (req: AuthenticatedRequest, res: VercelResponse) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
-        if (req.user?.role !== "admin") {
+        if (req.authUser?.role !== "admin") {
           return res.status(403).json({ message: "Admin access required" });
         }
 
@@ -207,7 +217,7 @@ export async function registerRoutes(app: Express) {
           .status(500)
           .json({ message: "Failed to approve withdrawal" });
       }
-    })
+    }
   );
 
   // Get user deposits endpoint
