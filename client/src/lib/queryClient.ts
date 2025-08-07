@@ -1,6 +1,22 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import config from "../config";
 import { addCSRFToken, validateOrigin } from "./csrfProtection";
+import { supabase } from "./supabase";
+
+/**
+ * Get the current Supabase session token for authentication
+ */
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch (error) {
+    console.error("Error getting auth token:", error);
+    return null;
+  }
+}
 
 /**
  * Custom error handler for API responses
@@ -34,72 +50,34 @@ async function throwIfResNotOk(res: Response) {
 
       // Check the content type
       const contentType = res.headers.get("content-type");
-
       if (contentType && contentType.includes("application/json")) {
-        // Handle JSON response
         try {
-          const json = await res.json();
-          errorMessage = json.message || json.error || res.statusText;
-          errorDetails = json;
-        } catch (jsonError) {
-          console.error("Failed to parse JSON error response:", jsonError);
-          // Fallback to text if JSON parsing fails
-          errorMessage = (await responseClone.text()) || res.statusText;
-        }
-      } else if (contentType && contentType.includes("text/html")) {
-        // Handle HTML response - likely an error page
-        errorMessage =
-          "The server returned an HTML page instead of the expected data. The server might be experiencing issues.";
-
-        try {
-          // Try to extract more meaningful error from HTML
-          const htmlText = await res.text();
-          const titleMatch = htmlText.match(/<title[^>]*>([^<]+)<\/title>/i);
-          if (titleMatch && titleMatch[1]) {
-            errorMessage += ` (Page title: ${titleMatch[1]})`;
-          }
-        } catch (htmlError) {
-          console.error("Failed to parse HTML error response:", htmlError);
+          const errorData = await responseClone.json();
+          errorMessage = errorData.message || errorData.error || res.statusText;
+          errorDetails = errorData;
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError);
+          errorMessage = res.statusText || "Unknown error";
         }
       } else {
-        // Handle other content types or no content type
-        errorMessage = (await responseClone.text()) || res.statusText;
+        // Try to get text response
+        try {
+          const errorText = await responseClone.text();
+          errorMessage = errorText || res.statusText || "Unknown error";
+        } catch (textError) {
+          console.error("Error reading error response:", textError);
+          errorMessage = res.statusText || "Unknown error";
+        }
       }
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "Authentication required - please log in"
-      ) {
-        throw error; // Rethrow auth errors
-      }
-      // If parsing fails, use statusText
-      errorMessage = res.statusText || `HTTP error ${res.status}`;
+      console.error("Error handling response:", error);
+      errorMessage = res.statusText || "Unknown error";
     }
 
-    const error = new Error(`${res.status}: ${errorMessage}`);
-    // Add additional properties to the error object
-    (error as any).status = res.status;
-    (error as any).details = errorDetails;
-
-    // Add user-friendly messages for common status codes
-    if (res.status === 403) {
-      (error as any).userMessage =
-        "You don't have permission to access this resource.";
-    } else if (res.status === 404) {
-      (error as any).userMessage = "The requested resource was not found.";
-    } else if (res.status === 500) {
-      (error as any).userMessage =
-        "The server encountered an error. Our team has been notified.";
-    } else if (res.status === 429) {
-      (error as any).userMessage = "Too many requests. Please try again later.";
-    } else if (res.status >= 400 && res.status < 500) {
-      (error as any).userMessage = "There was a problem with your request.";
-    } else if (res.status >= 500) {
-      (error as any).userMessage =
-        "There was a server error. Please try again later.";
-    }
-
-    throw error;
+    const apiError = new Error(errorMessage);
+    (apiError as any).status = res.status;
+    (apiError as any).details = errorDetails;
+    throw apiError;
   }
 }
 
@@ -117,10 +95,14 @@ export async function apiRequest(
     returnRawResponse?: boolean;
   }
 ): Promise<Response> {
+  // Get authentication token
+  const authToken = await getAuthToken();
+
   // Apply CSRF protection to all API requests
   const csrfHeaders = addCSRFToken({
     ...(data ? { "Content-Type": "application/json" } : {}),
     Accept: "application/json",
+    ...(authToken && { Authorization: `Bearer ${authToken}` }),
     ...(options?.headers || {}),
   });
 
@@ -188,11 +170,11 @@ export async function apiRequest(
       }
 
       return res;
-    } catch (fetchError) {
+    } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
 
       // Handle timeout errors
-      if (fetchError.name === "AbortError") {
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
         const timeoutError = new Error(
           "Request timed out. The server may be experiencing high load."
         );
@@ -226,6 +208,9 @@ export const getQueryFn: <T>(options: {
       const url = queryKey[0] as string;
       const fullUrl = url.startsWith("/") ? `${config.apiUrl}${url}` : url;
 
+      // Get authentication token
+      const authToken = await getAuthToken();
+
       // Debug logging for development
       if (config.debug) {
         // Query Request initiated
@@ -234,6 +219,10 @@ export const getQueryFn: <T>(options: {
       const res = await fetch(fullUrl, {
         credentials: "include",
         mode: "cors",
+        headers: {
+          Accept: "application/json",
+          ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        },
       });
 
       // Debug logging for development

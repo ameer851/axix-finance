@@ -1,4 +1,3 @@
-import AnimatedBackground from "@/components/animations/AnimatedBackground";
 import LoadingSpinner from "@/components/animations/LoadingSpinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Eye, EyeOff, Home } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -45,19 +43,6 @@ const Login: React.FC = () => {
   const [isServerAvailable, setIsServerAvailable] = useState<boolean>(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
-
-  // Animation variants
-  const formFieldVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      x: 0,
-      transition: {
-        delay: i * 0.1,
-        duration: 0.5,
-      },
-    }),
-  };
 
   useEffect(() => {
     const checkServer = async () => {
@@ -204,26 +189,14 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      <AnimatedBackground />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="w-full max-w-md relative z-10 p-4"
-      >
+      <div className="w-full max-w-md relative z-10 p-4">
         <Card className="backdrop-blur-sm bg-white/90 dark:bg-neutral-900/90 shadow-xl">
           <CardHeader className="space-y-1">
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="flex flex-col items-center"
-            >
+            <div className="flex flex-col items-center">
               <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">
                 Axix Finance
               </h1>
-            </motion.div>
+            </div>
             <CardTitle className="text-2xl text-center mt-4">
               Welcome Back
             </CardTitle>
@@ -231,118 +204,80 @@ const Login: React.FC = () => {
               Sign in to access your account
             </CardDescription>
           </CardHeader>
-
           <CardContent>
-            <AnimatePresence>
-              {!isServerAvailable && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Server connection failed. Please try again later.
-                    </AlertDescription>
-                  </Alert>
-                </motion.div>
-              )}
-
-              {loginError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{loginError}</AlertDescription>
-                  </Alert>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
+            {/* Alerts without animation */}
+            {!isServerAvailable && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Server connection failed. Please try again later.
+                </AlertDescription>
+              </Alert>
+            )}
+            {loginError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{loginError}</AlertDescription>
+              </Alert>
+            )}
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-4"
               >
-                <motion.div
-                  variants={formFieldVariants}
-                  custom={0}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  <FormField
-                    control={form.control}
-                    name="identifier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email or Username</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input
-                              {...field}
-                              disabled={isAuthenticating}
-                              className="pr-10 transition-all duration-200 focus:scale-[1.02]"
-                              placeholder="Enter your email or username"
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </motion.div>
-
-                <motion.div
-                  variants={formFieldVariants}
-                  custom={1}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              {...field}
-                              disabled={isAuthenticating}
-                              className="pr-10 transition-all duration-200 focus:scale-[1.02]"
-                              placeholder="Enter your password"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2"
-                            >
-                              {showPassword ? (
-                                <EyeOff className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <Eye className="h-4 w-4 text-gray-500" />
-                              )}
-                            </button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </motion.div>
-
-                <motion.div
-                  variants={formFieldVariants}
-                  custom={2}
-                  initial="hidden"
-                  animate="visible"
-                  className="flex items-center justify-between"
-                >
+                <FormField
+                  control={form.control}
+                  name="identifier"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email or Username</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            {...field}
+                            disabled={isAuthenticating}
+                            className="pr-10"
+                            placeholder="Enter your email or username"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            {...field}
+                            disabled={isAuthenticating}
+                            className="pr-10"
+                            placeholder="Enter your password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-gray-500" />
+                            )}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex items-center justify-between">
                   <FormField
                     control={form.control}
                     name="rememberMe"
@@ -365,96 +300,47 @@ const Login: React.FC = () => {
                   />
                   <Link
                     href="/forgot-password"
-                    className="text-sm text-primary-600 hover:text-primary-500 transition-colors"
+                    className="text-sm text-primary-600 hover:text-primary-500"
                   >
                     Forgot password?
                   </Link>
-                </motion.div>
-
-                <motion.div
-                  variants={formFieldVariants}
-                  custom={3}
-                  initial="hidden"
-                  animate="visible"
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full relative overflow-hidden"
+                  disabled={isAuthenticating}
                 >
-                  <Button
-                    type="submit"
-                    className="w-full relative overflow-hidden"
-                    disabled={isAuthenticating}
-                  >
-                    <AnimatePresence mode="wait">
-                      {isAuthenticating ? (
-                        <motion.div
-                          key="loading"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex items-center justify-center"
-                        >
-                          <LoadingSpinner size={20} />
-                          <span className="ml-2">Signing in...</span>
-                        </motion.div>
-                      ) : (
-                        <motion.span
-                          key="text"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          Sign in
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Loading bar animation */}
-                    {isAuthenticating && (
-                      <motion.div
-                        className="absolute bottom-0 left-0 h-0.5 bg-white/20"
-                        initial={{ width: "0%" }}
-                        animate={{ width: "100%" }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    )}
-                  </Button>
-                </motion.div>
+                  {isAuthenticating ? (
+                    <span className="flex items-center justify-center">
+                      <LoadingSpinner size={20} />
+                      <span className="ml-2">Signing in...</span>
+                    </span>
+                  ) : (
+                    <span>Sign in</span>
+                  )}
+                </Button>
               </form>
             </Form>
           </CardContent>
-
           <CardFooter className="flex flex-col space-y-4">
-            <motion.div
-              variants={formFieldVariants}
-              custom={4}
-              initial="hidden"
-              animate="visible"
-              className="text-sm text-center"
-            >
+            <div className="text-sm text-center">
               Don't have an account?{" "}
               <Link
                 href="/register"
-                className="text-primary-600 hover:text-primary-500 transition-colors"
+                className="text-primary-600 hover:text-primary-500"
               >
                 Sign up
               </Link>
-            </motion.div>
-
-            <motion.div
-              variants={formFieldVariants}
-              custom={5}
-              initial="hidden"
-              animate="visible"
-            >
-              <Link
-                href="/"
-                className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-              >
+            </div>
+            <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+              <Link href="/">
                 <Home className="h-4 w-4 mr-1" />
                 Back to Homepage
               </Link>
-            </motion.div>
+            </div>
           </CardFooter>
         </Card>
-      </motion.div>
+      </div>
     </div>
   );
 };

@@ -3,10 +3,10 @@
  * Centralizes all API calls to the backend
  */
 
+import { supabase } from "@/lib/supabase";
 import { Transaction, User } from "@shared/schema";
-import config from "../config";
 
-const API_BASE_URL = config.apiUrl;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 // Helper function to handle fetch responses
 const handleResponse = async (response: Response) => {
@@ -23,9 +23,22 @@ const handleResponse = async (response: Response) => {
   return await response.text();
 };
 
+// Get the current Supabase session token for authentication
+const getAuthToken = async (): Promise<string | null> => {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch (error) {
+    console.error("Error getting auth token:", error);
+    return null;
+  }
+};
+
 // Generic fetch function with authorization
 const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem("authToken");
+  const token = await getAuthToken();
 
   const headers = {
     "Content-Type": "application/json",

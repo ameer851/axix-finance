@@ -2,6 +2,8 @@
  * API client with consistent error handling for JSON responses
  */
 
+import { supabase } from "./supabase";
+
 interface FetchOptions extends RequestInit {
   timeout?: number;
   retries?: number;
@@ -63,6 +65,21 @@ function safeJsonParse(text: string) {
 }
 
 /**
+ * Get the current Supabase session token for authentication
+ */
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch (error) {
+    console.error("Error getting auth token:", error);
+    return null;
+  }
+}
+
+/**
  * Enhanced fetch with timeout, retry, and error handling
  */
 export async function apiFetch<T = any>(
@@ -76,9 +93,13 @@ export async function apiFetch<T = any>(
     ...fetchOptions
   } = options;
 
-  // Add default headers
+  // Get authentication token
+  const authToken = await getAuthToken();
+
+  // Add default headers with authentication
   const headers = {
     Accept: "application/json",
+    ...(authToken && { Authorization: `Bearer ${authToken}` }),
     ...(fetchOptions.headers || {}),
   };
 

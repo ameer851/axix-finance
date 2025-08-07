@@ -12,6 +12,7 @@ export const securityMiddleware = helmet({
         "wss://*.tradingview.com",
         "https://*.supabase.co",
         "https://oyqanlnqfyyaqheehsmw.supabase.co",
+        "https://co-in.io",
         ...(process.env.NODE_ENV === "development"
           ? ["http://localhost:*", "ws://localhost:*"]
           : []),
@@ -34,6 +35,7 @@ export const securityMiddleware = helmet({
         "https://*.translate.goog",
         "blob:",
         "https://www.tradingview.com",
+        "https://co-in.io",
       ],
       styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
       imgSrc: ["'self'", "data:", "https:", "http:"],

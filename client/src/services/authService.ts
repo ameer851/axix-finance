@@ -35,6 +35,12 @@ export async function checkServerConnection(): Promise<boolean> {
 
 export async function logout(): Promise<void> {
   try {
+    // Sign out from Supabase Auth
+    const { error: supabaseError } = await supabase.auth.signOut();
+    if (supabaseError) {
+      console.warn("Supabase sign out error:", supabaseError);
+    }
+
     // Use session-based logout endpoint
     const response = await fetch("/api/logout", {
       method: "POST",
@@ -66,44 +72,65 @@ export async function login(
   try {
     console.log("Attempting login for:", identifier);
 
-    // Check Supabase connection first
-    const isConnected = await checkServerConnection();
-    if (!isConnected) {
-      throw new Error("Cannot connect to authentication service.");
-    }
-
-    // Use session-based login endpoint for all users (including admin)
-    console.log("Using session-based login endpoint");
-    const response = await fetch("/api/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Include cookies for session management
-      body: JSON.stringify({
-        username: identifier,
-        password: password,
-      }),
+    // Use Supabase Auth for login
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: identifier, // Use email for login
+      password: password,
     });
 
-    console.log("Login response status:", response.status);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Login error response:", errorData);
-      throw new Error(errorData.message || "Invalid username or password.");
+    if (error) {
+      console.error("Supabase Auth login error:", error);
+      throw new Error(error.message || "Invalid username or password.");
     }
 
-    const userData = await response.json();
-    console.log("Login successful, user data received");
-
-    if (!userData || !userData.user) {
-      throw new Error("Invalid response from server.");
+    if (!data.user) {
+      throw new Error("No user data returned from authentication.");
     }
+
+    // Get user profile from database
+    const { data: userProfile, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("uid", data.user.id)
+      .single();
+
+    if (profileError || !userProfile) {
+      console.error("Error fetching user profile:", profileError);
+      throw new Error("User profile not found.");
+    }
+
+    // Transform the user data to match the expected User interface
+    const userData: User = {
+      id: userProfile.id,
+      uid: userProfile.uid,
+      email: userProfile.email,
+      username: userProfile.email, // Use email as username for now
+      firstName: userProfile.full_name?.split(" ")[0] || "",
+      lastName: userProfile.full_name?.split(" ").slice(1).join(" ") || "",
+      isVerified: true, // Assume verified for Supabase Auth users
+      isActive: true, // Assume active for Supabase Auth users
+      role: userProfile.role as "user" | "admin",
+      balance: "0", // Default balance
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      twoFactorEnabled: false,
+      referredBy: null,
+      bitcoinAddress: null,
+      bitcoinCashAddress: null,
+      ethereumAddress: null,
+      bnbAddress: null,
+      usdtTrc20Address: null,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+      pendingEmail: null,
+      passwordResetToken: null,
+      passwordResetTokenExpiry: null,
+      twoFactorSecret: null,
+    };
 
     // Store the authenticated user in localStorage
-    localStorage.setItem("user", JSON.stringify(userData.user));
-    return userData.user as User;
+    localStorage.setItem("user", JSON.stringify(userData));
+    return userData;
   } catch (error: any) {
     console.error("Login error details:", error);
     throw new Error(
