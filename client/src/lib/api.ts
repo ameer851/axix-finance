@@ -191,7 +191,11 @@ export async function apiFetch<T = any>(
 
       // Empty response handling
       if (!text || text.trim() === "") {
-        throw new Error("Empty response received from server");
+        throw {
+          status: response.status,
+          message: "Empty response received from server",
+          raw: text,
+        };
       }
 
       // If the response is HTML (often from error pages) instead of JSON
@@ -199,39 +203,53 @@ export async function apiFetch<T = any>(
         contentType?.includes("text/html") ||
         text.trim().startsWith("<!DOCTYPE html>")
       ) {
-        console.error("HTML response received when expecting JSON");
-        // Return empty data to prevent JSON parse errors
-        if (response.ok) {
-          return {} as T;
-        } else {
-          throw new Error(
-            "Server returned HTML instead of JSON. Please try again later."
-          );
+        if (import.meta.env.DEV) {
+          console.error("HTML response received when expecting JSON", {
+            status: response.status,
+            url,
+            raw: text.substring(0, 500),
+          });
         }
+        throw {
+          status: response.status,
+          message: `HTML response received when expecting JSON (status ${response.status})`,
+          raw: text,
+        };
       }
 
       // Parse JSON safely
       const { data, error } = safeJsonParse(text);
 
       if (error) {
-        // Handle HTML responses (likely server error pages)
-        if (contentType && contentType.includes("text/html")) {
-          throw new Error(
-            "Server returned an HTML page instead of JSON. The server might be experiencing issues."
-          );
+        if (import.meta.env.DEV) {
+          console.error("JSON parse error", {
+            status: response.status,
+            url,
+            raw: text.substring(0, 500),
+          });
         }
-        throw error;
+        throw {
+          status: response.status,
+          message: error.message,
+          raw: text,
+        };
       }
 
       // Handle API errors indicated by status codes
       if (!response.ok) {
-        const message = data?.message || response.statusText || "Unknown error";
-        const apiError = new Error(
-          `API Error (${response.status}): ${message}`
-        );
-        (apiError as any).status = response.status;
-        (apiError as any).data = data;
-        throw apiError;
+        if (import.meta.env.DEV) {
+          console.error("API error response", {
+            status: response.status,
+            url,
+            raw: text.substring(0, 500),
+            data,
+          });
+        }
+        throw {
+          status: response.status,
+          message: data?.message || response.statusText || "Unknown error",
+          raw: text,
+        };
       }
 
       return data as T;
@@ -278,29 +296,24 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${import.meta.env.VITE_API_URL || "/api"}${endpoint}`;
 
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...options.headers,
+  };
+
   const config: RequestInit = {
     method,
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   };
 
   if (body) {
     config.body = JSON.stringify(body);
   }
 
-  const response = await fetch(url, config);
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({
-      message: `HTTP error! status: ${response.status}`,
-    }));
-    throw new Error(errorData.message);
-  }
-
-  return response.json();
+  // Use apiFetch for consistent error handling
+  return await apiFetch<T>(url, config);
 }
 
 export interface FetchWithTimeoutOptions extends RequestInit {

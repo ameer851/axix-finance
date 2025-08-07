@@ -1,3 +1,5 @@
+# Ignore Vercel environment file
+.env.vercel
 # Server and development files
 
 server/

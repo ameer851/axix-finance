@@ -47,12 +47,17 @@ const Login: React.FC = () => {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const response = await fetch("/api/health", {
-          signal: AbortSignal.timeout(3000),
+        const result = await apiFetch("/api/health", {
+          timeout: 3000,
+          headers: { Accept: "application/json" },
         });
-        setIsServerAvailable(response.ok);
-      } catch (error) {
-        console.error("Server connection check failed:", error);
+        setIsServerAvailable(true);
+      } catch (error: any) {
+        if (error && error.status) {
+          console.error("API health check error", error);
+        } else {
+          console.error("Server connection check failed:", error);
+        }
         setIsServerAvailable(false);
       }
     };

@@ -1,3 +1,5 @@
+# Ignore Vercel environment file
+.env.vercel
 node_modules
 .env
 .env.local

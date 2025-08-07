@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,36 +28,30 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 // API function to fetch deposits history
 const fetchDepositsHistory = async (userId: number) => {
   try {
-    const response = await fetch(`/api/users/${userId}/deposits-history`, {
+    const data = await apiFetch(`/api/users/${userId}/deposits-history`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
-      credentials: 'include'
+      credentials: 'include',
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch deposits history: ${response.status}`);
+    if (Array.isArray(data)) {
+      return { deposits: data };
+    } else if (Array.isArray(data.deposits)) {
+      return data;
+    } else {
+      throw new Error('Invalid deposits history format');
     }
-
-    let data;
-    try {
-      data = await response.json();
-      if (!Array.isArray(data) && !Array.isArray(data.deposits)) {
-        throw new Error('Invalid deposits history format');
-      }
-      return Array.isArray(data) ? { deposits: data } : data;
-    } catch (jsonError) {
-      console.error('JSON parse error for deposits history:', jsonError);
-      return { deposits: [], error: 'Failed to parse deposits history data.' };
-    }
-  } catch (error: unknown) {
-    console.error('Deposits history fetch error:', error);
+  } catch (error: any) {
     let errorMessage = 'Failed to fetch deposits history.';
-    if (error instanceof Error) {
+    if (error && error.message) {
       errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error as string;
+    }
+    if (error && error.status) {
+      console.error('API error fetching deposits history:', error);
+    } else {
+      console.error('Error fetching deposits history:', error);
     }
     return { deposits: [], error: errorMessage };
   }
@@ -71,72 +66,51 @@ const DepositsHistory: React.FC = () => {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Fetch deposits history
   const {
-    data: depositsData = {},
+    data,
+    error: apiError,
+    refetch,
     isLoading,
-    isError,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['depositsHistory', user?.id],
-    queryFn: () => fetchDepositsHistory(user?.id as number),
+  } = useQuery(['depositsHistory', user?.id], () => user?.id ? fetchDepositsHistory(user.id) : Promise.resolve({ deposits: [] }), {
     enabled: !!user?.id,
-    staleTime: 60000, // 1 minute
-    retry: 2
+    staleTime: 1000 * 60,
   });
-  const depositsHistory = Array.isArray(depositsData.deposits) ? depositsData.deposits : (Array.isArray(depositsData) ? depositsData : []);
-  const apiError = depositsData.error;
 
-  // Handle error with toast
-  React.useEffect(() => {
-    if (apiError) {
-      toast({
-        title: 'Failed to load deposits history',
-        description: apiError,
-        variant: 'destructive'
-      });
-    }
-  }, [apiError, toast]);
-
-  // Filter and sort deposits
-  const filteredDeposits = depositsHistory.filter((deposit: any) => {
-    const matchesSearch = searchTerm === '' || 
-      deposit.id.toString().includes(searchTerm) || 
-      deposit.plan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deposit.method.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || deposit.status === statusFilter;
-    const matchesPlan = planFilter === 'all' || deposit.plan.includes(planFilter.toUpperCase());
-    
-    return matchesSearch && matchesStatus && matchesPlan;
-  }).sort((a: any, b: any) => {
-    let aValue, bValue;
-    
-    switch (sortBy) {
-      case 'amount':
-        aValue = a.amount;
-        bValue = b.amount;
-        break;
-      case 'plan':
-        aValue = a.plan;
-        bValue = b.plan;
-        break;
-      case 'status':
-        aValue = a.status;
-        bValue = b.status;
-        break;
-      default:
-        aValue = new Date(a.createdAt);
-        bValue = new Date(b.createdAt);
-    }
-    
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
+  const deposits = data?.deposits || [];
+  const filteredDeposits = deposits
+    .filter((deposit: any) => {
+      const matchesSearch =
+        deposit.plan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        deposit.method.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || deposit.status === statusFilter;
+      const matchesPlan = planFilter === 'all' || deposit.plan.includes(planFilter.toUpperCase());
+      return matchesSearch && matchesStatus && matchesPlan;
+    })
+    .sort((a: any, b: any) => {
+      let aValue, bValue;
+      switch (sortBy) {
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        case 'plan':
+          aValue = a.plan;
+          bValue = b.plan;
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          aValue = new Date(a.createdAt);
+          bValue = new Date(b.createdAt);
+      }
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -251,7 +225,6 @@ const DepositsHistory: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Deposits History</h1>
             <p className="text-gray-600 mt-1">Track all your investment deposits and their performance</p>
-          </div>
           <Button onClick={exportToCSV} variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Export CSV
@@ -335,40 +308,9 @@ const DepositsHistory: React.FC = () => {
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select value={planFilter} onValueChange={setPlanFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Plans</SelectItem>
-                  <SelectItem value="starter">Starter Plan</SelectItem>
-                  <SelectItem value="premium">Premium Plan</SelectItem>
-                  <SelectItem value="delux">Delux Plan</SelectItem>
-                  <SelectItem value="luxury">Luxury Plan</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-                const [field, order] = value.split('-');
-                setSortBy(field);
-                setSortOrder(order as 'asc' | 'desc');
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date-desc">Date (Newest)</SelectItem>
-                  <SelectItem value="date-asc">Date (Oldest)</SelectItem>
-                  <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
-                  <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
-                  <SelectItem value="plan-asc">Plan (A to Z)</SelectItem>
-                  <SelectItem value="status-asc">Status (A to Z)</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
         {/* Deposits Table */}
         <Card>
