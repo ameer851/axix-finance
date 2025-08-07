@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { Transaction, User } from "@shared/schema";
 
@@ -91,15 +92,8 @@ export async function getUserProfile(userId?: number | string): Promise<any> {
     }
 
     // For specific user ID, check if there's an admin route or fallback to current user
-    const endpoint = `/users/${userId}/profile`;
-    const response = await apiRequest("GET", endpoint);
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      return await response.json();
-    } else {
-      const text = await response.text();
-      throw new Error(`Unexpected response format: ${text}`);
-    }
+    const endpoint = `/api/users/${userId}/profile`;
+    return await api.get(endpoint);
   } catch (error: any) {
     console.error("Error fetching user profile:", error);
     if (error.status === 403) {
@@ -127,8 +121,7 @@ export async function getUserActivity(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest("GET", `/users/${userId}/activity`);
-    return await response.json();
+    return await api.get(`/api/users/${userId}/activity`);
   } catch (error: any) {
     console.error("Error fetching user activity:", error);
     if (error.status === 403) {
@@ -160,13 +153,12 @@ export async function getUserBalance(userId?: number | string): Promise<{
   }
 
   try {
-    const response = await apiRequest("GET", `/users/${userId}/balance`);
-
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await api.get<{
+      availableBalance?: number;
+      pendingBalance?: number;
+      totalBalance?: number;
+      lastUpdated?: string;
+    }>(`/api/users/${userId}/balance`);
 
     const {
       availableBalance = 0,
@@ -214,12 +206,7 @@ export async function updateUserProfile(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest(
-      "PATCH",
-      `/users/${userId}/profile`,
-      data
-    );
-    return await response.json();
+    return await api.patch(`/api/users/${userId}/profile`, data);
   } catch (error: any) {
     console.error("Error updating user profile:", error);
     if (error.status === 400) {
@@ -252,12 +239,7 @@ export async function updateUserProfileGeneral(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest(
-      "PATCH",
-      `/users/${userId}/profile`,
-      data
-    );
-    return await response.json();
+    return await api.patch(`/api/users/${userId}/profile`, data);
   } catch (error: any) {
     console.error("Error updating user profile:", error);
     if (error.status === 400) {
@@ -290,12 +272,7 @@ export async function updateUserSecurity(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest(
-      "PATCH",
-      `/users/${userId}/security`,
-      data
-    );
-    return await response.json();
+    return await api.patch(`/api/users/${userId}/security`, data);
   } catch (error: any) {
     console.error("Error updating security settings:", error);
     if (error.message === "Current password is incorrect") {
@@ -331,12 +308,7 @@ export async function updateUserNotifications(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest(
-      "PATCH",
-      `/users/${userId}/notifications`,
-      data
-    );
-    return await response.json();
+    return await api.patch(`/api/users/${userId}/notifications`, data);
   } catch (error: any) {
     console.error("Error updating notification preferences:", error);
     if (error.status === 400) {
@@ -369,8 +341,7 @@ export async function getUserReferrals(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest("GET", `/users/${userId}/referrals`);
-    return await response.json();
+    return await api.get(`/api/users/${userId}/referrals`);
   } catch (error: any) {
     console.error("Error fetching user referrals:", error);
     if (error.status === 403) {
@@ -398,8 +369,7 @@ export async function getUserReferralStats(
     throw new Error("User ID is required");
   }
   try {
-    const response = await apiRequest("GET", `/users/${userId}/referral-stats`);
-    return await response.json();
+    return await api.get(`/api/users/${userId}/referral-stats`);
   } catch (error: any) {
     console.error("Error fetching referral stats:", error);
     if (error.status === 403) {
@@ -425,8 +395,7 @@ export async function getUserReferralStats(
  */
 export async function getUser(userId: number): Promise<User> {
   try {
-    const response = await apiRequest("GET", `/users/${userId}`);
-    return await response.json();
+    return await api.get(`/api/users/${userId}`);
   } catch (error: any) {
     console.error("Error fetching user:", error);
     if (error.status === 403) {
@@ -467,10 +436,8 @@ export async function getUsers(filters: UserFilters = {}): Promise<{
     if (filters.sortBy) queryParams.append("sortBy", filters.sortBy);
     if (filters.order) queryParams.append("order", filters.order);
 
-    const url = `/users${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
-    const response = await apiRequest("GET", url);
-
-    return await response.json();
+    const url = `/api/users${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    return await api.get(url);
   } catch (error: any) {
     console.error("Error fetching users:", error);
     if (error.status === 403) {
@@ -505,10 +472,6 @@ export async function getUserTransactions(
   page: number;
   totalPages: number;
 }> {
-  if (!userId) {
-    throw new Error("User ID is required to fetch transactions");
-  }
-
   try {
     const queryParams = new URLSearchParams();
     if (filters.status) queryParams.append("status", filters.status);
@@ -518,203 +481,24 @@ export async function getUserTransactions(
     if (filters.page) queryParams.append("page", String(filters.page));
     if (filters.limit) queryParams.append("limit", String(filters.limit));
 
-    const url = `/users/${userId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
-    const response = await apiRequest("GET", url);
-
-    // Check for empty response
-    const responseText = await response.text();
-    if (!responseText || responseText.trim() === "") {
-      return {
-        transactions: [],
-        total: 0,
-        page: filters.page || 1,
-        totalPages: 0,
-      };
-    }
-
-    try {
-      // Try to parse as JSON
-      const data = JSON.parse(responseText);
-      return data;
-    } catch (parseError) {
-      console.error("Error parsing transaction response:", parseError);
-      throw new Error(
-        "Unable to parse server response. The data may be corrupted."
-      );
-    }
+    const url = `/api/users/${userId}/transactions${
+      queryParams.toString() ? `?${queryParams.toString()}` : ""
+    }`;
+    return await api.get(url);
   } catch (error: any) {
     console.error("Error fetching user transactions:", error);
-
-    // Handle specific error cases
     if (error.status === 403) {
       throw new Error("You do not have permission to view these transactions.");
     } else if (error.status === 404) {
-      throw new Error(
-        "User not found. The user may have been deleted or you may not have access."
-      );
-    } else if (error.isOffline || error.isNetworkError) {
-      throw new Error(
-        "Cannot connect to server. Please check your internet connection and try again."
-      );
-    } else if (error.status === 500) {
-      throw new Error(
-        "Server error occurred. Our team has been notified and is working on the issue."
-      );
-    } else if (error.status === 429) {
-      throw new Error("Too many requests. Please try again later.");
-    }
-
-    // Generic error fallback
-    throw new Error(
-      error.message || "Failed to fetch transactions. Please try again later."
-    );
-  }
-}
-
-/**
- * Update user profile with specific user data
- */
-export async function updateUserProfileDetails(
-  userId: number,
-  profileData: Partial<User>
-): Promise<User> {
-  try {
-    const response = await apiRequest("PATCH", `/users/${userId}`, profileData);
-    const updatedUser = await response.json();
-
-    return updatedUser;
-  } catch (error: any) {
-    console.error("Error updating user profile:", error);
-    if (error.status === 403) {
-      throw new Error(
-        "You do not have permission to update this user profile."
-      );
-    } else if (error.status === 404) {
-      throw new Error(
-        "User not found. The user may have been deleted or you may not have access."
-      );
-    } else if (error.status === 400) {
-      throw new Error(
-        error.message || "Invalid profile data. Please check your inputs."
-      );
+      throw new Error("User not found.");
     } else if (error.isOffline || error.isNetworkError) {
       throw new Error(
         "Cannot connect to server. Please check your internet connection and try again."
       );
     }
     throw new Error(
-      error.message || "Failed to update user profile. Please try again later."
+      error.message ||
+        "Failed to fetch user transactions. Please try again later."
     );
-  }
-}
-
-/**
- * Get user dashboard statistics
- */
-export async function getDashboardStats(userId: number): Promise<{
-  balance: string;
-  pendingTransactions: number;
-  completedTransactions: number;
-  totalInvestment: string;
-  monthlyProfit: string;
-  yearlyProfit: string;
-  portfolioPerformance: {
-    labels: string[];
-    data: number[];
-  };
-}> {
-  try {
-    const response = await apiRequest(
-      "GET",
-      `/users/${userId}/dashboard-stats`
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message ||
-          `Error ${response.status}: Failed to fetch dashboard statistics`
-      );
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Error fetching dashboard stats:", error);
-    throw new Error(error.message || "Failed to fetch dashboard statistics");
-  }
-}
-
-/**
- * Update user password - requires old password verification
- */
-export async function updatePassword(
-  userId: number,
-  data: { currentPassword: string; newPassword: string }
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await apiRequest(
-      "POST",
-      `/users/${userId}/change-password`,
-      data
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message ||
-          `Error ${response.status}: Failed to update password`
-      );
-    }
-
-    return {
-      success: true,
-      message: "Password updated successfully",
-    };
-  } catch (error: any) {
-    console.error("Error updating password:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to update password",
-    };
-  }
-}
-
-/**
- * Update user notification preferences
- */
-export async function updateNotificationPreferences(
-  userId: number,
-  preferences: {
-    emailNotifications?: boolean;
-    smsNotifications?: boolean;
-    marketingEmails?: boolean;
-    transactionAlerts?: boolean;
-  }
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await apiRequest(
-      "PATCH",
-      `/users/${userId}/notification-preferences`,
-      preferences
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message ||
-          `Error ${response.status}: Failed to update notification preferences`
-      );
-    }
-
-    return {
-      success: true,
-      message: "Notification preferences updated successfully",
-    };
-  } catch (error: any) {
-    console.error("Error updating notification preferences:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to update notification preferences",
-    };
   }
 }

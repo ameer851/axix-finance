@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/queryClient";
+import { api } from "@/lib/api";
 
 export interface VisitorData {
   id: string;
@@ -34,12 +34,9 @@ export interface VisitorStats {
  */
 export async function getActiveVisitors(): Promise<VisitorData[]> {
   try {
-    const response = await apiRequest(
-      "GET",
+    const result = await api.get<{ visitors: VisitorData[] }>(
       "/api/admin/visitors/active-simple"
     );
-    const result = await response.json();
-
     return result.visitors || [];
   } catch (error: any) {
     console.error("Error fetching active visitors:", error);
@@ -52,11 +49,7 @@ export async function getActiveVisitors(): Promise<VisitorData[]> {
  */
 export async function getVisitorStats(): Promise<VisitorStats> {
   try {
-    const response = await apiRequest(
-      "GET",
-      "/api/admin/visitors/stats-simple"
-    );
-    return await response.json();
+    return await api.get<VisitorStats>("/api/admin/visitors/stats-simple");
   } catch (error: any) {
     console.error("Error fetching visitor stats:", error);
     throw new Error(error.message || "Failed to fetch visitor statistics");
@@ -68,7 +61,7 @@ export async function getVisitorStats(): Promise<VisitorStats> {
  */
 export async function trackPageView(page: string): Promise<void> {
   try {
-    await apiRequest("POST", "/api/visitors/track", {
+    await api.post("/api/visitors/track", {
       page,
       timestamp: new Date().toISOString(),
     });
@@ -83,7 +76,7 @@ export async function trackPageView(page: string): Promise<void> {
  */
 export async function updateVisitorActivity(): Promise<void> {
   try {
-    await apiRequest("PUT", "/api/visitors/activity", {
+    await api.put("/api/visitors/activity", {
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
@@ -112,7 +105,7 @@ export async function initializeVisitorSession(): Promise<void> {
       },
     };
 
-    await apiRequest("POST", "/api/visitors/session", visitorInfo);
+    await api.post("/api/visitors/session", visitorInfo);
   } catch (error: any) {
     console.warn("Failed to initialize visitor session:", error);
   }
@@ -123,7 +116,7 @@ export async function initializeVisitorSession(): Promise<void> {
  */
 export async function endVisitorSession(): Promise<void> {
   try {
-    await apiRequest("DELETE", "/api/visitors/session");
+    await api.delete("/api/visitors/session");
   } catch (error: any) {
     console.warn("Failed to end visitor session:", error);
   }

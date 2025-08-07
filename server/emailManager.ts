@@ -1,5 +1,5 @@
 // Email service manager to handle Resend email service (API with SMTP fallback)
-import { User } from "@shared/schema";
+import { User as DrizzleUser } from "@shared/schema";
 import {
   isResendConfigured,
   sendPasswordResetEmail as sendResendPasswordResetEmail,
@@ -58,7 +58,7 @@ export async function initializeEmailServices(): Promise<boolean> {
  * Send verification email to a user
  */
 export async function sendVerificationEmail(
-  user: User,
+  user: DrizzleUser,
   token?: string
 ): Promise<boolean> {
   try {
@@ -83,7 +83,7 @@ export async function sendVerificationEmail(
 /**
  * Send welcome email to a user
  */
-export async function sendWelcomeEmail(user: User): Promise<boolean> {
+export async function sendWelcomeEmail(user: DrizzleUser): Promise<boolean> {
   try {
     if (usingResend) {
       return await sendResendWelcomeEmail(user);
@@ -101,7 +101,7 @@ export async function sendWelcomeEmail(user: User): Promise<boolean> {
  * Send password reset email to a user
  */
 export async function sendPasswordResetEmail(
-  user: User,
+  user: DrizzleUser,
   token: string
 ): Promise<boolean> {
   try {
@@ -121,7 +121,7 @@ export async function sendPasswordResetEmail(
  * Send deposit request email to a user
  */
 export async function sendDepositRequestEmail(
-  user: User,
+  user: DrizzleUser,
   amount: string,
   method: string,
   planName?: string
@@ -154,7 +154,7 @@ export async function sendDepositRequestEmail(
  * Send deposit approved email to a user
  */
 export async function sendDepositApprovedEmail(
-  user: User,
+  user: DrizzleUser,
   amount: string,
   method: string,
   planName?: string
@@ -185,7 +185,7 @@ export async function sendDepositApprovedEmail(
  * Send withdrawal request email to a user
  */
 export async function sendWithdrawalRequestEmail(
-  user: User,
+  user: DrizzleUser,
   amount: string,
   ipAddress?: string
 ): Promise<boolean> {
@@ -210,7 +210,7 @@ export async function sendWithdrawalRequestEmail(
  * Send withdrawal approved email to a user
  */
 export async function sendWithdrawalApprovedEmail(
-  user: User,
+  user: DrizzleUser,
   amount: string,
   cryptoAccount: string
 ): Promise<boolean> {

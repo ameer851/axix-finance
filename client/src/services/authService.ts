@@ -72,9 +72,32 @@ export async function login(
   try {
     console.log("Attempting login for:", identifier);
 
-    // Use Supabase Auth for login
+    let email = identifier;
+
+    // Check if identifier is a username or email
+    if (!identifier.includes("@")) {
+      console.log("Identifier is a username, fetching email...");
+      // Try to find user by username or by uid
+      const { data: users, error: usersError } = await supabase
+        .from("users")
+        .select("email, username")
+        .or(`username.eq.${identifier},uid.eq.${identifier}`)
+        .limit(1);
+
+      if (usersError || !users || users.length === 0) {
+        console.error(
+          "Error fetching user by username:",
+          usersError || "No user found"
+        );
+        throw new Error("Invalid username or password.");
+      }
+      email = users[0].email;
+      console.log("Found email for username:", email);
+    }
+
+    // Use Supabase Auth for login with email
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: identifier, // Use email for login
+      email: email,
       password: password,
     });
 
@@ -104,28 +127,39 @@ export async function login(
       id: userProfile.id,
       uid: userProfile.uid,
       email: userProfile.email,
-      username: userProfile.email, // Use email as username for now
-      firstName: userProfile.full_name?.split(" ")[0] || "",
-      lastName: userProfile.full_name?.split(" ").slice(1).join(" ") || "",
-      isVerified: true, // Assume verified for Supabase Auth users
-      isActive: true, // Assume active for Supabase Auth users
-      role: userProfile.role as "user" | "admin",
-      balance: "0", // Default balance
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      twoFactorEnabled: false,
-      referredBy: null,
-      bitcoinAddress: null,
-      bitcoinCashAddress: null,
-      ethereumAddress: null,
-      bnbAddress: null,
-      usdtTrc20Address: null,
-      verificationToken: null,
-      verificationTokenExpiry: null,
-      pendingEmail: null,
-      passwordResetToken: null,
-      passwordResetTokenExpiry: null,
-      twoFactorSecret: null,
+      username: userProfile.username,
+      password: null, // Don't expose password
+      firstName: userProfile.firstName || null,
+      lastName: userProfile.lastName || null,
+      full_name: userProfile.full_name || null,
+      balance: userProfile.balance || "0",
+      role: userProfile.role || "user",
+      is_admin: userProfile.is_admin || false,
+      isVerified: userProfile.isVerified || false,
+      isActive: userProfile.isActive || true,
+      createdAt: userProfile.createdAt
+        ? new Date(userProfile.createdAt)
+        : new Date(),
+      updatedAt: userProfile.updatedAt
+        ? new Date(userProfile.updatedAt)
+        : new Date(),
+      passwordResetToken: userProfile.passwordResetToken || null,
+      passwordResetTokenExpiry: userProfile.passwordResetTokenExpiry
+        ? new Date(userProfile.passwordResetTokenExpiry)
+        : null,
+      verificationToken: userProfile.verificationToken || null,
+      verificationTokenExpiry: userProfile.verificationTokenExpiry
+        ? new Date(userProfile.verificationTokenExpiry)
+        : null,
+      twoFactorEnabled: userProfile.twoFactorEnabled || false,
+      twoFactorSecret: userProfile.twoFactorSecret || null,
+      referredBy: userProfile.referredBy || null,
+      pendingEmail: userProfile.pendingEmail || null,
+      bitcoinAddress: userProfile.bitcoinAddress || null,
+      bitcoinCashAddress: userProfile.bitcoinCashAddress || null,
+      ethereumAddress: userProfile.ethereumAddress || null,
+      usdtTrc20Address: userProfile.usdtTrc20Address || null,
+      bnbAddress: userProfile.bnbAddress || null,
     };
 
     // Store the authenticated user in localStorage
@@ -200,16 +234,17 @@ export async function register(userData: {
           uid: auth.user.id,
           email: userData.email,
           username: userData.username,
-          first_name: userData.firstName,
-          last_name: userData.lastName,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          full_name: `${userData.firstName} ${userData.lastName}`,
           role: "user",
-          is_active: true,
-          balance: 0,
-          bitcoin_address: userData.bitcoinAddress || null,
-          bitcoin_cash_address: userData.bitcoinCashAddress || null,
-          ethereum_address: userData.ethereumAddress || null,
-          bnb_address: userData.bnbAddress || null,
-          usdt_trc20_address: userData.usdtTrc20Address || null,
+          isActive: true,
+          balance: "0",
+          bitcoinAddress: userData.bitcoinAddress || null,
+          bitcoinCashAddress: userData.bitcoinCashAddress || null,
+          ethereumAddress: userData.ethereumAddress || null,
+          bnbAddress: userData.bnbAddress || null,
+          usdtTrc20Address: userData.usdtTrc20Address || null,
         },
       ])
       .select()

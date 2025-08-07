@@ -1,4 +1,6 @@
-import express, { Router, Request, Response } from "express";
+import { User as DrizzleUser } from "@shared/schema";
+import express, { Router } from "express";
+import { sendDepositApprovedEmail } from "./emailService";
 import { DatabaseStorage } from "./storage";
 
 const storage = new DatabaseStorage();
@@ -39,10 +41,54 @@ export function createAdminRouter(): Router {
       }
 
       const updated = await storage.updateTransactionStatus(id, "completed");
-      return res.json({ 
+      // Send deposit approval email
+      try {
+        const userRaw = await storage.getUser(tx.userId);
+        if (userRaw) {
+          // Map userRaw to DrizzleUser type if needed
+          const user: DrizzleUser = {
+            id: userRaw.id,
+            uid: userRaw.uid || "",
+            email: userRaw.email,
+            username: null,
+            password: null,
+            firstName: null,
+            lastName: null,
+            full_name: null,
+            balance: null,
+            role: "user",
+            is_admin: false,
+            isVerified: false,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            passwordResetToken: null,
+            passwordResetTokenExpiry: null,
+            verificationToken: null,
+            verificationTokenExpiry: null,
+            twoFactorEnabled: false,
+            twoFactorSecret: null,
+            referredBy: null,
+            pendingEmail: null,
+            bitcoinAddress: null,
+            bitcoinCashAddress: null,
+            ethereumAddress: null,
+            usdtTrc20Address: null,
+            bnbAddress: null,
+          };
+          await sendDepositApprovedEmail(
+            user,
+            tx.amount,
+            tx.description || "Investment Deposit"
+          );
+        }
+      } catch (emailError) {
+        console.error("Failed to send deposit approval email:", emailError);
+      }
+      return res.json({
         success: true,
         message: "Deposit approved",
-        data: updated
+        data: updated,
       });
     } catch (error) {
       console.error("Error approving deposit:", error);

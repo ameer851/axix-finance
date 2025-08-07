@@ -1887,6 +1887,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const results = [];
+        const pendingBalanceUpdates: Array<{ amount: string; userId: number }> =
+          [];
         for (const depositId of depositIds) {
           try {
             if (depositId.toString().startsWith("hist_")) {
@@ -3814,10 +3816,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           amount: amount.toString(),
           status: method === "balance" ? "completed" : "pending",
           description: description,
-          planName: planName || null,
-          cryptoType: method !== "balance" ? method : null,
-          walletAddress: null, // This will be filled when user provides proof
-          transactionHash: null, // This will be filled when user provides proof
+          planName: planName || undefined,
+          cryptoType: method !== "balance" ? method : undefined,
+          walletAddress: undefined, // This will be filled when user provides proof
+          transactionHash: undefined, // This will be filled when user provides proof
         });
 
         // Create notification for the user

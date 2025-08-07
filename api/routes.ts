@@ -36,6 +36,15 @@ export async function registerRoutes(app: Express) {
     registerDebugRoutes(app);
   }
 
+  // Simple root endpoint to test API connectivity
+  app.get("/", (req, res) => {
+    res.status(200).json({
+      message: "Axix Finance API is running",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+    });
+  });
+
   // Basic health check endpoint (no auth required)
   app.get("/api/health", (req, res) => {
     res.status(200).json({

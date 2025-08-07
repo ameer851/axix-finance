@@ -1,20 +1,21 @@
-import { apiRequest } from '@/lib/queryClient';
-import type { Goal } from '@shared/schema';
+import { api } from "@/lib/api";
+import type { Goal } from "@shared/schema";
 
 /**
  * Get goals for a user
  */
 export async function getGoals(userId?: number | string): Promise<Goal[]> {
   if (!userId) {
-    throw new Error('User ID is required');
+    throw new Error("User ID is required");
   }
-  
+
   try {
-    const response = await apiRequest('GET', `/goals?userId=${userId}`);
-    return await response.json();
+    return await api.get<Goal[]>(`/api/goals?userId=${userId}`);
   } catch (error: any) {
-    console.error('Error fetching goals:', error);
-    throw new Error(error.message || 'Failed to fetch goals. Please try again later.');
+    console.error("Error fetching goals:", error);
+    throw new Error(
+      error.message || "Failed to fetch goals. Please try again later."
+    );
   }
 }
 
@@ -23,11 +24,12 @@ export async function getGoals(userId?: number | string): Promise<Goal[]> {
  */
 export async function getGoal(goalId: string): Promise<Goal> {
   try {
-    const response = await apiRequest('GET', `/goals/${goalId}`);
-    return await response.json();
+    return await api.get<Goal>(`/api/goals/${goalId}`);
   } catch (error: any) {
-    console.error('Error fetching goal:', error);
-    throw new Error(error.message || 'Failed to fetch goal details. Please try again later.');
+    console.error("Error fetching goal:", error);
+    throw new Error(
+      error.message || "Failed to fetch goal details. Please try again later."
+    );
   }
 }
 
@@ -36,24 +38,29 @@ export async function getGoal(goalId: string): Promise<Goal> {
  */
 export async function createGoal(goalData: Partial<Goal>): Promise<Goal> {
   try {
-    const response = await apiRequest('POST', '/goals', goalData);
-    return await response.json();
+    return await api.post<Goal>("/api/goals", goalData);
   } catch (error: any) {
-    console.error('Error creating goal:', error);
-    throw new Error(error.message || 'Failed to create goal. Please try again later.');
+    console.error("Error creating goal:", error);
+    throw new Error(
+      error.message || "Failed to create goal. Please try again later."
+    );
   }
 }
 
 /**
  * Update an existing goal
  */
-export async function updateGoal(goalId: string, goalData: Partial<Goal>): Promise<Goal> {
+export async function updateGoal(
+  goalId: string,
+  goalData: Partial<Goal>
+): Promise<Goal> {
   try {
-    const response = await apiRequest('PUT', `/goals/${goalId}`, goalData);
-    return await response.json();
+    return await api.put<Goal>(`/api/goals/${goalId}`, goalData);
   } catch (error: any) {
-    console.error('Error updating goal:', error);
-    throw new Error(error.message || 'Failed to update goal. Please try again later.');
+    console.error("Error updating goal:", error);
+    throw new Error(
+      error.message || "Failed to update goal. Please try again later."
+    );
   }
 }
 
@@ -62,10 +69,12 @@ export async function updateGoal(goalId: string, goalData: Partial<Goal>): Promi
  */
 export async function deleteGoal(goalId: string): Promise<void> {
   try {
-    await apiRequest('DELETE', `/goals/${goalId}`);
+    await api.delete(`/api/goals/${goalId}`);
   } catch (error: any) {
-    console.error('Error deleting goal:', error);
-    throw new Error(error.message || 'Failed to delete goal. Please try again later.');
+    console.error("Error deleting goal:", error);
+    throw new Error(
+      error.message || "Failed to delete goal. Please try again later."
+    );
   }
 }
 
@@ -74,5 +83,5 @@ export default {
   getGoal,
   createGoal,
   updateGoal,
-  deleteGoal
+  deleteGoal,
 };

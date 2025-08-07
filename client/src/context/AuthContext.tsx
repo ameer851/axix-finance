@@ -15,7 +15,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   isVerified: boolean;
-  login: (username: string, password: string) => Promise<User>;
+  login: (identifier: string, password: string) => Promise<User>;
   register: (userData: any) => Promise<any>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -160,25 +160,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const login = async (username: string, password: string): Promise<User> => {
+  const login = async (identifier: string, password: string): Promise<User> => {
     setIsLoading(true);
     setError(null);
     try {
-      const userData = await loginService(username, password);
+      const userData = await loginService(identifier, password);
       setUser(userData);
 
       toast({
         title: "Login successful",
-        description: `Welcome back, ${userData.firstName || username}!`,
+        description: `Welcome back, ${userData.username || userData.firstName || identifier}!`,
         variant: "default",
       });
 
-      return userData; // Return the user data for immediate access to role
+      return userData;
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Failed to login");
 
-      // Show appropriate toast based on error type
       let errorMessage = "Login failed. Please try again.";
       if (err.isOffline || err.isNetworkError) {
         errorMessage =

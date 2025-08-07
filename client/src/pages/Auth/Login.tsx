@@ -100,16 +100,13 @@ const Login: React.FC = () => {
 
       const userData = await login(values.identifier, values.password);
 
-      // Show success animation
       toast({
-        title: "Welcome back! 🎉",
+        title: `Welcome back, ${userData.username || userData.firstName || values.identifier}! 🎉`,
         description: "Successfully logged into your account",
       });
 
-      // Add delay for animation
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Navigate based on role
       if (userData.role === "admin") {
         navigate("/admin");
       } else {

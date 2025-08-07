@@ -1,5 +1,5 @@
 ﻿// Email templates for AxixFinance
-import { User } from "@shared/schema";
+import { User as DrizzleUser } from "@shared/schema";
 
 const BRAND_COLORS = {
   primary: "#4A2F1D", // Dark Brown
@@ -26,10 +26,11 @@ const COMMON_STYLES = {
 
 // Initialize all template functions
 function generateDepositApprovalEmailHTML(
-  user: User,
+  user: DrizzleUser,
   amount: number,
   currency: string,
-  planName?: string
+  planName?: string,
+  baseUrl?: string
 ): string {
   return `
     <div style="${COMMON_STYLES.container}">
@@ -60,6 +61,9 @@ function generateDepositApprovalEmailHTML(
         </div>
         <p>Your funds have been successfully added to your account and are now ready for investment.</p>
         <p>Your dashboard has been updated with this transaction. To view your updated balance and investment details, please log in to your account.</p>
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${baseUrl || "https://axixfinance.com"}/dashboard" style="${COMMON_STYLES.button}">Go to Dashboard</a>
+        </div>
         <p>Best regards,<br>The AxixFinance Team</p>
       </div>
       <div style="${COMMON_STYLES.footer}">
@@ -70,7 +74,7 @@ function generateDepositApprovalEmailHTML(
   `;
 }
 
-function generateWelcomeEmailHTML(user: User): string {
+function generateWelcomeEmailHTML(user: DrizzleUser): string {
   return `
     <div style="${COMMON_STYLES.container}">
       <div style="${COMMON_STYLES.header}">
@@ -95,7 +99,7 @@ function generateWelcomeEmailHTML(user: User): string {
         <div style="${COMMON_STYLES.infoBox}">
           <h3 style="margin: 0 0 15px 0; color: ${BRAND_COLORS.primary};">Login Information</h3>
           <p style="margin: 0;"><strong>Email:</strong> ${user.email}</p>
-          <p style="margin: 10px 0 0 0; color: ${BRAND_COLORS.info};">
+          <p style="margin: 10px 0 0 0; color: ${BRAND_COLORS.primary};">
             <strong>Note:</strong> You can sign in using your Supabase auth credentials.
           </p>
         </div>
@@ -124,7 +128,7 @@ function generateWelcomeEmailHTML(user: User): string {
 }
 
 function generateDepositConfirmationEmailHTML(
-  user: User,
+  user: DrizzleUser,
   amount: number,
   currency: string,
   txHash: string,
@@ -175,7 +179,7 @@ function generateDepositConfirmationEmailHTML(
 }
 
 function generateWithdrawalRequestEmailHTML(
-  user: User,
+  user: DrizzleUser,
   amount: number,
   currency: string,
   destination: string,
@@ -225,11 +229,12 @@ function generateWithdrawalRequestEmailHTML(
 }
 
 function generateWithdrawalConfirmationEmailHTML(
-  user: User,
+  user: DrizzleUser,
   amount: number,
   currency: string,
   destination: string,
-  txHash?: string
+  txHash?: string,
+  baseUrl?: string
 ): string {
   return `
     <div style="${COMMON_STYLES.container}">
@@ -259,9 +264,8 @@ function generateWithdrawalConfirmationEmailHTML(
           <p style="margin: 10px 0 0 0;"><strong>Status:</strong> <span style="color: ${BRAND_COLORS.success};">Completed</span></p>
         </div>
         <p>The funds have been sent to your specified destination. Please allow some time for the transaction to be confirmed on the network.</p>
-        <div style="text-align: center; margin: 30px 0; padding: 12px 24px; background-color: ${BRAND_COLORS.background}; border-radius: 4px;">
-          <strong>To view transaction details:</strong><br>
-          Log in to your AxixFinance account and check the Withdrawals section
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${baseUrl || "https://axixfinance.com"}/dashboard" style="${COMMON_STYLES.button}">Go to Dashboard</a>
         </div>
         <p>Thank you for using AxixFinance. We appreciate your trust in our services.</p>
         <p>Best regards,<br>The AxixFinance Team</p>

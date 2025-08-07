@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/queryClient';
+import { api } from "@/lib/api";
 
 export interface MarketNews {
   id: string;
@@ -8,7 +8,7 @@ export interface MarketNews {
   url: string;
   summary?: string;
   category?: string;
-  impact?: 'high' | 'medium' | 'low';
+  impact?: "high" | "medium" | "low";
 }
 
 /**
@@ -16,17 +16,18 @@ export interface MarketNews {
  */
 export async function getMarketNews(): Promise<MarketNews[]> {
   try {
-    const response = await apiRequest('GET', '/market/news');
-    return await response.json();
+    return await api.get<MarketNews[]>("/api/market/news");
   } catch (error: any) {
-    console.error('Error fetching market news:', error);
-    
+    console.error("Error fetching market news:", error);
+
     if (error.isOffline || error.isNetworkError) {
       // Return empty news for offline mode
       return [];
     }
-    
-    throw new Error(error.message || 'Failed to fetch market news. Please try again later.');
+
+    throw new Error(
+      error.message || "Failed to fetch market news. Please try again later."
+    );
   }
 }
 
@@ -35,22 +36,24 @@ export async function getMarketNews(): Promise<MarketNews[]> {
  */
 export async function getMarketGlobalData() {
   try {
-    const response = await apiRequest('GET', '/market/global');
-    return await response.json();
+    return await api.get("/api/market/global");
   } catch (error: any) {
-    console.error('Error fetching global market data:', error);
-    
+    console.error("Error fetching global market data:", error);
+
     if (error.isOffline || error.isNetworkError) {
       // Return empty data for offline mode
-      return { 
+      return {
         indexes: [],
         topGainers: [],
         topLosers: [],
-        trending: []
+        trending: [],
       };
     }
-    
-    throw new Error(error.message || 'Failed to fetch global market data. Please try again later.');
+
+    throw new Error(
+      error.message ||
+        "Failed to fetch global market data. Please try again later."
+    );
   }
 }
 
@@ -62,22 +65,26 @@ export async function searchMarketSymbols(query: string) {
     if (!query || query.trim().length < 2) {
       return [];
     }
-    
-    const response = await apiRequest('GET', `/market/search?q=${encodeURIComponent(query)}`);
-    return await response.json();
+
+    return await api.get(`/api/market/search?q=${encodeURIComponent(query)}`);
   } catch (error: any) {
-    console.error('Error searching market symbols:', error);
-    
+    console.error("Error searching market symbols:", error);
+
     if (error.isOffline || error.isNetworkError) {
-      throw new Error('You are currently offline. Please try again when you have an internet connection.');
+      throw new Error(
+        "You are currently offline. Please try again when you have an internet connection."
+      );
     }
-    
-    throw new Error(error.message || 'Failed to search market symbols. Please try again later.');
+
+    throw new Error(
+      error.message ||
+        "Failed to search market symbols. Please try again later."
+    );
   }
 }
 
 export default {
   getMarketNews,
   getMarketGlobalData,
-  searchMarketSymbols
+  searchMarketSymbols,
 };

@@ -1,5 +1,4 @@
 import { api } from "@/lib/api";
-import { apiRequest } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import {
   InsertTransaction,
@@ -168,16 +167,11 @@ export async function updateTransactionStatus(
   status: TransactionStatus
 ): Promise<Transaction> {
   try {
-    const payload: { status: TransactionStatus } = { status };
-
-    const response = await apiRequest(
-      "PATCH",
-      `/transactions/${transactionId}/status`,
+    const payload = { status };
+    return await api.patch<Transaction>(
+      `/api/transactions/${transactionId}/status`,
       payload
     );
-    const updatedTransaction = await response.json();
-
-    return updatedTransaction;
   } catch (error: any) {
     console.error("Error updating transaction status:", error);
 
@@ -314,44 +308,22 @@ export async function getUserBalance(userId?: number | string): Promise<{
     throw new Error("User ID is required");
   }
   try {
-    // Use the actual API endpoint to get real balance data
-    const response = await apiRequest("GET", `/users/${userId}/balance`);
+    const balanceData = await api.get<{
+      availableBalance: number;
+      pendingBalance: number;
+      totalBalance: number;
+      lastUpdated: string;
+    }>(`/api/users/${userId}/balance`);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Error fetching balance:", errorData);
-
-      // Try to get user from localStorage as a fallback
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        const userBalance = parseFloat(user.balance || "0");
-
-        console.log("Using fallback balance from stored user:", userBalance);
-
-        return {
-          availableBalance: userBalance,
-          pendingBalance: 0,
-          totalBalance: userBalance,
-          lastUpdated: new Date().toISOString(),
-        };
-      }
-
-      throw new Error(errorData.message || "Failed to fetch balance data");
-    }
-
-    const balanceData = await response.json();
     console.log("Fetched real balance data:", balanceData);
 
     // Ensure all values are properly parsed numbers
     return {
-      availableBalance: parseFloat(balanceData.availableBalance) || 0,
-      pendingBalance: parseFloat(balanceData.pendingBalance) || 0,
+      availableBalance: balanceData.availableBalance || 0,
+      pendingBalance: balanceData.pendingBalance || 0,
       totalBalance:
-        parseFloat(balanceData.totalBalance) ||
-        parseFloat(balanceData.availableBalance) +
-          parseFloat(balanceData.pendingBalance) ||
-        0,
+        balanceData.totalBalance ||
+        (balanceData.availableBalance || 0) + (balanceData.pendingBalance || 0),
       lastUpdated: balanceData.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
@@ -410,8 +382,7 @@ export async function depositFunds(data: {
   transactionId: number;
 }> {
   try {
-    const response = await apiRequest("POST", `/transactions/deposit`, data);
-    return await response.json();
+    return await api.post(`/api/transactions/deposit`, data);
   } catch (error: any) {
     console.error("Error depositing funds:", error);
     throw new Error(
@@ -440,12 +411,10 @@ export async function submitDepositConfirmation(data: {
 
   const attemptSubmission = async (): Promise<any> => {
     try {
-      const response = await apiRequest(
-        "POST",
-        `/transactions/deposit-confirmation`,
+      const result = await api.post(
+        `/api/transactions/deposit-confirmation`,
         data
       );
-      const result = await response.json();
       console.log("Server response:", result);
       return result;
     } catch (error: any) {
@@ -547,8 +516,7 @@ export async function getTransactionStats(): Promise<{
   transactionTrend: { date: string; count: number; volume: string }[];
 }> {
   try {
-    const response = await apiRequest("GET", "/transactions/stats");
-    return await response.json();
+    return await api.get("/api/transactions/stats");
   } catch (error: any) {
     console.error("Error fetching transaction statistics:", error);
 

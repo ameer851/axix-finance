@@ -55,9 +55,33 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   uid: text("uid").notNull().unique(), // Auth user ID from Supabase Auth
   email: text("email").notNull().unique(),
+  username: text("username").unique(),
+  password: text("password"),
+  firstName: text("firstName"),
+  lastName: text("lastName"),
   full_name: text("full_name"),
-  is_admin: boolean("is_admin").default(false),
+  balance: text("balance").default("0"),
   role: text("role").notNull().default("user"),
+  is_admin: boolean("is_admin").default(false),
+  isVerified: boolean("isVerified").default(false),
+  isActive: boolean("isActive").default(true),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
+  passwordResetToken: text("passwordResetToken"),
+  passwordResetTokenExpiry: timestamp("passwordResetTokenExpiry"),
+  // Additional fields for auth system
+  verificationToken: text("verificationToken"),
+  verificationTokenExpiry: timestamp("verificationTokenExpiry"),
+  twoFactorEnabled: boolean("twoFactorEnabled").default(false),
+  twoFactorSecret: text("twoFactorSecret"),
+  referredBy: integer("referredBy"),
+  pendingEmail: text("pendingEmail"),
+  // Wallet addresses
+  bitcoinAddress: text("bitcoinAddress"),
+  bitcoinCashAddress: text("bitcoinCashAddress"),
+  ethereumAddress: text("ethereumAddress"),
+  usdtTrc20Address: text("usdtTrc20Address"),
+  bnbAddress: text("bnbAddress"),
 });
 
 // Zod schema for user validation
@@ -66,6 +90,12 @@ export const insertUserSchema = createInsertSchema(users, {
   role: z.enum(["user", "admin"]),
   is_admin: z.boolean().optional(),
   full_name: z.string().min(1).optional(),
+  username: z.string().min(1).optional(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  balance: z.string().optional(),
+  isVerified: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export const selectUserSchema = insertUserSchema.extend({
@@ -73,7 +103,7 @@ export const selectUserSchema = insertUserSchema.extend({
   uid: z.string(),
 });
 
-export type User = z.infer<typeof selectUserSchema>;
+// Use the Drizzle inferred type as the main User type
 export type NewUser = z.infer<typeof insertUserSchema>;
 
 // Transactions table
@@ -86,14 +116,17 @@ export const transactions = pgTable("transactions", {
   amount: numeric("amount").notNull(),
   description: text("description"),
   status: text("status").notNull().default("pending"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(), // Keep both for compatibility
+  updatedAt: timestamp("updated_at").defaultNow(), // Keep both for compatibility
   processedBy: integer("processed_by").references(() => users.id),
   rejectionReason: text("rejection_reason"),
   // New fields for crypto deposits
   transactionHash: text("transaction_hash"),
   cryptoType: text("crypto_type"),
   walletAddress: text("wallet_address"),
+  destination: text("destination"), // Add missing destination field
   planName: text("plan_name"),
   // New fields for investment plan tracking
   planDuration: text("plan_duration"),

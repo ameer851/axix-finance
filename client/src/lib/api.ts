@@ -86,10 +86,12 @@ async function getAuthToken(): Promise<string | null> {
     }
 
     console.log("✅ Supabase session retrieved successfully!");
-    console.log(
-      "Session expires at:",
-      new Date(session.expires_at * 1000).toLocaleString()
-    );
+    if (session.expires_at) {
+      console.log(
+        "Session expires at:",
+        new Date(session.expires_at * 1000).toLocaleString()
+      );
+    }
     console.log("Token length:", session.access_token?.length || 0);
 
     return session.access_token;
@@ -129,21 +131,24 @@ export async function apiFetch<T = any>(
   const authToken = await getAuthToken();
 
   // Add default headers with authentication
-  const headers: Record<string, string> = {
+  const headers: Headers = new Headers({
     Accept: "application/json",
-    ...(authToken && { Authorization: `Bearer ${authToken}` }),
     ...(fetchOptions.headers || {}),
-  };
+  });
+
+  if (authToken) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
 
   // Add Content-Type for methods that have a body
   if (
     fetchOptions.body &&
-    !headers["Content-Type"] &&
+    !headers.has("Content-Type") &&
     typeof fetchOptions.body === "string"
   ) {
     try {
       JSON.parse(fetchOptions.body); // Check if it's a JSON string
-      headers["Content-Type"] = "application/json";
+      headers.set("Content-Type", "application/json");
     } catch (e) {
       // Not a JSON string, do not set header
     }
@@ -257,6 +262,93 @@ export async function apiFetch<T = any>(
   throw lastError || new Error("Unknown error occurred");
 }
 
+/**
+ * A wrapper for the fetch API that includes default headers, timeout, and consistent error handling.
+ * @param method The HTTP method to use.
+ * @param endpoint The API endpoint to call.
+ * @param body Optional request body.
+ * @param options Optional additional request options.
+ * @returns The JSON response from the API.
+ */
+export async function apiRequest<T>(
+  method: string,
+  endpoint: string,
+  body?: any,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${import.meta.env.VITE_API_URL || "/api"}${endpoint}`;
+
+  const config: RequestInit = {
+    method,
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  };
+
+  if (body) {
+    config.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, config);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({
+      message: `HTTP error! status: ${response.status}`,
+    }));
+    throw new Error(errorData.message);
+  }
+
+  return response.json();
+}
+
+export interface FetchWithTimeoutOptions extends RequestInit {
+  timeout?: number;
+}
+
+/**
+ * Fetches data with a timeout.
+ * @param url The URL to fetch.
+ * @param options Optional additional request options.
+ * @returns The JSON response from the API.
+ */
+export async function fetchWithTimeout<T>(
+  url: string,
+  options: FetchWithTimeoutOptions = {}
+): Promise<T> {
+  const { timeout = 5000 } = options;
+
+  // Create an abort controller for the fetch request
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  // Set the timeout to abort the request
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, { ...options, signal });
+
+    // Clear the timeout if the request completes in time
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        message: `HTTP error! status: ${response.status}`,
+      }));
+      throw new Error(errorData.message);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Handle fetch errors (including timeout)
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out");
+    }
+    throw error;
+  }
+}
+
 // Shorthand methods for common HTTP methods
 export const api = {
   get: <T = any>(url: string, options: FetchOptions = {}) =>
@@ -277,6 +369,17 @@ export const api = {
     apiFetch<T>(url, {
       ...options,
       method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      body: JSON.stringify(data),
+    }),
+
+  patch: <T = any>(url: string, data: any, options: FetchOptions = {}) =>
+    apiFetch<T>(url, {
+      ...options,
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         ...(options.headers || {}),
