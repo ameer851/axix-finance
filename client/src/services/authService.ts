@@ -104,37 +104,58 @@ export async function login(
       email: userProfile.email,
       username: userProfile.username,
       password: null,
-      firstName: userProfile.firstName || null,
-      lastName: userProfile.lastName || null,
-      full_name: userProfile.full_name || null,
-      balance: userProfile.balance || "0",
-      role: userProfile.role || "user",
-      is_admin: userProfile.is_admin || false,
-      isVerified: userProfile.isVerified || false,
-      isActive: userProfile.isActive ?? true,
+      firstName: userProfile.firstName ?? userProfile.first_name ?? null,
+      lastName: userProfile.lastName ?? userProfile.last_name ?? null,
+      full_name: userProfile.full_name ?? null,
+      balance: userProfile.balance ?? "0",
+      role: userProfile.role ?? "user",
+      is_admin: userProfile.is_admin ?? false,
+      isVerified: userProfile.isVerified ?? userProfile.is_verified ?? false,
+      isActive: userProfile.isActive ?? userProfile.is_active ?? true,
       createdAt: userProfile.createdAt
         ? new Date(userProfile.createdAt)
-        : new Date(),
+        : userProfile.created_at
+          ? new Date(userProfile.created_at)
+          : new Date(),
       updatedAt: userProfile.updatedAt
         ? new Date(userProfile.updatedAt)
-        : new Date(),
-      passwordResetToken: userProfile.passwordResetToken || null,
+        : userProfile.updated_at
+          ? new Date(userProfile.updated_at)
+          : new Date(),
+      passwordResetToken:
+        userProfile.passwordResetToken ??
+        userProfile.password_reset_token ??
+        null,
       passwordResetTokenExpiry: userProfile.passwordResetTokenExpiry
         ? new Date(userProfile.passwordResetTokenExpiry)
-        : null,
-      verificationToken: userProfile.verificationToken || null,
+        : userProfile.password_reset_token_expiry
+          ? new Date(userProfile.password_reset_token_expiry)
+          : null,
+      verificationToken:
+        userProfile.verificationToken ?? userProfile.verification_token ?? null,
       verificationTokenExpiry: userProfile.verificationTokenExpiry
         ? new Date(userProfile.verificationTokenExpiry)
-        : null,
-      twoFactorEnabled: userProfile.twoFactorEnabled || false,
-      twoFactorSecret: userProfile.twoFactorSecret || null,
-      referredBy: userProfile.referredBy || null,
-      pendingEmail: userProfile.pendingEmail || null,
-      bitcoinAddress: userProfile.bitcoinAddress || null,
-      bitcoinCashAddress: userProfile.bitcoinCashAddress || null,
-      ethereumAddress: userProfile.ethereumAddress || null,
-      usdtTrc20Address: userProfile.usdtTrc20Address || null,
-      bnbAddress: userProfile.bnbAddress || null,
+        : userProfile.verification_token_expiry
+          ? new Date(userProfile.verification_token_expiry)
+          : null,
+      twoFactorEnabled:
+        userProfile.twoFactorEnabled ?? userProfile.two_factor_enabled ?? false,
+      twoFactorSecret:
+        userProfile.twoFactorSecret ?? userProfile.two_factor_secret ?? null,
+      referredBy: userProfile.referredBy ?? userProfile.referred_by ?? null,
+      pendingEmail:
+        userProfile.pendingEmail ?? userProfile.pending_email ?? null,
+      bitcoinAddress:
+        userProfile.bitcoinAddress ?? userProfile.bitcoin_address ?? null,
+      bitcoinCashAddress:
+        userProfile.bitcoinCashAddress ??
+        userProfile.bitcoin_cash_address ??
+        null,
+      ethereumAddress:
+        userProfile.ethereumAddress ?? userProfile.ethereum_address ?? null,
+      usdtTrc20Address:
+        userProfile.usdtTrc20Address ?? userProfile.usdt_trc20_address ?? null,
+      bnbAddress: userProfile.bnbAddress ?? userProfile.bnb_address ?? null,
     };
 
     localStorage.setItem("user", JSON.stringify(userData));
@@ -187,7 +208,7 @@ export async function register(userData: {
       throw new Error("Failed to create user account - no user ID returned");
 
     // Insert only columns that are guaranteed to exist to avoid schema errors
-    const { data: newUser, error: insertError } = await supabase
+    let { data: newUser, error: insertError } = await supabase
       .from("users")
       .insert([
         {
@@ -204,6 +225,35 @@ export async function register(userData: {
       ])
       .select()
       .single();
+
+    // If schema mismatch (camelCase columns missing), retry with snake_case columns
+    if (
+      insertError &&
+      insertError.message &&
+      (insertError.message.includes("column") ||
+        insertError.message.includes("schema") ||
+        insertError.message.includes("does not exist"))
+    ) {
+      const retry = await supabase
+        .from("users")
+        .insert([
+          {
+            uid: auth.user.id,
+            email: userData.email,
+            username: userData.username,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            full_name: `${userData.firstName} ${userData.lastName}`,
+            role: "user",
+            is_active: true,
+            balance: "0",
+          } as any,
+        ])
+        .select()
+        .single();
+      newUser = retry.data as any;
+      insertError = retry.error as any;
+    }
 
     if (insertError) {
       if (insertError.code === "23505")
