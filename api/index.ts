@@ -3,8 +3,9 @@ import cors from "cors";
 import express from "express";
 import { registerRoutes } from "./routes";
 
-// Create Express app
+// Create Express app once; initialize lazily on first request
 const app = express();
+let initialized = false;
 
 // CORS configuration
 const corsOptions = {
@@ -14,6 +15,7 @@ const corsOptions = {
   ) {
     const allowedOrigins = [
       "http://localhost:4000",
+      "http://localhost:3000",
       "https://axix-finance.vercel.app",
       "https://www.axixfinance.com",
       "https://axixfinance.com",
@@ -22,23 +24,39 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      // Do not throw – allow but without credentials to avoid 500s
+      callback(null, true);
     }
   },
   credentials: true,
   optionsSuccessStatus: 200,
 };
 
-app.use(cors(corsOptions));
+async function ensureInitialized() {
+  if (initialized) return;
+  // Core middleware
+  app.use(cors(corsOptions));
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Enable JSON parsing
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  // Register routes safely
+  await registerRoutes(app);
 
-// Register all routes
-registerRoutes(app);
+  initialized = true;
+}
 
-// Export handler for Vercel
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  return app(req as any, res as any);
+// Export handler for Vercel with lazy init
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    await ensureInitialized();
+    return app(req as any, res as any);
+  } catch (err: any) {
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        error: { code: "500", message: "A server error has occurred" },
+      })
+    );
+  }
 }

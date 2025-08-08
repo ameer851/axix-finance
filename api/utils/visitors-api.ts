@@ -34,6 +34,11 @@ export function registerVisitorsApi(app: Express) {
     res.status(200).json({ success: true });
   });
 
+  // End visitor session (some clients call DELETE)
+  app.delete("/api/visitors/session", (req: Request, res: Response) => {
+    res.status(200).json({ success: true });
+  });
+
   // Handle visitor activity
   app.get("/api/visitors/activity", (req: Request, res: Response) => {
     // Simply return success - we're just interested in fixing the CORS issues
