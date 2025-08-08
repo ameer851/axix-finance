@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { getUserDeposits } from "@/services/transactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -200,6 +201,19 @@ const NewDeposit: React.FC = () => {
     staleTime: 30000,
     retry: 3,
   });
+
+  // Fetch user's deposits to determine if balance spending should be unlocked
+  const { data: userDeposits = [], isLoading: depositsLoading } = useQuery({
+    queryKey: ["userDeposits", user?.id],
+    queryFn: () => getUserDeposits(user?.id as number),
+    enabled: !!user?.id,
+    staleTime: 60000,
+    retry: 2,
+  });
+
+  const hasPositiveBalance = (balance?.availableBalance || 0) > 0;
+  const hasAnyDeposits = Array.isArray(userDeposits) && userDeposits.length > 0;
+  const isBalanceLocked = !hasPositiveBalance && !hasAnyDeposits;
 
   // Copy to clipboard function
   const copyToClipboard = async (text: string, type: string) => {
@@ -498,8 +512,20 @@ const NewDeposit: React.FC = () => {
                       variant={
                         selectedMethod === "balance" ? "default" : "outline"
                       }
-                      onClick={() => setSelectedMethod("balance")}
+                      onClick={() => {
+                        if (isBalanceLocked) {
+                          toast({
+                            title: "Balance not available",
+                            description:
+                              "You must make a deposit or have a positive balance before you can spend from balance.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        setSelectedMethod("balance");
+                      }}
                       className="h-auto p-4"
+                      disabled={isBalanceLocked}
                     >
                       <div className="text-center">
                         <Wallet className="h-6 w-6 mx-auto mb-1" />
@@ -507,6 +533,11 @@ const NewDeposit: React.FC = () => {
                         <div className="text-xs text-gray-500">
                           ${formatCurrency(balance?.availableBalance || 0)}
                         </div>
+                        {isBalanceLocked && (
+                          <div className="text-[10px] text-red-500 mt-1">
+                            Locked until first deposit
+                          </div>
+                        )}
                       </div>
                     </Button>
 
@@ -563,7 +594,7 @@ const NewDeposit: React.FC = () => {
         {/* Right Column - Payment Instructions */}
         <div className="space-y-6">
           {/* Selected Payment Method */}
-          {selectedMethod && (
+          {selectedMethod && selectedMethod !== "balance" && (
             <Card>
               <CardHeader>
                 <CardTitle className="capitalize">
