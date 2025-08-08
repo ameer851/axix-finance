@@ -51,6 +51,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await ensureInitialized();
     return app(req as any, res as any);
   } catch (err: any) {
+    // On failure, reply with minimal text so ping/clients don't break JSON parsing
+    const isPing =
+      typeof req.url === "string" && req.url.startsWith("/api/ping");
+    if (isPing) {
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "text/plain");
+      return res.end("ok");
+    }
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(

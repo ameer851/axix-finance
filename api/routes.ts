@@ -45,9 +45,15 @@ export async function registerRoutes(app: Express) {
     });
   });
 
-  // Ultra-fast ping endpoint (no JSON parsing/logic) for connectivity checks
+  // Ultra-fast ping endpoint (no JSON/DB) for connectivity checks
   app.get("/api/ping", (_req, res) => {
-    res.status(200).type("text/plain").send("ok");
+    try {
+      res.status(200).type("text/plain").send("ok");
+    } catch {
+      // ensure a minimal body even if Express throws
+      res.setHeader("Content-Type", "text/plain");
+      res.status(200).end("ok");
+    }
   });
 
   // Basic health check endpoint (no auth required)
