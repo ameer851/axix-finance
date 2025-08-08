@@ -45,6 +45,11 @@ export async function registerRoutes(app: Express) {
     });
   });
 
+  // Ultra-fast ping endpoint (no JSON parsing/logic) for connectivity checks
+  app.get("/api/ping", (_req, res) => {
+    res.status(200).type("text/plain").send("ok");
+  });
+
   // Basic health check endpoint (no auth required)
   app.get("/api/health", (req, res) => {
     res.status(200).json({
@@ -80,12 +85,10 @@ export async function registerRoutes(app: Express) {
     } catch (err) {
       console.error("translate-log proxy error", err);
       res.setHeader("Access-Control-Allow-Origin", "*");
-      res
-        .status(500)
-        .json({
-          error: "translate_log_failed",
-          message: "Failed to fetch translate log",
-        });
+      res.status(500).json({
+        error: "translate_log_failed",
+        message: "Failed to fetch translate log",
+      });
     }
   });
 

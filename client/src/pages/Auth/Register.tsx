@@ -98,7 +98,6 @@ const Register: React.FC = () => {
         ...registerData,
         email: values.email,
         password: values.password,
-        ...registerData,
         role: "user",
       });
 
@@ -383,7 +382,14 @@ const Register: React.FC = () => {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create account"}
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+                    Creating account...
+                  </span>
+                ) : (
+                  "Create account"
+                )}
               </Button>
               <div className="mt-4 text-center">
                 <Link

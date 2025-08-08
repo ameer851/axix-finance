@@ -1,4 +1,3 @@
-import LoadingSpinner from "@/components/animations/LoadingSpinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,17 +47,17 @@ const Login: React.FC = () => {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const result = await apiFetch("/api/health", {
+        // Use ultra-fast ping first to avoid JSON/parsing overhead during cold starts
+        const ping = await fetch("/api/ping", { cache: "no-store" });
+        if (!ping.ok) throw new Error("Ping failed");
+        setIsServerAvailable(true);
+        // Warm-up health in background
+        apiFetch("/api/health", {
           timeout: 3000,
           headers: { Accept: "application/json" },
-        });
-        setIsServerAvailable(true);
+        }).catch(() => {});
       } catch (error: any) {
-        if (error && error.status) {
-          console.error("API health check error", error);
-        } else {
-          console.error("Server connection check failed:", error);
-        }
+        console.error("Server connection check failed:", error);
         setIsServerAvailable(false);
       }
     };
@@ -314,9 +313,9 @@ const Login: React.FC = () => {
                   disabled={isAuthenticating}
                 >
                   {isAuthenticating ? (
-                    <span className="flex items-center justify-center">
-                      <LoadingSpinner size={20} />
-                      <span className="ml-2">Signing in...</span>
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+                      Signing in...
                     </span>
                   ) : (
                     <span>Sign in</span>
