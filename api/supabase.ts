@@ -1,21 +1,22 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client using environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Initialize Supabase client using environment variables (lazily, without throwing at import time)
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    "Supabase URL or Service Role Key is not defined in environment variables."
-  );
-}
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Create Supabase client only if configured; avoid throwing during cold start so non-DB routes (e.g., /api/ping) still work
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseKey)
+  : (null as any);
 
 // Function to get user balance
 export async function getUserBalance(userId: string | number) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase not configured");
+    }
     // Get user data including balance and profile
     const { data: userData, error: userError } = await supabase
       .from("users")
@@ -88,6 +89,9 @@ export async function getAdminDeposits(filters?: {
   amountMax?: number;
 }) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return null;
+    }
     let query = supabase.from("deposits").select("*", { count: "exact" });
 
     // Apply filters if provided
@@ -137,6 +141,9 @@ export async function getAdminWithdrawals(filters?: {
   amountMax?: number;
 }) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return null;
+    }
     let query = supabase.from("withdrawals").select("*", { count: "exact" });
 
     // Apply filters if provided
@@ -180,6 +187,9 @@ export async function getAdminWithdrawals(filters?: {
 
 export async function approveDeposit(depositId: string) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return false;
+    }
     const { error } = await supabase.rpc("approve_deposit", {
       p_deposit_id: depositId,
     });
@@ -198,6 +208,9 @@ export async function approveDeposit(depositId: string) {
 
 export async function approveWithdrawal(withdrawalId: string) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return false;
+    }
     const { error } = await supabase.rpc("approve_withdrawal", {
       p_withdrawal_id: withdrawalId,
     });
@@ -217,6 +230,9 @@ export async function approveWithdrawal(withdrawalId: string) {
 // Function to get user deposits
 export async function getUserDeposits(userId: string | number) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return null;
+    }
     const { data, error } = await supabase
       .from("deposits")
       .select("*")
@@ -238,6 +254,9 @@ export async function getUserDeposits(userId: string | number) {
 // Function to get user withdrawals
 export async function getUserWithdrawals(userId: string | number) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return null;
+    }
     const { data, error } = await supabase
       .from("withdrawals")
       .select("*")
@@ -259,6 +278,9 @@ export async function getUserWithdrawals(userId: string | number) {
 // Admin Functions
 export async function getAdminDashboardData() {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase not configured");
+    }
     // Get users count
     const { count: usersCount, error: usersError } = await supabase
       .from("users")
@@ -352,6 +374,9 @@ export async function createDeposit(
   reference: string
 ) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return null;
+    }
     const { data, error } = await supabase
       .from("deposits")
       .insert([
@@ -386,6 +411,9 @@ export async function createWithdrawal(
   address: string
 ) {
   try {
+    if (!isSupabaseConfigured || !supabase) {
+      return null;
+    }
     const { data, error } = await supabase
       .from("withdrawals")
       .insert([
