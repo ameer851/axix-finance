@@ -103,14 +103,14 @@ export async function verifyUserEmail(
 
     // Check if this is an email change verification (user has a pendingEmail)
     let emailChanged = false;
-    if ((user as DrizzleUser)?.pendingEmail) {
+    // Only check pendingEmail if present on user
+    if (user && "pendingEmail" in user && user.pendingEmail) {
       // This is an email change verification
       emailChanged = true;
 
       // Update the user's email with the pending email
       const updatedUser = await storage.updateUser(user.id, {
-        email:
-          (user as DrizzleUser)?.pendingEmail ?? (user as DrizzleUser)?.email,
+        email: user.pendingEmail ?? user.email,
         pendingEmail: null,
         isVerified: true,
         verificationToken: null,
@@ -123,7 +123,7 @@ export async function verifyUserEmail(
       }
 
       console.log(
-        `✅ Email changed and verified for user: ${(user as DrizzleUser)?.email} -> ${(user as DrizzleUser)?.pendingEmail ?? (user as DrizzleUser)?.email}`
+        `✅ Email changed and verified for user: ${user.email} -> ${user.pendingEmail ?? user.email}`
       );
 
       // Create audit log
@@ -132,14 +132,13 @@ export async function verifyUserEmail(
         userId: user.id,
         message: "Email changed and verified",
         details: {
-          oldEmail: (user as DrizzleUser)?.email,
-          newEmail:
-            (user as DrizzleUser)?.pendingEmail ?? (user as DrizzleUser)?.email,
+          oldEmail: user.email,
+          newEmail: user.pendingEmail ?? user.email,
         },
       });
 
       return {
-        user: updatedUser as any,
+        user: updatedUser,
         emailChanged: true,
       };
     } else {
@@ -163,7 +162,7 @@ export async function verifyUserEmail(
         details: { email: user.email },
       });
 
-      return { user: updatedUser as any };
+      return { user: updatedUser };
     }
   } catch (error) {
     console.error("❌ Error verifying user email:", error);
@@ -178,7 +177,7 @@ export async function resendVerificationEmail(
   try {
     const user = await storage.getUser(userId);
 
-    if (!user || (user as DrizzleUser)?.isVerified) {
+    if (!user || user.isVerified) {
       return false;
     }
 
@@ -220,15 +219,17 @@ export function requireAdminRole(req: Request, res: Response, next: Function) {
     return res.status(401).json({ message: "You must be logged in" });
   }
 
-  const user = req.user as DrizzleUser;
-  console.log(
-    "👤 User:",
-    user.email,
-    "Role:",
-    user.role,
-    "Verified:",
-    user.isVerified
-  );
+  const user = req.user;
+  if (user) {
+    console.log(
+      "👤 User:",
+      user.email,
+      "Role:",
+      user.role,
+      "Verified:",
+      user.isVerified
+    );
+  }
 
   // VERIFICATION BYPASS: No longer checking if email is verified
   // Admin users can access admin features without email verification
@@ -301,8 +302,7 @@ export function setupAuth(app: Express) {
         console.log("Attempting regular authentication for:", username);
 
         // Try to find user by username or email
-        let user: DrizzleUser | null =
-          (await storage.getUserByUsername(username)) || null;
+        let user = (await storage.getUserByUsername(username)) || null;
         if (!user) {
           user = (await storage.getUserByEmail(username)) || null;
         }
@@ -329,7 +329,7 @@ export function setupAuth(app: Express) {
         }
 
         console.log("Authentication successful for user:", username);
-        return done(null, user as any);
+        return done(null, user);
       } catch (error) {
         console.error("Error during authentication:", error);
         return done(error);
@@ -337,9 +337,12 @@ export function setupAuth(app: Express) {
     })
   );
 
-  passport.serializeUser((user, done) => {
-    const userToSerialize = user as DrizzleUser;
-    done(null, userToSerialize.id);
+  passport.serializeUser((user: any, done) => {
+    // Only serialize the id property, which is guaranteed to exist
+    done(
+      null,
+      user && typeof user === "object" && "id" in user ? user.id : null
+    );
   });
 
   passport.deserializeUser(async (id: number, done) => {
@@ -397,16 +400,21 @@ export function setupAuth(app: Express) {
         message: "User account created and auto-verified",
       });
 
-      const emailSent = await sendWelcomeEmail(user as DrizzleUser);
+      // Send welcome email with only required fields
+      const emailSent = await sendWelcomeEmail({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
 
-      const userWithoutPassword = { ...(user as DrizzleUser) };
+      const userWithoutPassword = { ...user };
       if ("password" in userWithoutPassword) {
         delete (userWithoutPassword as any).password;
       }
-      req.login(userWithoutPassword as any, () => {});
+      req.login(userWithoutPassword, () => {});
 
       console.log(
-        `✅ User account created for: ${(user as DrizzleUser)?.username ?? (user as DrizzleUser)?.email} (${(user as DrizzleUser)?.email})`
+        `✅ User account created for: ${user.username ?? user.email} (${user.email})`
       );
       console.log(`📧 Welcome email sent: ${emailSent ? "Yes" : "Failed"}`);
 
@@ -414,9 +422,8 @@ export function setupAuth(app: Express) {
         success: true,
         message:
           "Account created successfully! Please check your email for login credentials, then return to login.",
-        username:
-          (user as DrizzleUser)?.username ?? (user as DrizzleUser)?.email,
-        email: (user as DrizzleUser)?.email,
+        username: user.username ?? user.email,
+        email: user.email,
         redirectTo: "/login",
         emailSent: emailSent,
       });
@@ -600,99 +607,77 @@ export function setupAuth(app: Express) {
         usdtTrc20Address: null,
         bnbAddress: null,
       };
-      const { password: pw, ...userWithoutPassword } = user;
-      req.login(userWithoutPassword as any, (loginErr) => {
-        if (loginErr) {
-          console.error("Session creation error for user:", identifier, loginErr);
-          return res.status(500).json({
-            message: "Failed to create session. Please try again.",
-            error: "session_error",
-          });
-        }
-        req.session.save((err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            return res.status(500).json({
-              message: "Failed to save session. Please try again.",
-              error: "session_save_error",
-            });
-          }
-          return res.json({ user: userWithoutPassword });
+      // Clear the timeout as we got a response
+      clearTimeout(loginTimeout);
+
+      if (err) {
+        console.error("Login error for user:", req.body.username, err);
+        return res.status(500).json({
+          message: "An error occurred during login. Please try again.",
+          error: "authentication_error",
         });
-      });
-          // Clear the timeout as we got a response
-          clearTimeout(loginTimeout);
+      }
 
-          if (err) {
-            console.error("Login error for user:", req.body.username, err);
+      if (!user) {
+        console.log("Authentication failed for user:", req.body.username);
+        return res.status(401).json({
+          message:
+            info?.message ||
+            "Authentication failed. Please check your credentials.",
+          error: "invalid_credentials",
+        });
+      }
+
+      req.login(
+        {
+          ...user,
+          password: user.password || "default-password",
+        } as unknown as Express.User,
+        (loginErr) => {
+          if (loginErr) {
+            console.error(
+              "Session creation error for user:",
+              req.body.username,
+              loginErr
+            );
             return res.status(500).json({
-              message: "An error occurred during login. Please try again.",
-              error: "authentication_error",
+              message: "Failed to create session. Please try again.",
+              error: "session_error",
             });
           }
 
-          if (!user) {
-            console.log("Authentication failed for user:", req.body.username);
-            return res.status(401).json({
-              message:
-                info?.message ||
-                "Authentication failed. Please check your credentials.",
-              error: "invalid_credentials",
+          console.log("Login successful for user:", req.body.username);
+
+          storage
+            .createLog({
+              type: "info",
+              userId: user.id,
+              message: "User logged in",
+              details: { ip: req.ip },
+            })
+            .catch((error) => {
+              console.error("Failed to create login log:", error);
             });
+
+          const { password, ...userWithoutPassword } = user;
+
+          if (!req.session.cookie.maxAge) {
+            req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 1 day
           }
 
-          req.login(
-            {
-              ...user,
-              password: user.password || "default-password",
-            } as unknown as Express.User,
-            (loginErr) => {
-              if (loginErr) {
-                console.error(
-                  "Session creation error for user:",
-                  req.body.username,
-                  loginErr
-                );
-                return res.status(500).json({
-                  message: "Failed to create session. Please try again.",
-                  error: "session_error",
-                });
-              }
-
-              console.log("Login successful for user:", req.body.username);
-
-              storage
-                .createLog({
-                  type: "info",
-                  userId: user.id,
-                  message: "User logged in",
-                  details: { ip: req.ip },
-                })
-                .catch((error) => {
-                  console.error("Failed to create login log:", error);
-                });
-
-              const { password, ...userWithoutPassword } = user;
-
-              if (!req.session.cookie.maxAge) {
-                req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 1 day
-              }
-
-              req.session.save((err) => {
-                if (err) {
-                  console.error("Session save error:", err);
-                  return res.status(500).json({
-                    message: "Failed to save session. Please try again.",
-                    error: "session_save_error",
-                  });
-                }
-
-                return res.json({ user: userWithoutPassword });
+          req.session.save((err) => {
+            if (err) {
+              console.error("Session save error:", err);
+              return res.status(500).json({
+                message: "Failed to save session. Please try again.",
+                error: "session_save_error",
               });
             }
-          );
+
+            return res.json({ user: userWithoutPassword });
+          });
         }
-      )(req, res, next);
+      );
     } catch (error) {
       console.error("Unexpected error during login:", error);
       return res.status(500).json({
@@ -808,20 +793,53 @@ export function setupAuth(app: Express) {
       console.log("Getting all users to delete...");
       const users = await storage.getAllUsers();
       console.log(`Found ${users.length} users to delete`);
-      const userRaw = await storage.createUser({
       // Delete all users
       for (const user of users) {
         await storage.deleteUser(user.id);
       }
 
-      // Create new admin user with direct password for troubleshooting
-      // Skip password hashing for admin account to ensure login works
-      const adminUser = await storage.createUser({
+      // Use environment variables or defaults for admin credentials
+      const adminUsername = "admin";
+      const adminEmail = process.env.ADMIN_EMAIL ?? "admin@example.com";
+      const adminPasswordRaw = process.env.ADMIN_PASSWORD ?? "Axix-Admin@123";
+      const adminFirstName = "Admin";
+      const adminLastName = "User";
+      const adminRole = "admin";
+      const adminCreatedAt = new Date();
+      const adminIsActive = true;
+      const adminIsVerified = true;
+      const adminTwoFactorEnabled = false;
+      const adminBalance = "0";
+
+      // Hash the password if needed
+      const adminPassword = adminPasswordRaw;
+
+      // Create the admin user with all required fields
+      let userRaw = await storage.createUser({
         username: adminUsername,
-        password: adminPassword, // Use unhashed password for emergency access
+        password: adminPassword,
         email: adminEmail,
+        firstName: adminFirstName,
+        lastName: adminLastName,
+        role: adminRole,
+        createdAt: adminCreatedAt,
+        isActive: adminIsActive,
+        isVerified: adminIsVerified,
+        twoFactorEnabled: adminTwoFactorEnabled,
+        balance: adminBalance,
+      });
+
+      // Patch missing fields if not set by createUser
+      if (userRaw && !userRaw.createdAt) userRaw.createdAt = adminCreatedAt;
+      if (userRaw && !userRaw.firstName) userRaw.firstName = adminFirstName;
+      if (userRaw && !userRaw.lastName) userRaw.lastName = adminLastName;
+      if (userRaw && !userRaw.username) userRaw.username = adminUsername;
+      if (userRaw && !userRaw.email) userRaw.email = adminEmail;
+
       if (!userRaw) {
-        return res.status(500).json({ message: "Failed to create user account" });
+        return res
+          .status(500)
+          .json({ message: "Failed to create user account" });
       }
 
       await storage.createLog({
@@ -830,45 +848,54 @@ export function setupAuth(app: Express) {
         message: "User account created and auto-verified",
       });
 
-      // Map to DrizzleUser type
-      const user: DrizzleUser = {
-        id: userRaw.id,
-        uid: userRaw.uid || "",
+      // Send welcome email with only required fields
+      await sendWelcomeEmail({
         email: userRaw.email,
-        username: userRaw.username || null,
-        password: null,
-        firstName: userRaw.firstName || null,
-        lastName: userRaw.lastName || null,
-        full_name: userRaw.full_name || null,
-        balance: userRaw.balance || null,
-        role: userRaw.role || "user",
-        is_admin: userRaw.is_admin || false,
-        isVerified: userRaw.isVerified || false,
-        isActive: userRaw.isActive || true,
-        createdAt: userRaw.createdAt || new Date(),
-        updatedAt: userRaw.updatedAt || new Date(),
-        passwordResetToken: null,
-        passwordResetTokenExpiry: null,
-        verificationToken: null,
-        verificationTokenExpiry: null,
-        twoFactorEnabled: false,
-        twoFactorSecret: null,
-        referredBy: null,
-        pendingEmail: null,
-        bitcoinAddress: null,
-        bitcoinCashAddress: null,
-        ethereumAddress: null,
-        usdtTrc20Address: null,
-        bnbAddress: null,
-      };
+        firstName: userRaw.firstName,
+        lastName: userRaw.lastName,
+      });
 
-      const emailSent = await sendWelcomeEmail(user);
-
-      const userWithoutPassword = { ...user };
+      // Remove password before returning user object
+      const userWithoutPassword = { ...userRaw };
+      if ("password" in userWithoutPassword) {
+        delete (userWithoutPassword as any).password;
+      }
       req.login(userWithoutPassword as any, () => {});
 
       console.log(
-        `✅ User account created for: ${user.username ?? user.email} (${user.email})`
+        `✅ User account created for: ${userRaw.username ?? userRaw.email} (${userRaw.email})`
+      );
+      console.log(`📧 Welcome email sent: Yes`);
+
+      res.status(201).json({
+        success: true,
+        message:
+          "Account created successfully! Please check your email for login credentials, then return to login.",
+        username: userRaw.username ?? userRaw.email,
+        email: userRaw.email,
+      });
+
+      if (!userRaw) {
+        return res
+          .status(500)
+          .json({ message: "Failed to create user account" });
+      }
+
+      await storage.createLog({
+        type: "info",
+        userId: userRaw.id,
+        message: "User account created and auto-verified",
+      });
+
+      // Send welcome email
+      const emailSent = await sendWelcomeEmail(userRaw);
+
+      // Remove password before returning user object
+      const { password, ...userWithoutPassword } = userRaw;
+      req.login(userWithoutPassword as any, () => {});
+
+      console.log(
+        `✅ User account created for: ${userRaw.username ?? userRaw.email} (${userRaw.email})`
       );
       console.log(`📧 Welcome email sent: ${emailSent ? "Yes" : "Failed"}`);
 
@@ -876,8 +903,8 @@ export function setupAuth(app: Express) {
         success: true,
         message:
           "Account created successfully! Please check your email for login credentials, then return to login.",
-        username: user.username ?? user.email,
-        email: user.email,
+        username: userRaw.username ?? userRaw.email,
+        email: userRaw.email,
       });
     } catch (error) {
       console.error("Error resetting database:", error);

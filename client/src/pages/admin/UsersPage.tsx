@@ -1,20 +1,46 @@
 import AdminFilters, { FilterState } from "@/components/AdminFilters";
+import BulkActions, { createUserBulkActions } from "@/components/BulkActions";
 import { useAdminActions, useAdminData } from "@/hooks/use-admin-data";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { exportUsers } from "@/utils/exportUtils";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 
-interface User {
-  id: number;
-  username: string;
+// Minimal user type, only guaranteed fields
+interface MinimalUser {
+  id: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  role: "user" | "admin";
-  balance: string;
-  isVerified: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  username?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: "user" | "admin";
+  balance?: string | null;
+  isVerified?: boolean;
+  isActive?: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+// Guard/mapper for API responses
+function toMinimalUser(raw: any): MinimalUser {
+  if (!raw || typeof raw !== "object")
+    throw new Error("Invalid user object from API");
+  if (!raw.id || !raw.email)
+    throw new Error("User object missing required fields: id or email");
+  return {
+    id: String(raw.id),
+    email: String(raw.email),
+    username: raw.username != null ? String(raw.username) : null,
+    firstName: raw.firstName != null ? String(raw.firstName) : null,
+    lastName: raw.lastName != null ? String(raw.lastName) : null,
+    role: raw.role === "admin" ? "admin" : "user",
+    balance: raw.balance != null ? String(raw.balance) : null,
+    isVerified: raw.isVerified ?? false,
+    isActive: raw.isActive ?? false,
+    createdAt: raw.createdAt != null ? String(raw.createdAt) : null,
+    updatedAt: raw.updatedAt != null ? String(raw.updatedAt) : null,
+  };
 }
 
 interface UserFormData {
@@ -26,15 +52,11 @@ interface UserFormData {
   isVerified: boolean;
 }
 
-interface UsersResponse {
-  users: User[];
-  totalPages: number;
-  currentPage: number;
-  totalUsers: number;
-}
+// Remove UsersResponse, not needed with MinimalUser and hook
 
 export default function AdminUsers() {
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<MinimalUser | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Use hook to fetch users
@@ -47,10 +69,13 @@ export default function AdminUsers() {
     setPage,
     setFilters,
     refresh,
-  } = useAdminData<User>({
+  } = useAdminData<MinimalUser>({
     endpoint: "/api/admin/users",
-    transform: (data) => data.users,
+    transform: (data) =>
+      Array.isArray(data.users) ? data.users.map(toMinimalUser) : [],
   });
+
+  // All user and pagination state is managed by useAdminData and its provided setters.
 
   const { executeAction, loading: actionLoading } = useAdminActions(
     "/api/admin/users",
@@ -69,7 +94,7 @@ export default function AdminUsers() {
   // Handle filter changes
   const handleFilterChange = (newFilters: FilterState) => {
     setFilters(newFilters);
-    setCurrentPage(1); // Reset to first page when filters change
+    setPage(1); // Reset to first page when filters change
   };
 
   // Handle export functionality
@@ -103,7 +128,7 @@ export default function AdminUsers() {
           title: "Success",
           description: `${userIds.length} users approved successfully`,
         });
-        fetchUsers(currentPage, filters);
+        refresh();
       }
     } catch (error) {
       console.error("Bulk approve error:", error);
@@ -130,7 +155,7 @@ export default function AdminUsers() {
           title: "Success",
           description: `${userIds.length} users suspended successfully`,
         });
-        fetchUsers(currentPage, filters);
+        refresh();
       }
     } catch (error) {
       console.error("Bulk suspend error:", error);
@@ -157,7 +182,7 @@ export default function AdminUsers() {
           title: "Success",
           description: `${userIds.length} users deleted successfully`,
         });
-        fetchUsers(currentPage, filters);
+        refresh();
       }
     } catch (error) {
       console.error("Bulk delete error:", error);
@@ -202,7 +227,7 @@ export default function AdminUsers() {
           title: "Success",
           description: result.message,
         });
-        fetchUsers(currentPage, filters);
+        refresh();
       } else {
         throw new Error(result.message);
       }
@@ -250,29 +275,27 @@ export default function AdminUsers() {
   const isIndeterminate =
     selectedUsers.length > 0 && selectedUsers.length < users.length;
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: MinimalUser) => {
     setEditingUser(user);
     setValue("email", user.email);
-    setValue("firstName", user.firstName);
-    setValue("lastName", user.lastName);
-    setValue("role", user.role);
-    setValue("isActive", user.isActive);
-    setValue("isVerified", user.isVerified);
+    setValue("firstName", user.firstName ?? "");
+    setValue("lastName", user.lastName ?? "");
+    setValue("role", user.role ?? "user");
+    setValue("isActive", user.isActive ?? false);
+    setValue("isVerified", user.isVerified ?? false);
   };
 
   const handleUpdateUser = async (data: UserFormData) => {
     if (!editingUser) return;
-
     try {
       const response = await apiRequest(
         "PUT",
         `/api/admin/users/${editingUser.id}`,
         data
       );
-      const updatedUser = (await response.json()) as User;
-      setUsers((prev) =>
-        prev.map((user) => (user.id === editingUser.id ? updatedUser : user))
-      );
+      const updatedRaw = await response.json();
+      const updatedUser = toMinimalUser(updatedRaw);
+      refresh(); // Refetch users after update
       setEditingUser(null);
       reset();
       toast({
@@ -289,7 +312,7 @@ export default function AdminUsers() {
     }
   };
 
-  const handleDeleteUser = async (userId: number) => {
+  const handleDeleteUser = async (userId: string) => {
     if (
       !confirm(
         "Are you sure you want to delete this user? This action cannot be undone."
@@ -300,7 +323,7 @@ export default function AdminUsers() {
 
     try {
       await apiRequest("DELETE", `/api/admin/users/${userId}`);
-      setUsers((prev) => prev.filter((user) => user.id !== userId));
+      refresh(); // Refetch users after delete
       toast({
         title: "Success",
         description: "User deleted successfully",
@@ -315,13 +338,13 @@ export default function AdminUsers() {
     }
   };
 
-  const getStatusBadge = (user: User) => {
+  const getStatusBadge = (user: MinimalUser) => {
     if (!user.isActive) return "bg-red-100 text-red-800";
     if (!user.isVerified) return "bg-yellow-100 text-yellow-800";
     return "bg-green-100 text-green-800";
   };
 
-  const getStatusText = (user: User) => {
+  const getStatusText = (user: MinimalUser) => {
     if (!user.isActive) return "Inactive";
     if (!user.isVerified) return "Unverified";
     return "Active";
@@ -350,7 +373,7 @@ export default function AdminUsers() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <div className="text-sm text-gray-600">Total Users: {totalUsers}</div>
+        <div className="text-sm text-gray-600">Total Users: {totalItems}</div>
       </div>
 
       {/* Advanced Filters */}
@@ -421,21 +444,21 @@ export default function AdminUsers() {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
                     type="checkbox"
-                    checked={selectedUsers.includes(user.id.toString())}
-                    onChange={() => handleSelectUser(user.id.toString())}
+                    checked={selectedUsers.includes(user.id)}
+                    onChange={() => handleSelectUser(user.id)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    title={`Select user ${user.firstName} ${user.lastName}`}
-                    aria-label={`Select user ${user.firstName} ${user.lastName}`}
+                    title={`Select user ${user.firstName ?? ""} ${user.lastName ?? ""}`}
+                    aria-label={`Select user ${user.firstName ?? ""} ${user.lastName ?? ""}`}
                   />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      {user.firstName} {user.lastName}
+                      {user.firstName ?? ""} {user.lastName ?? ""}
                     </div>
                     <div className="text-sm text-gray-500">{user.email}</div>
                     <div className="text-xs text-gray-400">
-                      @{user.username}
+                      @{user.username ?? ""}
                     </div>
                   </div>
                 </td>
@@ -454,14 +477,19 @@ export default function AdminUsers() {
                         : "bg-blue-100 text-blue-800"
                     }`}
                   >
-                    {user.role}
+                    {user.role ?? "user"}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${parseFloat(user.balance).toLocaleString()}
+                  $
+                  {user.balance
+                    ? parseFloat(user.balance).toLocaleString()
+                    : "0"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.createdAt).toLocaleDateString()}
+                  {user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString()
+                    : ""}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                   <button
@@ -494,7 +522,7 @@ export default function AdminUsers() {
         <div className="mt-6 flex justify-center">
           <nav className="flex space-x-2">
             <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              onClick={() => setPage(Math.max(currentPage - 1, 1))}
               disabled={currentPage === 1}
               className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -514,7 +542,7 @@ export default function AdminUsers() {
                     <span className="px-3 py-2 text-sm text-gray-500">...</span>
                   )}
                   <button
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => setPage(page)}
                     className={`px-3 py-2 text-sm font-medium rounded-md ${
                       page === currentPage
                         ? "text-white bg-indigo-600"
@@ -527,9 +555,7 @@ export default function AdminUsers() {
               ))}
 
             <button
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
+              onClick={() => setPage(Math.min(currentPage + 1, totalPages))}
               disabled={currentPage === totalPages}
               className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >

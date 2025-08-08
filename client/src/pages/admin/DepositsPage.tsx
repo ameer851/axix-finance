@@ -24,6 +24,55 @@ import {
 import { toast } from "../../hooks/use-toast";
 import { adminQueryConfig } from "../../lib/adminQueryConfig";
 import { adminService } from "../../services/adminService";
+// Minimal deposit type, only guaranteed fields
+interface MinimalDeposit {
+  id: string;
+  user: string;
+  amount: number;
+  plan?: string | null;
+  createdAt: string;
+  status: string;
+  users?: Array<{ username: string }>; // for user display
+  plan_name?: string | null;
+  plan_duration?: string | null;
+  daily_profit?: string | null;
+  total_return?: string | null;
+  crypto_type?: string | null;
+  method?: string | null;
+  description?: string | null;
+  created_at?: string | null;
+}
+
+// Guard/mapper for API responses
+function toMinimalDeposit(raw: any): MinimalDeposit {
+  if (!raw || typeof raw !== "object")
+    throw new Error("Invalid deposit object from API");
+  if (
+    !raw.id ||
+    !raw.user ||
+    !raw.amount ||
+    !raw.status ||
+    (!raw.createdAt && !raw.created_at)
+  )
+    throw new Error("Deposit object missing required fields");
+  return {
+    id: String(raw.id),
+    user: String(raw.user),
+    amount: Number(raw.amount),
+    plan: raw.plan ?? null,
+    createdAt: raw.createdAt ?? raw.created_at ?? "",
+    status: raw.status,
+    users: Array.isArray(raw.users) ? raw.users : undefined,
+    plan_name: raw.plan_name ?? null,
+    plan_duration: raw.plan_duration ?? null,
+    daily_profit: raw.daily_profit ?? null,
+    total_return: raw.total_return ?? null,
+    crypto_type: raw.crypto_type ?? null,
+    method: raw.method ?? null,
+    description: raw.description ?? null,
+    created_at: raw.created_at ?? null,
+  };
+}
 
 export default function DepositsPage() {
   const queryClient = useQueryClient();
@@ -38,16 +87,10 @@ export default function DepositsPage() {
     setPage,
     setFilters,
     refresh,
-  } = useAdminData<{
-    id: number;
-    user: string;
-    amount: number;
-    plan: string;
-    createdAt: string;
-    status: string;
-  }>({
+  } = useAdminData<MinimalDeposit>({
     endpoint: "/api/admin/deposits",
-    transform: (res) => res.data || [],
+    transform: (res) =>
+      Array.isArray(res.data) ? res.data.map(toMinimalDeposit) : [],
   });
 
   // Use hook for approve/reject actions
@@ -118,7 +161,7 @@ export default function DepositsPage() {
 
   // If you want to support bulk actions, implement them here or in adminService
 
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = async (action: string) => {
     if (selectedDeposits.length === 0) {
       toast({
         title: "Error",
@@ -127,18 +170,16 @@ export default function DepositsPage() {
       });
       return;
     }
-    bulkMutation.mutate({
-      action,
-      depositIds: selectedDeposits.map((id) => parseInt(id)),
+    await executeAction("POST", `/bulk/${action}`, {
+      depositIds: selectedDeposits,
     });
   };
 
-  const handleSelectDeposit = (depositId: number) => {
-    const depositIdStr = depositId.toString();
+  const handleSelectDeposit = (depositId: string) => {
     setSelectedDeposits((prev) =>
-      prev.includes(depositIdStr)
-        ? prev.filter((id) => id !== depositIdStr)
-        : [...prev, depositIdStr]
+      prev.includes(depositId)
+        ? prev.filter((id) => id !== depositId)
+        : [...prev, depositId]
     );
   };
 
@@ -146,7 +187,7 @@ export default function DepositsPage() {
     if (selectedDeposits.length === deposits.length) {
       setSelectedDeposits([]);
     } else {
-      setSelectedDeposits(deposits.map((d: any) => d.id.toString()));
+      setSelectedDeposits(deposits.map((d) => d.id.toString()));
     }
   };
 
@@ -272,36 +313,21 @@ export default function DepositsPage() {
             label: "Approve Selected",
             icon: <Check className="h-4 w-4" />,
             variant: "success",
-            action: async (ids) => {
-              await bulkMutation.mutateAsync({
-                action: "approve",
-                depositIds: ids.map((id) => parseInt(id)),
-              });
-            },
+            action: async (ids) => handleBulkAction("approve"),
           },
           {
             id: "reject",
             label: "Reject Selected",
             icon: <X className="h-4 w-4" />,
             variant: "warning",
-            action: async (ids) => {
-              await bulkMutation.mutateAsync({
-                action: "reject",
-                depositIds: ids.map((id) => parseInt(id)),
-              });
-            },
+            action: async (ids) => handleBulkAction("reject"),
           },
           {
             id: "delete",
             label: "Delete Selected",
             icon: <Trash2 className="h-4 w-4" />,
             variant: "danger",
-            action: async (ids) => {
-              await bulkMutation.mutateAsync({
-                action: "delete",
-                depositIds: ids.map((id) => parseInt(id)),
-              });
-            },
+            action: async (ids) => handleBulkAction("delete"),
           },
         ]}
       />
@@ -352,29 +378,27 @@ export default function DepositsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredDeposits.map((deposit: any) => (
+                {deposits.map((deposit: MinimalDeposit) => (
                   <tr key={deposit.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedDeposits.includes(
-                          deposit.id.toString()
-                        )}
+                        checked={selectedDeposits.includes(deposit.id)}
                         onChange={() => handleSelectDeposit(deposit.id)}
                         className="rounded border-gray-300"
-                        aria-label={`Select deposit ${deposit.id}`}
+                        aria-label={"Select deposit " + deposit.id}
                       />
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {Array.isArray(deposit.users) && deposit.users.length > 0
                         ? deposit.users[0].username
-                        : `User ${deposit.user_id}`}
+                        : `User ${deposit.user}`}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 font-semibold">
-                      ${deposit.amount.toLocaleString()}
+                      {"$" + deposit.amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {deposit.plan_name && (
+                      {deposit.plan_name ? (
                         <div className="space-y-1">
                           <div className="font-medium text-blue-600">
                             {deposit.plan_name}
@@ -385,8 +409,7 @@ export default function DepositsPage() {
                             </div>
                           )}
                         </div>
-                      )}
-                      {!deposit.plan_name && (
+                      ) : (
                         <span className="text-gray-400">No plan selected</span>
                       )}
                     </td>
@@ -394,12 +417,12 @@ export default function DepositsPage() {
                       {deposit.daily_profit && deposit.total_return ? (
                         <div className="space-y-1">
                           <div className="text-green-600 font-medium">
-                            Total: $
-                            {parseFloat(deposit.total_return).toLocaleString()}
+                            {"Total: $" +
+                              parseFloat(deposit.total_return).toLocaleString()}
                           </div>
                           <div className="text-xs text-gray-500">
-                            Daily: $
-                            {parseFloat(deposit.daily_profit).toLocaleString()}
+                            {"Daily: $" +
+                              parseFloat(deposit.daily_profit).toLocaleString()}
                           </div>
                         </div>
                       ) : deposit.plan_name ? (
@@ -429,7 +452,7 @@ export default function DepositsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {new Date(
-                        (deposit.created_at as string) || deposit.createdAt
+                        deposit.created_at ?? deposit.createdAt
                       ).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm space-x-2">
@@ -467,7 +490,7 @@ export default function DepositsPage() {
               </tbody>
             </table>
           </div>
-          {filteredDeposits.length === 0 && (
+          {deposits.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               No deposits found
             </div>

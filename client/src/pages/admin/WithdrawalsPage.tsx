@@ -18,6 +18,53 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, Clock, DollarSign, TrendingDown } from "lucide-react";
 import { useCallback, useState } from "react";
 
+// Minimal withdrawal type, only guaranteed fields
+interface MinimalWithdrawal {
+  id: string;
+  userId: string;
+  email: string;
+  username?: string | null;
+  amount: number;
+  status: "pending" | "approved" | "rejected" | "processing";
+  cryptoType?: string | null;
+  method?: string | null;
+  walletAddress?: string | null;
+  transactionId?: string | null;
+  createdAt: string;
+  notes?: string | null;
+}
+
+// Guard/mapper for API responses
+function toMinimalWithdrawal(raw: any): MinimalWithdrawal {
+  if (!raw || typeof raw !== "object")
+    throw new Error("Invalid withdrawal object from API");
+  if (!raw.id || !raw.userId || !raw.amount || !raw.status || !raw.created_at)
+    throw new Error("Withdrawal object missing required fields");
+  // Try to get user info from raw.users or raw.user
+  let email = "";
+  let username = null;
+  if (Array.isArray(raw.users) && raw.users.length > 0) {
+    email = raw.users[0].email ?? "";
+    username = raw.users[0].username ?? null;
+  } else if (raw.user && typeof raw.user === "object") {
+    email = raw.user.email ?? "";
+    username = raw.user.username ?? null;
+  }
+  return {
+    id: String(raw.id),
+    userId: String(raw.userId),
+    email,
+    username,
+    amount: Number(raw.amount),
+    status: raw.status,
+    cryptoType: raw.crypto_type ?? null,
+    method: raw.method ?? null,
+    walletAddress: raw.wallet_address ?? null,
+    transactionId: raw.transactionId ?? null,
+    createdAt: String(raw.created_at),
+    notes: raw.notes ?? null,
+  };
+}
 interface Withdrawal {
   id: number;
   userId: number;

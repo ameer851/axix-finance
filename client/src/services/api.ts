@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/apiFetch";
 /**
  * API Service for Axix Finance
  * Centralizes all API calls to the backend
@@ -36,22 +37,16 @@ const getAuthToken = async (): Promise<string | null> => {
   }
 };
 
-// Generic fetch function with authorization
-const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
+// Generic API fetch function with authorization
+const fetchWithAuth = async (endpoint: string, options: any = {}) => {
   const token = await getAuthToken();
-
   const headers = {
     "Content-Type": "application/json",
     ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
+    ...(options.headers || {}),
   };
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  return handleResponse(response);
+  const url = `${API_BASE_URL}${endpoint}`;
+  return await apiFetch(url, { ...options, headers });
 };
 
 // Financial APIs

@@ -565,9 +565,19 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               {/* {user && !user.isVerified && <VerificationBanner />} */}
 
               {/* Welcome message */}
+
               <div className="mb-6 bg-white dark:bg-neutral-800 rounded-lg shadow p-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Welcome back, {user?.firstName || "User"}!
+                  Welcome,{" "}
+                  {user?.full_name ||
+                    user?.name ||
+                    (user?.firstName && user?.lastName
+                      ? `${user.firstName} ${user.lastName}`
+                      : null) ||
+                    user?.username ||
+                    user?.email ||
+                    "User"}
+                  !
                 </h1>
                 <p className="text-gray-600 dark:text-gray-300">
                   Manage your investments and track your portfolio performance.
