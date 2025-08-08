@@ -40,6 +40,11 @@ export function registerVisitorsApi(app: Express) {
     res.status(200).json({ success: true });
   });
 
+  // Some clients send PUT for activity heartbeats – accept and return OK
+  app.put("/api/visitors/activity", (req: Request, res: Response) => {
+    res.status(200).json({ success: true });
+  });
+
   app.post("/api/visitors/activity", async (req: Request, res: Response) => {
     try {
       const { activityType, visitorId, timestamp, details } = req.body || {};

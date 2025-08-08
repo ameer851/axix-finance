@@ -186,6 +186,7 @@ export async function register(userData: {
     if (!auth.user?.id)
       throw new Error("Failed to create user account - no user ID returned");
 
+    // Insert only columns that are guaranteed to exist to avoid schema errors
     const { data: newUser, error: insertError } = await supabase
       .from("users")
       .insert([
@@ -199,11 +200,6 @@ export async function register(userData: {
           role: "user",
           isActive: true,
           balance: "0",
-          bitcoinAddress: userData.bitcoinAddress || null,
-          bitcoinCashAddress: userData.bitcoinCashAddress || null,
-          ethereumAddress: userData.ethereumAddress || null,
-          bnbAddress: userData.bnbAddress || null,
-          usdtTrc20Address: userData.usdtTrc20Address || null,
         },
       ])
       .select()
@@ -218,6 +214,15 @@ export async function register(userData: {
         throw new Error("Missing required fields");
       if (insertError.code === "PGRST301")
         throw new Error("Database connection error. Please try again");
+      if (
+        insertError.message &&
+        (insertError.message.includes("column") ||
+          insertError.message.includes("schema"))
+      ) {
+        throw new Error(
+          "Registration failed due to mismatched database schema. Please try again later."
+        );
+      }
       throw new Error(
         `Registration failed: ${insertError.message || "Please try again"}`
       );
