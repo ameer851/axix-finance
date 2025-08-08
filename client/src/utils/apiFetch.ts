@@ -42,3 +42,6 @@ export async function apiFetch(
     throw err;
   }
 }
+
+// Provide a default export for compatibility with legacy imports
+export default apiFetch;

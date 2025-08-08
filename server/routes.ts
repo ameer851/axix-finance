@@ -979,6 +979,29 @@ router.get("/health", (req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
+// Translate log proxy endpoint
+router.get('/api/translate-log', async (req, res) => {
+  try {
+    const targetUrl = 'https://translate.googleapis.com/element/log?format=json';
+    const query = new URLSearchParams(req.query as any).toString();
+    const url = query ? `${targetUrl}&${query}` : targetUrl;
+    const response = await fetch(url, { headers: { 'User-Agent': 'AxixFinanceServer/1.0' }} as any);
+    const text = await response.text();
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      const json = JSON.parse(text);
+      res.status(response.status).json(json);
+    } catch {
+      res.status(response.status).send(text);
+    }
+  } catch (err: any) {
+    console.error('translate-log proxy error', err);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(500).json({ error: 'translate_log_failed', message: 'Failed to fetch translate log' });
+  }
+});
+
 // Export the router
 export default router;
 
@@ -2445,29 +2468,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 userId: deposit.userId,
                 type: "transaction",
                 title: "Deposit Approved",
-                message: `Your deposit of $${deposit.amount} has been approved and added to your account.`,
-                relatedEntityType: "transaction",
-                relatedEntityId: depositId,
-              }),
-              // Get user details for sending email
-              storage.getUser(deposit.userId).then((user) => {
-                if (user) {
-                  sendDepositApprovedEmail(
-                    user,
-                    deposit.amount,
-                    deposit.cryptoType || "account balance",
-                    deposit.planName || undefined
-                  ).catch((error) => {
-                    console.error(
-                      "Failed to send deposit approved email:",
-                      error
-                    );
-                    // Don't fail the request if email fails
-                  });
-                }
-              }),
-            ]);
-
             await storage.createLog({
               type: "info",
               userId: req.user!.id,

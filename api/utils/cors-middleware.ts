@@ -64,6 +64,15 @@ export function corsMiddleware(
   );
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
+  // Allow all origins for the translate proxy endpoint
+  try {
+    const url = (req as any).url as string;
+    if (typeof url === "string" && url.includes("/api/translate-log")) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Credentials", "false");
+    }
+  } catch {}
+
   // Handle preflight requests
   if (req.method === "OPTIONS") {
     return res.status(200).end();

@@ -55,6 +55,40 @@ export async function registerRoutes(app: Express) {
     });
   });
 
+  // Proxy Google Translate log to avoid CORS issues
+  app.get("/api/translate-log", async (req: Request, res: Response) => {
+    try {
+      const targetBase =
+        "https://translate.googleapis.com/element/log?format=json";
+      const qs = new URLSearchParams(req.query as any).toString();
+      const url = qs ? `${targetBase}&${qs}` : targetBase;
+      const response = await fetch(
+        url as any,
+        {
+          headers: { "User-Agent": "AxixFinanceServerless/1.0" },
+        } as any
+      );
+      const text = await response.text();
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Content-Type", "application/json");
+      try {
+        const json = text ? JSON.parse(text) : null;
+        res.status(response.status).json(json);
+      } catch {
+        res.status(response.status).send(text);
+      }
+    } catch (err) {
+      console.error("translate-log proxy error", err);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res
+        .status(500)
+        .json({
+          error: "translate_log_failed",
+          message: "Failed to fetch translate log",
+        });
+    }
+  });
+
   // Get user balance endpoint - requires authentication
   app.get(
     "/api/users/:userId/balance",

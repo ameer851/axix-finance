@@ -6,21 +6,12 @@ export const securityMiddleware = helmet({
       defaultSrc: ["'self'"],
       connectSrc: [
         "'self'",
-        // Allow Google Translate & related APIs
         "https://*.google.com",
         "https://*.googleapis.com",
-        "https://translate.googleapis.com",
-        "https://translate.google.com",
         "https://*.gstatic.com",
-        // TradingView / finance related
         "wss://*.tradingview.com",
-        "https://*.tradingview.com",
-        "https://s3.tradingview.com",
-        "https://static.tradingview.com",
-        // Supabase
         "https://*.supabase.co",
         "https://oyqanlnqfyyaqheehsmw.supabase.co",
-        // Project specific
         "https://co-in.io",
         ...(process.env.NODE_ENV === "development"
           ? ["http://localhost:*", "ws://localhost:*"]
@@ -30,56 +21,34 @@ export const securityMiddleware = helmet({
         "'self'",
         "'unsafe-inline'",
         "'unsafe-eval'",
-        // Google Translate scripts & tag manager
         "https://translate.google.com",
         "https://translate.googleapis.com",
-        "https://translate-pa.googleapis.com",
-        "https://www.google.com",
         "https://www.gstatic.com",
+        "https://www.google.com",
+        "https://s3.tradingview.com",
+        "https://static.tradingview.com",
+        "https://*.tradingview.com",
+        "https://www.tradingview-widget.com",
+        "https://translate-pa.googleapis.com",
         "https://*.gstatic.com",
         "https://www.googletagmanager.com",
         "https://*.translate.goog",
-        // TradingView widgets
-        "https://www.tradingview.com",
-        "https://*.tradingview.com",
-        "https://www.tradingview-widget.com",
-        "https://s3.tradingview.com",
-        "https://static.tradingview.com",
-        // Project specific
-        "https://co-in.io",
         "blob:",
+        "https://www.tradingview.com",
+        "https://co-in.io",
       ],
       styleSrc: [
         "'self'",
         "'unsafe-inline'",
         "https://fonts.googleapis.com",
-        // TradingView
         "https://www.tradingview.com",
-        // Project specific
         "https://co-in.io",
-        // Google Translate injected styles sometimes come from gstatic
         "https://www.gstatic.com",
       ],
       imgSrc: ["'self'", "data:", "https:", "http:"],
-      fontSrc: [
-        "'self'",
-        "data:",
-        "https:",
-        "http:",
-        "https://fonts.gstatic.com",
-      ],
+      fontSrc: ["'self'", "data:", "https:", "http:"],
       mediaSrc: ["'self'", "data:", "https:", "http:"],
-      frameSrc: [
-        "'self'",
-        "https:",
-        "http:",
-        // Allow Google translate iframe
-        "https://translate.google.com",
-        "https://*.translate.goog",
-        // TradingView widgets in iframes
-        "https://www.tradingview.com",
-        "https://*.tradingview.com",
-      ],
+      frameSrc: ["'self'", "https:", "http:"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
     },

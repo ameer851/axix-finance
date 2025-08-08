@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { updateEmail } from "@/services/emailService";
+import apiFetch from "@/utils/apiFetch";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertCircle,
