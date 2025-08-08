@@ -4,6 +4,7 @@ import express, { NextFunction, type Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
 import memorystore from "memorystore";
+import fetch from "node-fetch";
 import passport from "passport";
 import { setupAdminPanel } from "./admin-panel";
 import { setupCookiePolicy } from "./cookiePolicy"; // Import our cookie policy middleware
@@ -18,6 +19,25 @@ import { log, serveStatic, setupVite } from "./vite";
 
 // Initialize Express app
 const app = express();
+
+// Proxy endpoint for Google Translate logging to avoid client-side direct calls & CORS issues
+app.post("/api/translate-log", async (req: Request, res: Response) => {
+  try {
+    const body = req.body || {};
+    const upstream = "https://translate.googleapis.com/element/log?format=json";
+    const upstreamRes = await fetch(upstream, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await upstreamRes.json().catch(() => ({}));
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.status(upstreamRes.status).json(data);
+  } catch (err: any) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.status(500).json({ message: "translate log proxy failed" });
+  }
+});
 
 // Initialize session and passport before any routes or middleware
 const MemoryStore = memorystore(session);
@@ -222,7 +242,7 @@ app.use((req, res, next) => {
               .createLog({
                 type: res.statusCode >= 400 ? "error" : "info",
                 message: `${req.method} ${path} ${res.statusCode}`,
-                details: { ...logData, ipAddress: ip },
+                details: { ...logData, ip },
                 userId: req.user?.id,
               })
               .catch((err) => console.error("Failed to log to database:", err));
@@ -307,9 +327,8 @@ app.use((req, res, next) => {
         .createLog({
           type: "error",
           message: `${err.name || "Error"}: ${err.message}`,
-          details: logData,
+          details: { ...logData },
           userId: req.user?.id,
-          ipAddress: ip as string,
         })
         .catch((err) => console.error("Failed to log error to database:", err));
     }

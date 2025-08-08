@@ -771,13 +771,7 @@ export function setupAuth(app: Express) {
   // Reset database and create admin endpoint
   app.post("/api/admin/reset-and-create-admin", async (req, res) => {
     try {
-      // Use hardcoded admin credentials for security
-      const adminUsername = "admin";
-      const adminPassword = "Axix-Admin@123";
-      const adminEmail = "admin@axixfinance.com";
-
       console.log("Starting database reset process...");
-      console.log("Admin credentials:", { adminUsername, adminEmail });
 
       // Check database connection
       const connected = await storage.checkDatabaseConnection();
@@ -801,7 +795,7 @@ export function setupAuth(app: Express) {
       // Use environment variables or defaults for admin credentials
       const adminUsername = "admin";
       const adminEmail = process.env.ADMIN_EMAIL ?? "admin@example.com";
-      const adminPasswordRaw = process.env.ADMIN_PASSWORD ?? "Axix-Admin@123";
+      const adminPassword = process.env.ADMIN_PASSWORD ?? "Axix-Admin@123";
       const adminFirstName = "Admin";
       const adminLastName = "User";
       const adminRole = "admin";
@@ -810,9 +804,6 @@ export function setupAuth(app: Express) {
       const adminIsVerified = true;
       const adminTwoFactorEnabled = false;
       const adminBalance = "0";
-
-      // Hash the password if needed
-      const adminPassword = adminPasswordRaw;
 
       // Create the admin user with all required fields
       let userRaw = await storage.createUser({
@@ -856,11 +847,10 @@ export function setupAuth(app: Express) {
       });
 
       // Remove password before returning user object
-      const userWithoutPassword = { ...userRaw };
-      if ("password" in userWithoutPassword) {
-        delete (userWithoutPassword as any).password;
-      }
-      req.login(userWithoutPassword as any, () => {});
+      const userWithoutPassword: any = { ...userRaw };
+      if ("password" in userWithoutPassword)
+        delete userWithoutPassword.password;
+      req.login(userWithoutPassword, () => {});
 
       console.log(
         `✅ User account created for: ${userRaw.username ?? userRaw.email} (${userRaw.email})`
@@ -875,37 +865,7 @@ export function setupAuth(app: Express) {
         email: userRaw.email,
       });
 
-      if (!userRaw) {
-        return res
-          .status(500)
-          .json({ message: "Failed to create user account" });
-      }
-
-      await storage.createLog({
-        type: "info",
-        userId: userRaw.id,
-        message: "User account created and auto-verified",
-      });
-
-      // Send welcome email
-      const emailSent = await sendWelcomeEmail(userRaw);
-
-      // Remove password before returning user object
-      const { password, ...userWithoutPassword } = userRaw;
-      req.login(userWithoutPassword as any, () => {});
-
-      console.log(
-        `✅ User account created for: ${userRaw.username ?? userRaw.email} (${userRaw.email})`
-      );
-      console.log(`📧 Welcome email sent: ${emailSent ? "Yes" : "Failed"}`);
-
-      res.status(201).json({
-        success: true,
-        message:
-          "Account created successfully! Please check your email for login credentials, then return to login.",
-        username: userRaw.username ?? userRaw.email,
-        email: userRaw.email,
-      });
+      return; // ensure no further processing
     } catch (error) {
       console.error("Error resetting database:", error);
       res.status(500).json({
