@@ -9,6 +9,11 @@
       "runtime": "@vercel/node@2.15.3",
       "memory": 1024,
       "maxDuration": 10
+    },
+    "api/ping.ts": {
+      "runtime": "@vercel/node@2.15.3",
+      "memory": 128,
+      "maxDuration": 5
     }
   },
   "rewrites": [
@@ -19,6 +24,14 @@
     {
       "source": "/api",
       "destination": "/api/index"
+    },
+    {
+      "source": "/api/ping",
+      "destination": "/api/ping"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
