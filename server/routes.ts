@@ -14,10 +14,10 @@ import { handleEmailChange } from "./emailChangeService";
 import {
   sendDepositApprovedEmail,
   sendDepositSuccessEmail,
-  sendWelcomeEmail,
   sendWithdrawalApprovedEmail,
   sendWithdrawalRequestEmail,
 } from "./emailService";
+import { sendWelcomeEmail as sendWelcomeEmailManaged } from "./emailManager";
 import { sendTestEmail } from "./emailTestingService";
 import { setupAdminPanel } from "./fixed-admin-panel";
 import logRoutes from "./logRoutes";
@@ -215,7 +215,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // Email sending routes
-router.post("/send-welcome-email", async (req, res) => {
+  router.post("/send-welcome-email", async (req, res) => {
   try {
     const { email, full_name } = req.body;
 
@@ -233,7 +233,8 @@ router.post("/send-welcome-email", async (req, res) => {
       is_admin: false,
     };
 
-    const emailSent = await sendWelcomeEmail(userData);
+      // Use managed email service (Resend API preferred, SMTP fallback)
+      const emailSent = await sendWelcomeEmailManaged(userData as any);
 
     if (emailSent) {
       return res
