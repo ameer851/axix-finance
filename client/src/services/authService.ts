@@ -1,7 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { User } from "@shared/schema";
 import { apiFetch } from "../utils/apiFetch";
-import { sendWelcomeEmail } from "./emailService";
 
 // Minimal user shape (still exported if other modules rely on it)
 export interface MinimalUser {
@@ -279,14 +278,18 @@ export async function register(userData: {
     }
 
     try {
-      const emailResult = await sendWelcomeEmail({
-        email: newUser.email,
-        full_name: newUser.full_name,
-      });
-      if (!emailResult.success)
-        console.error("Failed to send welcome email:", emailResult.message);
+      // Fire-and-forget server-side welcome email; don't block registration
+      fetch(`${import.meta.env.VITE_API_URL || "/api"}/send-welcome-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newUser.email,
+          full_name: newUser.full_name,
+        }),
+        credentials: "include",
+      }).catch(() => {});
     } catch (emailError) {
-      console.error("Failed to send welcome email:", emailError);
+      console.error("Failed to dispatch welcome email:", emailError);
     }
 
     return {

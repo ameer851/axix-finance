@@ -57,12 +57,37 @@ export function useAdminData<T>({
         }
 
         const jsonData = await response.json();
-        const result: PaginatedResponse<T> = transform
-          ? {
-              ...jsonData,
-              data: transform(jsonData.data),
-            }
-          : jsonData;
+
+        // Normalize list and totals from various server shapes
+        const rawList =
+          jsonData?.data ??
+          jsonData?.deposits ??
+          jsonData?.withdrawals ??
+          jsonData?.transactions ??
+          jsonData?.users ??
+          [];
+
+        const totalItemsNormalised =
+          jsonData?.total ??
+          jsonData?.totalDeposits ??
+          jsonData?.totalWithdrawals ??
+          jsonData?.totalTransactions ??
+          jsonData?.totalUsers ??
+          0;
+
+        const result: PaginatedResponse<T> = {
+          data: transform ? transform(rawList) : rawList,
+          totalPages:
+            jsonData?.totalPages ??
+            (typeof totalItemsNormalised === "number"
+              ? Math.max(
+                  1,
+                  Math.ceil(totalItemsNormalised / Number(defaultLimit))
+                )
+              : 1),
+          currentPage: jsonData?.currentPage ?? page,
+          total: totalItemsNormalised,
+        } as PaginatedResponse<T>;
 
         setData(result.data);
         setTotalPages(result.totalPages);

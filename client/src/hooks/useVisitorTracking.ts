@@ -1,11 +1,21 @@
-import { useEffect, useRef } from 'react';
-import { useLocation } from 'wouter';
-import { trackPageView, updateVisitorActivity, initializeVisitorSession, endVisitorSession } from '@/services/visitorService';
+import {
+  endVisitorSession,
+  initializeVisitorSession,
+  trackPageView,
+  updateVisitorActivity,
+} from "@/services/visitorService";
+import { useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 
 /**
  * Hook to track visitor activity and page views
  */
 export const useVisitorTracking = () => {
+  // Silenced: disable all network tracking in production if env flag set
+  const disabled = import.meta.env.VITE_DISABLE_VISITOR_TRACKING === "true";
+  if (disabled) {
+    return; // no-ops
+  }
   const [location] = useLocation();
   const sessionInitialized = useRef(false);
   const activityInterval = useRef<NodeJS.Timeout | null>(null);
@@ -42,10 +52,10 @@ export const useVisitorTracking = () => {
       endVisitorSession();
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       if (activityInterval.current) {
         clearInterval(activityInterval.current);
       }
@@ -59,19 +69,27 @@ export const useVisitorTracking = () => {
 
     const updateActivity = () => {
       const now = Date.now();
-      if (now - lastActivity > 30000) { // Only update if 30 seconds have passed
+      if (now - lastActivity > 30000) {
+        // Only update if 30 seconds have passed
         updateVisitorActivity();
         lastActivity = now;
       }
     };
 
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    events.forEach(event => {
+    const events = [
+      "mousedown",
+      "mousemove",
+      "keypress",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+    events.forEach((event) => {
       document.addEventListener(event, updateActivity, true);
     });
 
     return () => {
-      events.forEach(event => {
+      events.forEach((event) => {
         document.removeEventListener(event, updateActivity, true);
       });
     };

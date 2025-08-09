@@ -334,8 +334,11 @@ const Login: React.FC = () => {
                 Sign up
               </Link>
             </div>
-            <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-              <Link href="/">
+            <div className="text-sm">
+              <Link
+                href="/"
+                className="flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              >
                 <Home className="h-4 w-4 mr-1" />
                 Back to Homepage
               </Link>

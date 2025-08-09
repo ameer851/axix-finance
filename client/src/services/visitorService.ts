@@ -61,6 +61,7 @@ export async function getVisitorStats(): Promise<VisitorStats> {
  */
 export async function trackPageView(page: string): Promise<void> {
   try {
+    if (import.meta.env.VITE_DISABLE_VISITOR_TRACKING === "true") return;
     await api.post("/api/visitors/track", {
       page,
       timestamp: new Date().toISOString(),
@@ -76,6 +77,7 @@ export async function trackPageView(page: string): Promise<void> {
  */
 export async function updateVisitorActivity(): Promise<void> {
   try {
+    if (import.meta.env.VITE_DISABLE_VISITOR_TRACKING === "true") return;
     await api.put("/api/visitors/activity", {
       timestamp: new Date().toISOString(),
     });
@@ -90,6 +92,7 @@ export async function updateVisitorActivity(): Promise<void> {
  */
 export async function initializeVisitorSession(): Promise<void> {
   try {
+    if (import.meta.env.VITE_DISABLE_VISITOR_TRACKING === "true") return;
     // Get visitor info from browser
     const visitorInfo = {
       userAgent: navigator.userAgent,
@@ -116,6 +119,7 @@ export async function initializeVisitorSession(): Promise<void> {
  */
 export async function endVisitorSession(): Promise<void> {
   try {
+    if (import.meta.env.VITE_DISABLE_VISITOR_TRACKING === "true") return;
     await api.delete("/api/visitors/session");
   } catch (error: any) {
     console.warn("Failed to end visitor session:", error);

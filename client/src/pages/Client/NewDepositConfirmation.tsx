@@ -35,27 +35,16 @@ const CRYPTO_ADDRESSES: Record<string, string> = {
 
 import { api } from "@/lib/api";
 
-// API function for submitting deposit confirmation
+// API function for submitting deposit confirmation (matches server route)
 const submitDepositConfirmation = async (
-  userId: number,
-  confirmationData: any
+  _userId: number,
+  confirmationData: { amount: string; transactionHash: string }
 ) => {
-  console.log("🔍 Submitting deposit confirmation for user:", userId);
-  console.log("📦 Confirmation data:", confirmationData);
-
-  const response = await api.post("/api/transactions", {
-    userId,
-    amount: confirmationData.amount,
-    type: "deposit",
-    status: "pending",
-    description: `Crypto deposit of $${confirmationData.amount} via ${confirmationData.method.toUpperCase()} - ${confirmationData.planName}`,
-    cryptoType: confirmationData.method,
-    planName: confirmationData.planName,
+  const response = await api.post("/api/transactions/deposit-confirmation", {
+    amount: Number(confirmationData.amount),
     transactionHash: confirmationData.transactionHash,
-    walletAddress: confirmationData.walletAddress,
   });
-
-  return response.data;
+  return response as any;
 };
 
 const NewDepositConfirmation: React.FC = () => {
@@ -104,10 +93,6 @@ const NewDepositConfirmation: React.FC = () => {
       const payload = {
         transactionHash: data.transactionHash,
         amount: data.depositDetails.amount,
-        plan: data.depositDetails.plan,
-        method: data.depositDetails.method,
-        walletAddress: data.depositDetails.walletAddress,
-        planName: data.depositDetails.planName,
       };
 
       console.log("📦 Final payload:", payload);

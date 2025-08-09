@@ -117,8 +117,9 @@ export default function WithdrawalsPage() {
     setFilters,
     refresh,
   } = useAdminData<Withdrawal>({
-    endpoint: "/api/admin/withdrawals",
-    transform: (data) => data.withdrawals || data,
+    // Use unified transactions endpoint filtered to withdrawals for reliability
+    endpoint: "/api/admin/transactions?type=withdrawal",
+    transform: (data: any) => data.withdrawals || data.transactions || data,
   });
 
   const {

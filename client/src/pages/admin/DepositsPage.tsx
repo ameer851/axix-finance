@@ -89,8 +89,14 @@ export default function DepositsPage() {
     refresh,
   } = useAdminData<MinimalDeposit>({
     endpoint: "/api/admin/deposits",
-    transform: (res) =>
-      Array.isArray(res.data) ? res.data.map(toMinimalDeposit) : [],
+    transform: (res) => {
+      const list = Array.isArray(res.deposits)
+        ? res.deposits
+        : Array.isArray(res.data)
+          ? res.data
+          : [];
+      return list.map(toMinimalDeposit);
+    },
   });
 
   // Use hook for approve/reject actions
