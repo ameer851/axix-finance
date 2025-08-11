@@ -3,6 +3,12 @@ import cors from "cors";
 import express from "express";
 import { registerRoutes } from "./routes";
 
+// Early bootstrap log (helps identify cold start vs reuse)
+console.log(
+  "[bootstrap] Serverless function file loaded at",
+  new Date().toISOString()
+);
+
 // Create Express app once; initialize lazily on first request
 const app = express();
 let initialized = false;
@@ -34,15 +40,32 @@ const corsOptions = {
 
 async function ensureInitialized() {
   if (initialized) return;
+  console.log("[bootstrap] Initializing express app");
   // Core middleware
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-  // Register routes safely
-  await registerRoutes(app);
-
-  initialized = true;
+  try {
+    await registerRoutes(app);
+    initialized = true;
+    console.log("[bootstrap] Route registration complete");
+  } catch (e) {
+    console.error("[bootstrap] registerRoutes failed", e);
+    // Provide minimal fallback endpoints so we can see env presence instead of opaque 500
+    app.get("/api/env-check", (_req: any, res: any) => {
+      res.json({
+        bootstrapError: true,
+        errorMessage: (e as any)?.message || String(e),
+        nodeEnv: process.env.NODE_ENV,
+        resendKeyPresent: !!process.env.RESEND_API_KEY,
+        supabaseUrlPresent: !!process.env.SUPABASE_URL,
+        supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      });
+    });
+    // Mark initialized so we don't retry every request (avoids log spam)
+    initialized = true;
+  }
 }
 
 // Export handler for Vercel with lazy init
@@ -59,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader("Content-Type", "text/plain");
       return res.end("ok");
     }
+    console.error("[handler] Uncaught error", err);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(

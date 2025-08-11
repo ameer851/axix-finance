@@ -37,7 +37,8 @@
     "preview": "vite preview",
     "deploy:check": "node scripts/pre-deployment-check.cjs",
     "deploy:prepare": "node prepare-vercel-deployment.js",
-    "deploy:vercel": "npm run build && vercel"
+    "deploy:vercel": "npm run build && vercel",
+    "diagnose:prod": "node scripts/diagnose-production.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
