@@ -2,21 +2,17 @@
 import type { Express, Request, Response } from "express";
 import express from "express";
 import type { RequestWithAuth as AuthenticatedRequest } from "./middleware/auth-middleware";
-// NOTE: Runtime imports for local modules use .js extensions for Vercel ESM
+import { requireAuth } from "./middleware/auth-middleware";
+import * as supa from "./supabase";
+import { registerDebugRoutes } from "./utils/debug-env";
+import { emailHealth, sendWelcomeEmail as sendBasicWelcomeEmail } from "./utils/email";
+import { registerVisitorsApi } from "./utils/visitors-api";
 
 /**
  * Registers minimal routes for the Vercel serverless function
  * This is a simplified version of the server/routes.ts file
  */
 export async function registerRoutes(app: Express) {
-  // Dynamic runtime imports to avoid ESM extension issues
-  const { requireAuth } = await import("./middleware/auth-middleware.js");
-  const supa = await import("./supabase.js");
-  const { registerDebugRoutes } = await import("./utils/debug-env.js");
-  const { emailHealth, sendWelcomeEmail: sendBasicWelcomeEmail } = await import(
-    "./utils/email.js"
-  );
-  const { registerVisitorsApi } = await import("./utils/visitors-api.js");
 
   // Use JSON middleware
   app.use(express.json());

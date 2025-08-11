@@ -79,9 +79,9 @@ async function ensureInitialized() {
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   try {
-    console.log("[bootstrap] Dynamically importing routes.ts");
-    // Use relative import for Vercel serverless (extension required if output is .js)
-    const mod = await import("./routes.js");
+  console.log("[bootstrap] Dynamically importing routes (TS) for bundling");
+  // Import without extension so Vercel bundles the TS source
+  const mod = await import("./routes");
     const registerRoutes = (mod as any).registerRoutes;
     if (typeof registerRoutes !== "function") {
       throw new Error("registerRoutes export missing in ./routes");

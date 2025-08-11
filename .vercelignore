@@ -36,5 +36,6 @@ api/routes.ts.new
 !api/routes.ts
 !api/supabase.ts
 !api/middleware/
+api/middleware/auth-middleware.js
 !api/utils/
 !api/ping.ts
