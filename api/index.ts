@@ -75,7 +75,8 @@ async function ensureInitialized() {
 
   try {
     console.log("[bootstrap] Dynamically importing routes.ts");
-    const mod = await import("./routes" /* webpackChunkName: 'routes' */);
+    // Use relative import for Vercel serverless (extension required if output is .js)
+    const mod = await import("./routes.js");
     const registerRoutes = (mod as any).registerRoutes;
     if (typeof registerRoutes !== "function") {
       throw new Error("registerRoutes export missing in ./routes");
