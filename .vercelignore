@@ -37,3 +37,4 @@ api/routes.ts.new
 !api/supabase.ts
 !api/middleware/
 !api/utils/
+!api/ping.ts

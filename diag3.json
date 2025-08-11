@@ -1,0 +1,67 @@
+{
+  "evaluation": [
+    "Supabase not fully configured",
+    "Resend API key missing",
+    "Welcome email send failed",
+    "Deposit confirmation failed"
+  ],
+  "summary": {
+    "base": "https://www.axixfinance.com",
+    "boot": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::8kfsb-1754935135989-1c0cf05358d3\n"
+      }
+    },
+    "preflight": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::b8mmt-1754935136647-37e6cc3d06af\n"
+      }
+    },
+    "initStatus": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::gxnrl-1754935137133-08308cb7dcc4\n"
+      }
+    },
+    "env": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::g6x9x-1754935137618-42a435811622\n"
+      }
+    },
+    "db": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::9rsvt-1754935138084-84f5320707dd\n"
+      }
+    },
+    "email": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::q7tbk-1754935138558-fd90052f31ed\n"
+      }
+    },
+    "welcome": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::ljk9b-1754935139040-c428b3c9f17c\n"
+      }
+    },
+    "deposit": {
+      "ok": false,
+      "status": 500,
+      "json": {
+        "raw": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ncpt1::ljk9b-1754935139530-93de7a9bd4f9\n"
+      }
+    }
+  }
+}
