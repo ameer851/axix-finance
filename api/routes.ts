@@ -457,6 +457,16 @@ export async function registerRoutes(app: Express) {
     requireAuth,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
+        if (!isSupabaseConfigured || !supabase) {
+          console.error("[deposit] Supabase not configured", {
+            urlPresent: !!process.env.SUPABASE_URL,
+            keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+          });
+          return res.status(500).json({
+            message: "Database not configured",
+            supabaseConfigured: false,
+          });
+        }
         const { amount, method, planName, plan } = req.body || {};
         const numericAmount = Number(amount);
         if (!numericAmount || numericAmount <= 0)
@@ -496,6 +506,16 @@ export async function registerRoutes(app: Express) {
     res: Response
   ) => {
     try {
+      if (!isSupabaseConfigured || !supabase) {
+        console.error("[deposit-confirmation] Supabase not configured", {
+          urlPresent: !!process.env.SUPABASE_URL,
+          keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        });
+        return res.status(500).json({
+          message: "Database not configured",
+          supabaseConfigured: false,
+        });
+      }
       const { amount, transactionHash, method, planName } = req.body || {};
       const numericAmount = Number(amount);
       if (!numericAmount || numericAmount <= 0)
@@ -536,6 +556,18 @@ export async function registerRoutes(app: Express) {
     requireAuth,
     depositConfirmationHandler
   ); // legacy alias
+
+  // Environment (sanitized) diagnostics endpoint (no secrets exposed)
+  app.get("/api/env-check", (_req, res) => {
+    res.json({
+      nodeEnv: process.env.NODE_ENV,
+      resendKeyPresent: !!process.env.RESEND_API_KEY,
+      emailFromPresent: !!process.env.EMAIL_FROM,
+      supabaseUrlPresent: !!process.env.SUPABASE_URL,
+      supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      supabaseConfigured: isSupabaseConfigured,
+    });
+  });
 
   // Default route handler
   app.use("*", (req, res) => {
