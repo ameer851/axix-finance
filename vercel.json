@@ -6,12 +6,12 @@
   "framework": "vite",
   "functions": {
     "api/index.ts": {
-      "runtime": "@vercel/node@2.15.3",
+      "runtime": "nodejs22.x",
       "memory": 1024,
       "maxDuration": 10
     },
     "api/ping.ts": {
-      "runtime": "@vercel/node@2.15.3",
+      "runtime": "nodejs22.x",
       "memory": 128,
       "maxDuration": 5
     }

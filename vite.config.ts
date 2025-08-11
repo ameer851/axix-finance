@@ -52,7 +52,7 @@ export default defineConfig(async () => {
     publicDir: path.resolve(__dirname, "client", "public"),
     build: {
       // Output relative to 'root' (client) so artifacts land in client/dist (works better with Vercel)
-      outDir: 'dist',
+      outDir: "dist",
       emptyOutDir: true,
       rollupOptions: {
         output: {
