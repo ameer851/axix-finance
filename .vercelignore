@@ -11,7 +11,7 @@ logs/
 _.log
 .env.local
 .env.development
-node_modules/
+# node_modules is required for dependencies within single serverless bundle; letting Vercel prune automatically
 .git/
 _.md
 !README.md

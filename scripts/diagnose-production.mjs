@@ -51,6 +51,11 @@ function logSection(title) {
 (async () => {
   const summary = { base };
 
+  logSection("BOOT PHASE");
+  const bootRes = await fetchJson("/api/boot-phase");
+  summary.boot = bootRes;
+  console.log(bootRes);
+
   logSection("ENV CHECK");
   const envRes = await fetchJson("/api/env-check");
   summary.env = envRes;
