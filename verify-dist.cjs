@@ -6,7 +6,8 @@ const path = require('path');
 const cwd = process.cwd();
 const distDirPrimary = path.join(cwd, 'dist');
 const distDirAlt = path.join(__dirname, 'dist');
-const checkedPaths = [distDirPrimary, distDirAlt];
+const distClient = path.join(cwd, 'client', 'dist');
+const checkedPaths = [distDirPrimary, distDirAlt, distClient];
 let distDir = null;
 for (const p of checkedPaths) {
 	if (fs.existsSync(p)) { distDir = p; break; }
@@ -25,9 +26,18 @@ function hardFail(msg){
 }
 
 if(!distDir) {
-	// If dist missing, but this can be a timing quirk; don't fail hard immediately.
 	console.warn('⚠️ dist directory not found in expected locations. Converting to warning to avoid false negative.');
 	process.exit(0);
+}
+
+// If build landed in client/dist but root dist missing, create a symlink for any tooling expecting root dist
+if(distDir === distClient && !fs.existsSync(distDirPrimary)) {
+	try {
+		fs.symlinkSync(distClient, distDirPrimary, 'junction');
+		console.log(`[verify-dist] Created symlink dist -> client/dist`);
+	} catch (e) {
+		console.warn('[verify-dist] Could not create symlink dist -> client/dist:', e.message);
+	}
 }
 
 const indexFile = path.join(distDir, 'index.html');

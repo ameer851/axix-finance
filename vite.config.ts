@@ -51,10 +51,8 @@ export default defineConfig(async () => {
     root: path.resolve(__dirname, "client"),
     publicDir: path.resolve(__dirname, "client", "public"),
     build: {
-      // IMPORTANT: previously was "../dist" which resolves one level ABOVE the project root
-      // causing Vercel (which expects ./dist per vercel.json) to serve stale assets.
-      // Keep build output inside repo so Vercel can upload it.
-      outDir: path.resolve(__dirname, "dist"),
+      // Output relative to 'root' (client) so artifacts land in client/dist (works better with Vercel)
+      outDir: 'dist',
       emptyOutDir: true,
       rollupOptions: {
         output: {
