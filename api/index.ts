@@ -4,6 +4,11 @@ import express from "express";
 
 // NOTE: Do NOT import routes here – dynamic import inside ensureInitialized isolates import-time errors
 // import { registerRoutes } from "./routes";
+// WARNING: tsconfig has "noEmit": true so raw .ts files are shipped.
+// Vercel ESM loader cannot import TypeScript directly at runtime; ensure either:
+// 1) Build step emits compiled .js for api/, or
+// 2) Provide .js shims (temporary) alongside .ts (we added auth-middleware.js).
+// Recommended fix: introduce a separate tsconfig.build.json that emits serverless API code.
 
 // Early bootstrap log (helps identify cold start vs reuse)
 console.log(
