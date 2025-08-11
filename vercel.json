@@ -18,11 +18,7 @@
     {
       "source": "/api",
       "destination": "/api/index"
-    },
-    {
-      "source": "/api/ping",
-      "destination": "/api/ping"
-    },
+  },
     {
       "source": "/(.*)",
       "destination": "/index.html"

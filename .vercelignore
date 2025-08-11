@@ -30,12 +30,7 @@ api/supabase.ts
 api/fallback.ts
 api/routes.ts.new
 
-# Keep only the main index.ts file and necessary dependencies
+# Keep only the bundled JS entry for the API; exclude TS sources to avoid conflicts
 
-!api/index.ts
-!api/routes.ts
-!api/supabase.ts
-!api/middleware/
-api/middleware/auth-middleware.js
-!api/utils/
-!api/ping.ts
+api/**/*.ts
+!api/index.js

@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import cors from "cors";
 import express from "express";
-import { registerRoutes } from "./routes";
+// Defer loading routes until after preflight endpoints are registered
+
+// Force Node.js runtime for Vercel
+export const config = { runtime: "nodejs" };
 
 // NOTE: Do NOT import routes here – dynamic import inside ensureInitialized isolates import-time errors
 // import { registerRoutes } from "./routes";
@@ -80,7 +83,12 @@ async function ensureInitialized() {
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   try {
-    console.log("[bootstrap] Registering routes");
+    console.log("[bootstrap] Loading routes lazily");
+    const mod = await import("./routes");
+    const registerRoutes = (mod as any).registerRoutes;
+    if (typeof registerRoutes !== "function") {
+      throw new Error("registerRoutes export missing in ./routes");
+    }
     await registerRoutes(app);
     initialized = true;
     console.log("[bootstrap] Route registration complete");
