@@ -20,6 +20,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
   updateUserBalance: (newBalance: number) => void;
+  updateUser: (data: Partial<User>) => void; // added
   error: string | null;
 }
 
@@ -299,6 +300,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const updateUser = (data: Partial<User>) => {
+    if (user) {
+      const merged = { ...user, ...data };
+      setUser(merged);
+      localStorage.setItem("user", JSON.stringify(merged));
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -311,6 +320,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         logout,
         refreshUserData,
         updateUserBalance,
+        updateUser,
         error,
       }}
     >

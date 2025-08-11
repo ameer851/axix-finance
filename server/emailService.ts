@@ -73,7 +73,7 @@ export function isConfigured(): boolean {
 // Initialize the email transporter
 export async function initializeEmailTransporter(): Promise<boolean> {
   try {
-    // Check if we should use dev mode (fallback to console)
+    if (transporter) return true; // already initialized
     if (
       process.env.EMAIL_DEV_MODE === "true" ||
       process.env.NODE_ENV === "development"
@@ -83,24 +83,43 @@ export async function initializeEmailTransporter(): Promise<boolean> {
       isDevMode = true;
       return true;
     }
-
-    // Priority 1: Use Resend SMTP if configured
     if (process.env.RESEND_API_KEY) {
-      console.log("Initializing email service with Resend SMTP...");
+      console.log("[email] Setting up Resend SMTP transporter...");
       transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || "smtp.resend.com",
         port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: false, // Use STARTTLS
-        auth: {
-          user: "resend", // Resend SMTP username is always 'resend'
-          pass: process.env.RESEND_API_KEY, // Using the API key as password
-        },
+        secure: false,
+        auth: { user: "resend", pass: process.env.RESEND_API_KEY },
       });
+      try {
+        const verifyResult = await transporter.verify();
+        console.log("[email] Resend transporter verify result:", verifyResult);
+      } catch (vErr) {
+        console.error("[email] Transporter verify failed", vErr);
+      }
       isDevMode = false;
       return true;
     }
-    // Add other transporter setups here if needed
-    return false;
+    // Fallback: create Ethereal test account automatically
+    console.warn(
+      "[email] No production credentials found. Creating Ethereal test account..."
+    );
+    const testAcct = await nodemailer.createTestAccount();
+    etherealAccount = { user: testAcct.user, pass: testAcct.pass };
+    transporter = nodemailer.createTransport({
+      host: testAcct.smtp.host,
+      port: testAcct.smtp.port,
+      secure: testAcct.smtp.secure,
+      auth: { user: testAcct.user, pass: testAcct.pass },
+    });
+    try {
+      await transporter.verify();
+      console.log(
+        "[email] Ethereal transporter ready → messages will not deliver to real inbox, preview via URL."
+      );
+    } catch {}
+    isDevMode = true; // treat as dev-ish
+    return true;
   } catch (error) {
     console.error("Failed to initialize email transporter:", error);
     return false;
@@ -161,8 +180,16 @@ export async function sendVerificationEmail(userRaw: any): Promise<boolean> {
 
 export async function sendWelcomeEmail(user: DrizzleUser): Promise<boolean> {
   try {
-    if (!transporter) await initializeEmailTransporter();
-    if (isDevMode) {
+    if (!transporter) {
+      console.log("[email] Initializing transporter for welcome email...");
+      await initializeEmailTransporter();
+    }
+    if (
+      isDevMode &&
+      !etherealAccount &&
+      process.env.EMAIL_DEV_MODE === "true"
+    ) {
+      console.log("[email] Dev mode welcome email ->", user.email);
       sendDevModeEmail({
         to: user.email,
         subject: "Welcome to Axix Finance",
@@ -177,21 +204,44 @@ export async function sendWelcomeEmail(user: DrizzleUser): Promise<boolean> {
       subject: "Welcome to Axix Finance",
       html: generateWelcomeEmailHTML(user),
     };
-    await transporter.sendMail(mailOptions);
+    console.log("[email] Sending welcome email via transporter", {
+      to: user.email,
+      from: mailOptions.from,
+      transportType: etherealAccount
+        ? "ethereal"
+        : isDevMode
+          ? "dev"
+          : "resend-smtp",
+    });
+    const info = await transporter.sendMail(mailOptions);
+    console.log("[email] Welcome email dispatched", {
+      to: user.email,
+      messageId: info.messageId,
+      preview: (nodemailer as any).getTestMessageUrl?.(info) || null,
+    });
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.error("[email] Welcome email failure", {
+      error: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+      response: error?.response,
+    });
     try {
       const storage = require("./storage");
       await storage.createLog({
         type: "error",
         message: `Welcome email failed for user ${user.email}`,
-        details: { error, userId: user.id },
+        details: { error: error?.message, userId: user.id },
       });
     } catch {}
+    if (etherealAccount) {
+      console.log("[email] Ethereal fallback active; failure unexpected");
+    }
     if (process.env.NODE_ENV === "development") {
       sendDevModeEmail({
         to: user.email,
-        subject: "Welcome to Axix Finance",
+        subject: "Welcome to Axix Finance (fallback)",
         html: generateWelcomeEmailHTML(user),
         text: undefined,
       });
@@ -209,6 +259,14 @@ export async function sendDepositRequestEmail(
 ): Promise<boolean> {
   try {
     if (!transporter) await initializeEmailTransporter();
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[email] deposit request preparing", {
+        user: user.email,
+        amount,
+        method,
+        planName,
+      });
+    }
     const mailOptions = {
       from: getFromEmail(),
       to: user.email,
@@ -221,9 +279,16 @@ export async function sendDepositRequestEmail(
         planName
       ),
     };
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[email] deposit request sent", {
+        messageId: (info as any)?.messageId,
+        to: user.email,
+      });
+    }
     return true;
   } catch (error) {
+    console.warn("[email] deposit request failed", { error });
     try {
       const storage = require("./storage");
       await storage.createLog({

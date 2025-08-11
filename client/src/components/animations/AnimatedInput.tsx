@@ -15,8 +15,8 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({ error, ...props }) => {
       whileFocus={{ scale: 1.02 }}
       className="relative"
     >
-      <motion.input
-        {...props}
+      <input
+        {...(props as any)}
         className={`
           w-full px-3 py-2 border rounded-md transition-colors duration-200
           ${

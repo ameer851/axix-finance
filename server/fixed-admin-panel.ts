@@ -1,12 +1,6 @@
 // admin-panel.ts - Direct implementation of admin panel endpoints
 import express, { NextFunction, Request, Response, Router } from "express";
-import { generateDemoLogs } from "./admin-panel-helpers";
-import {
-  AdminRequest,
-  AdminRequestUser,
-  GetTransactionsOptions,
-  PaginationResponse,
-} from "./interfaces/admin";
+import { AdminRequestUser } from "./interfaces/admin";
 import { DatabaseStorage } from "./storage/admin-storage";
 
 // Helper function to type check and handle errors
@@ -83,8 +77,15 @@ const storage = new DatabaseStorage();
 
 // Create a storage instance for database operations
 
+// Legacy admin panel implementation disabled (replaced by new admin-api). Keeping minimal stub.
 export function createAdminRouter(): Router {
   const router = Router();
+  router.get("/legacy-disabled", (_req, res) => res.json({ disabled: true }));
+  return router;
+}
+
+// The rest of the legacy code kept commented for reference.
+/*
 
   // Log all admin requests for debugging
   router.use((req, res, next) => {
@@ -539,17 +540,8 @@ export function createAdminRouter(): Router {
     }
   );
 
-  return router;
-}
+*/
 
 export function setupAdminPanel(app: express.Express): void {
-  console.log("🔧 Setting up dedicated admin panel routes");
-
-  // Create the admin router
-  const adminRouter = createAdminRouter();
-
-  // Mount the admin router at /api/admin
-  app.use("/api/admin", adminRouter);
-
-  console.log("✅ Admin panel routes configured");
+  app.use("/api/admin-legacy", createAdminRouter());
 }

@@ -20,8 +20,11 @@ const JWT_SECRET = process.env.JWT_SECRET || "carax-verification-secret";
 
 // Initialize the Resend API client with API key if available
 const resendApiKey = process.env.RESEND_API_KEY;
+// Optional flag to disable SMTP fallback entirely (force API usage)
+const DISABLE_SMTP_FALLBACK =
+  process.env.RESEND_DISABLE_SMTP_FALLBACK === "true";
 let resend: Resend | null = null;
-// Initialize Resend SMTP transporter
+// Initialize Resend SMTP transporter (optional fallback)
 let resendSmtpTransporter: nodemailer.Transporter | null = null;
 
 try {
@@ -29,17 +32,23 @@ try {
     resend = new Resend(resendApiKey);
     console.log("📧 Resend client initialized with API key");
 
-    // Initialize Resend SMTP transporter
-    resendSmtpTransporter = nodemailer.createTransport({
-      host: "smtp.resend.com",
-      port: 587, // Using STARTTLS
-      secure: false,
-      auth: {
-        user: "resend", // Resend SMTP username is always 'resend'
-        pass: resendApiKey, // Using the same API key
-      },
-    });
-    console.log("📧 Resend SMTP transporter initialized");
+    if (DISABLE_SMTP_FALLBACK) {
+      console.log(
+        "🚫 RESEND_DISABLE_SMTP_FALLBACK=true set; SMTP fallback will NOT be initialized"
+      );
+    } else {
+      // Initialize Resend SMTP transporter
+      resendSmtpTransporter = nodemailer.createTransport({
+        host: "smtp.resend.com",
+        port: 587, // Using STARTTLS
+        secure: false,
+        auth: {
+          user: "resend", // Resend SMTP username is always 'resend'
+          pass: resendApiKey, // Using the same API key
+        },
+      });
+      console.log("📧 Resend SMTP transporter initialized");
+    }
   }
 } catch (error) {
   console.error("❌ Error initializing Resend client:", error);
@@ -65,7 +74,10 @@ function getResend(): Resend {
  * @returns {boolean} Whether Resend is configured
  */
 export function isResendConfigured(): boolean {
-  return !!resendApiKey && (!!resend || !!resendSmtpTransporter);
+  if (!resendApiKey) return false;
+  // When fallback disabled, only API client counts
+  if (DISABLE_SMTP_FALLBACK) return !!resend;
+  return !!resend || !!resendSmtpTransporter;
 }
 
 /**
@@ -73,7 +85,36 @@ export function isResendConfigured(): boolean {
  * @returns {boolean} Whether Resend SMTP is configured
  */
 export function isResendSmtpConfigured(): boolean {
+  if (DISABLE_SMTP_FALLBACK) return false;
   return !!resendApiKey && !!resendSmtpTransporter;
+}
+
+/**
+ * Get low-level Resend health info (domains visibility + basic flags)
+ */
+export async function getResendHealth() {
+  const health: any = {
+    apiKeyPresent: !!resendApiKey,
+    apiClient: !!resend,
+    smtpConfigured: isResendSmtpConfigured(),
+    smtpFallbackDisabled: DISABLE_SMTP_FALLBACK,
+  };
+  if (resend) {
+    try {
+      const domainsResp = await resend.domains.list();
+      health.domainsRawKeys = Object.keys(domainsResp || {});
+      const list = (domainsResp as any)?.data || [];
+      health.domainCount = list.length;
+      if (list.length) health.firstDomain = list[0];
+    } catch (err: any) {
+      health.domainError = err?.message || String(err);
+    }
+  } else if (!resendApiKey) {
+    health.note = "RESEND_API_KEY missing";
+  } else {
+    health.note = "Resend client not initialized";
+  }
+  return health;
 }
 
 // Validate that Resend API key is available
@@ -85,7 +126,7 @@ export async function validateEmailSetup(): Promise<boolean> {
     return false;
   }
 
-  // Try API first
+  // Try API first (required when fallback disabled)
   if (resend) {
     try {
       // Test that we can use the Resend API
@@ -102,11 +143,22 @@ export async function validateEmailSetup(): Promise<boolean> {
       }
     } catch (error) {
       console.error("❌ Failed to connect to Resend API:", error);
-      console.log("🔄 Trying Resend SMTP fallback...");
+      if (!DISABLE_SMTP_FALLBACK)
+        console.log("🔄 Trying Resend SMTP fallback...");
     }
   }
 
-  // Try SMTP fallback if API fails
+  // If fallback disabled, stop here so failure is visible
+  if (DISABLE_SMTP_FALLBACK) {
+    if (!resend) {
+      console.error(
+        "❌ Resend API client not initialized and SMTP fallback disabled"
+      );
+    }
+    return !!resend; // true only if API initialized
+  }
+
+  // Try SMTP fallback if API fails and not disabled
   if (resendSmtpTransporter) {
     try {
       // Test the SMTP connection
@@ -154,12 +206,27 @@ async function sendEmailViaResendSMTP(
       subject: subject,
       html: htmlContent,
     };
+    // Verbose logging before SMTP send
+    console.log(
+      "🔶 [EmailService] 🔄 Resend SMTP send start. Payload:",
+      mailOptions
+    );
 
     const info = await resendSmtpTransporter.sendMail(mailOptions);
-    console.log("📧 Email sent via Resend SMTP:", info.messageId);
+    // Verbose logging after SMTP send
+    console.log("🔷 [EmailService] 📋 Resend SMTP raw response:", info);
+    console.log(
+      "✅ [EmailService] 📧 Email sent via Resend SMTP. MessageId:",
+      info.messageId
+    );
+
     return true;
   } catch (error) {
-    console.error("❌ Failed to send email via Resend SMTP:", error);
+    // Detailed exception logging for SMTP
+    console.error(
+      "🔴 [EmailService] 💥 Exception during Resend SMTP send:",
+      (error as Error).stack
+    );
     return false;
   }
 }
@@ -185,35 +252,45 @@ export async function sendVerificationEmail(
 
     // Try sending with Resend API first
     if (resend) {
+      const payload = {
+        from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
+        to: user.email,
+        subject: "Verify Your Email Address",
+        html: htmlContent,
+      };
+      console.log(
+        "🔶 [EmailService] 🔄 Resend API send start. Payload:",
+        payload
+      );
       try {
-        const { data, error } = await resend.emails.send({
-          from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
-          to: user.email,
-          subject: "Verify Your Email Address",
-          html: htmlContent,
-        });
-
-        if (!error && data?.id) {
-          console.log(
-            `✅ Verification email sent to ${user.email} via Resend API, ID: ${data.id}`
+        const response = await resend.emails.send(payload);
+        console.log("🔷 [EmailService] 📋 Resend API raw response:", response);
+        if (response.error) {
+          console.error(
+            "🔴 [EmailService] ❌ Resend API returned error:",
+            response.error
           );
-          emailId = data.id;
+        }
+        if (response.data?.id) {
+          console.log(
+            `✅ Verification email sent to ${user.email} via Resend API, ID: ${response.data.id}`
+          );
+          emailId = response.data.id;
           success = true;
         } else {
-          console.error(
-            "❌ Failed to send verification email via Resend API:",
-            error
-          );
           console.log("🔄 Trying Resend SMTP fallback...");
         }
       } catch (apiError) {
-        console.error("❌ Error with Resend API:", apiError);
+        console.error(
+          "🔴 [EmailService] 💥 Exception during Resend API send:",
+          (apiError as Error).stack
+        );
         console.log("🔄 Trying Resend SMTP fallback...");
       }
     }
 
     // If API fails, try SMTP
-    if (!success) {
+    if (!success && !DISABLE_SMTP_FALLBACK) {
       success = await sendEmailViaResendSMTP(
         user.email,
         "Verify Your Email Address",
@@ -258,41 +335,52 @@ export async function sendVerificationEmail(
 // Send a welcome email after verification
 export async function sendWelcomeEmail(user: User): Promise<boolean> {
   try {
-    // Generate email HTML content using templates
-    const htmlContent = EmailTemplates.generateWelcomeEmailHTML(user);
+    // Generate email HTML content using templates (include plain password if present on transient field)
+    const htmlContent = EmailTemplates.generateWelcomeEmailHTML(user as any, {
+      plainPassword:
+        (user as any).plainPassword || (user as any).initialPassword || null,
+    });
 
     let success = false;
 
     // Try sending with Resend API first
     if (resend) {
+      const payload = {
+        from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
+        to: user.email,
+        subject: "Welcome to AxixFinance!",
+        html: htmlContent,
+      };
+      console.log(
+        "🔶 [EmailService] 🔄 Resend API send start. Payload:",
+        payload
+      );
       try {
-        const { data, error } = await resend.emails.send({
-          from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
-          to: user.email,
-          subject: "Welcome to AxixFinance!",
-          html: htmlContent,
-        });
-
-        if (!error && data?.id) {
-          console.log(
-            `✅ Welcome email sent to ${user.email} via Resend API, ID: ${data.id}`
-          );
-          success = true;
-        } else {
+        const response = await resend.emails.send(payload);
+        console.log("🔷 [EmailService] 📋 Resend API raw response:", response);
+        if (response.error) {
           console.error(
-            "❌ Failed to send welcome email via Resend API:",
-            error
+            "🔴 [EmailService] ❌ Resend API returned error:",
+            response.error
           );
           console.log("🔄 Trying Resend SMTP fallback...");
+        } else if (response.data?.id) {
+          console.log(
+            `✅ Welcome email sent to ${user.email} via Resend API, ID: ${response.data.id}`
+          );
+          success = true;
         }
       } catch (apiError) {
-        console.error("❌ Error with Resend API:", apiError);
+        console.error(
+          "🔴 [EmailService] 💥 Exception during Resend API send:",
+          (apiError as Error).stack
+        );
         console.log("🔄 Trying Resend SMTP fallback...");
       }
-    }
+    } // end if(resend)
 
     // If API fails, try SMTP
-    if (!success) {
+    if (!success && !DISABLE_SMTP_FALLBACK) {
       success = await sendEmailViaResendSMTP(
         user.email,
         "Welcome to AxixFinance!",
@@ -332,35 +420,43 @@ export async function sendPasswordResetEmail(
 
     // Try sending with Resend API first
     if (resend) {
+      const payload = {
+        from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
+        to: user.email,
+        subject: "Reset Your Password",
+        html: htmlContent,
+      };
+      console.log(
+        "🔶 [EmailService] 🔄 Resend API send start. Payload:",
+        payload
+      );
       try {
-        const { data, error } = await resend.emails.send({
-          from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
-          to: user.email,
-          subject: "Reset Your Password",
-          html: htmlContent,
-        });
-
-        if (!error && data?.id) {
-          console.log(
-            `✅ Password reset email sent to ${user.email} via Resend API, ID: ${data.id}`
-          );
-          emailId = data.id;
-          success = true;
-        } else {
+        const response = await resend.emails.send(payload);
+        console.log("🔷 [EmailService] 📋 Resend API raw response:", response);
+        if (response.error) {
           console.error(
-            "❌ Failed to send password reset email via Resend API:",
-            error
+            "🔴 [EmailService] ❌ Resend API returned error:",
+            response.error
           );
           console.log("🔄 Trying Resend SMTP fallback...");
+        } else if (response.data?.id) {
+          console.log(
+            `✅ Password reset email sent to ${user.email} via Resend API, ID: ${response.data.id}`
+          );
+          emailId = response.data.id;
+          success = true;
         }
       } catch (apiError) {
-        console.error("❌ Error with Resend API:", apiError);
+        console.error(
+          "🔴 [EmailService] 💥 Exception during Resend API send:",
+          (apiError as Error).stack
+        );
         console.log("🔄 Trying Resend SMTP fallback...");
       }
-    }
+    } // end if(resend)
 
     // If API fails, try SMTP
-    if (!success) {
+    if (!success && !DISABLE_SMTP_FALLBACK) {
       success = await sendEmailViaResendSMTP(
         user.email,
         "Reset Your Password",
@@ -513,26 +609,41 @@ export async function sendNotificationEmail(
     }
 
     // Send email with Resend
-    const { data, error } = await getResend().emails.send({
+    const payload = {
       from: `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`,
       to: user.email,
       subject: subject,
       html: EmailTemplates.generateNotificationEmailHTML(
         user,
         subject,
-        message,
-        buttonText,
-        buttonUrl
+        message
       ),
-    });
-
-    if (error) {
-      console.error("Failed to send notification email:", error);
+    };
+    console.log(
+      "🔶 [EmailService] 🔄 Resend API send start. Payload:",
+      payload
+    );
+    try {
+      const response = await getResend().emails.send(payload);
+      console.log("🔷 [EmailService] 📋 Resend API raw response:", response);
+      if (response.error) {
+        console.error(
+          "🔴 [EmailService] ❌ Resend API returned error:",
+          response.error
+        );
+        return false;
+      }
+      console.log(
+        `✅ Notification email sent to ${user.email}, ID: ${response.data?.id}`
+      );
+      return true;
+    } catch (apiError) {
+      console.error(
+        "🔴 [EmailService] 💥 Exception during Resend API send:",
+        (apiError as Error).stack
+      );
       return false;
     }
-
-    console.log(`✅ Notification email sent to ${user.email}, ID: ${data?.id}`);
-    return true;
   } catch (error) {
     console.error("Error sending notification email:", error);
     return false;

@@ -26,16 +26,18 @@ const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response = await api.get(`/api/users/${userId}/balance`);
+    const response: any = await api.get(`/api/users/${userId}/balance`);
+    const data =
+      response && typeof response === "object" && "data" in response
+        ? response.data
+        : response;
 
     return {
-      availableBalance: Number(response.data.availableBalance) || 0,
-      pendingBalance: Number(response.data.pendingBalance) || 0,
+      availableBalance: Number(data?.availableBalance) || 0,
+      pendingBalance: Number(data?.pendingBalance) || 0,
       totalBalance:
-        Number(response.data.totalBalance) ||
-        Number(response.data.availableBalance) ||
-        0,
-      lastUpdated: response.data.lastUpdated || new Date().toISOString(),
+        Number(data?.totalBalance) || Number(data?.availableBalance) || 0,
+      lastUpdated: data?.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
     console.error("Balance fetch error:", error);
@@ -423,14 +425,15 @@ const NewDeposit: React.FC = () => {
                       {formatCurrency(balance?.availableBalance || 0)}
                     </span>
                   </div>
-                  {balance?.pendingBalance > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Pending Balance:</span>
-                      <span className="text-lg font-semibold text-yellow-600">
-                        {formatCurrency(balance.pendingBalance)}
-                      </span>
-                    </div>
-                  )}
+                  {typeof balance?.pendingBalance === "number" &&
+                    balance.pendingBalance > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Pending Balance:</span>
+                        <span className="text-lg font-semibold text-yellow-600">
+                          {formatCurrency(balance?.pendingBalance || 0)}
+                        </span>
+                      </div>
+                    )}
                 </div>
               )}
             </CardContent>

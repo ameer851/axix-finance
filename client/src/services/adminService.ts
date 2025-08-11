@@ -256,9 +256,13 @@ export const adminService = {
         pendingTransactions:
           deposits.filter((d) => d.status === "pending").length +
           withdrawals.filter((w) => w.status === "pending").length,
-        conversionRate: activeVisitors?.count
-          ? ((deposits.length / activeVisitors.count) * 100).toFixed(2) + "%"
-          : "N/A",
+        conversionRate:
+          Array.isArray(activeVisitors) && (activeVisitors as any).length
+            ? (
+                (deposits.length / (activeVisitors as any).length) *
+                100
+              ).toFixed(2) + "%"
+            : "N/A",
       };
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -275,12 +279,8 @@ export const adminService = {
 
       return {
         status: error ? "error" : "healthy",
-        database: {
-          status: error ? "error" : "connected",
-          error: error?.message,
-        },
         lastChecked: new Date().toISOString(),
-      };
+      } as any; // Cast to any until interface extended
     } catch (error) {
       throw new Error("Failed to fetch system health");
     }

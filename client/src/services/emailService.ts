@@ -42,23 +42,22 @@ export async function sendWelcomeEmail(user: {
   full_name: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    // Since we're using Supabase directly, we need to call the server API for email sending
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/send-welcome-email`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: user.email,
-          username: user.username,
-          firstName: user.first_name || "User",
-          lastName: user.last_name || "Name",
-        }),
-        credentials: "include",
-      }
-    );
+    const base = (import.meta.env.VITE_API_URL as string | undefined) || "";
+    const apiBase = base.replace(/\/$/, "");
+    const response = await fetch(`${apiBase}/api/send-welcome-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: user.email,
+        username:
+          (user as any).username || user.full_name?.split(" ")[0] || "User",
+        firstName:
+          (user as any).first_name || user.full_name?.split(" ")[0] || "User",
+        lastName:
+          (user as any).last_name || user.full_name?.split(" ")[1] || "Name",
+      }),
+      credentials: "include",
+    });
 
     if (!response.ok) {
       const errorData = await response

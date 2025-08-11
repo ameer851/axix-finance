@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  FileText, 
-  Download, 
-  Calendar, 
-  Search, 
-  Filter,
-  CheckCircle
-} from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,9 +22,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from '@/hooks/use-toast';
-import { getStatements, getTaxDocuments, downloadDocument, Document } from '@/services/reportService';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Document,
+  downloadDocument,
+  getStatements,
+  getTaxDocuments,
+} from "@/services/reportService";
+import { useQuery } from "@tanstack/react-query";
+import { Calendar, Download, FileText, Search } from "lucide-react";
+import React, { useState } from "react";
 
 interface ReportsStatementsProps {
   onViewAll?: () => void;
@@ -35,106 +44,110 @@ interface ReportsStatementsProps {
 const ReportsStatements: React.FC<ReportsStatementsProps> = ({
   onViewAll,
   onDownload,
-  limit = 5
+  limit = 5,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [yearFilter, setYearFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [yearFilter, setYearFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+
   // Fetch statements data
   const { data: statements = [], isLoading: statementsLoading } = useQuery({
-    queryKey: ['statements', user?.id, yearFilter, typeFilter],
+    queryKey: ["statements", user?.id, yearFilter, typeFilter],
     queryFn: async () => {
       try {
         if (!user?.id) throw new Error("User ID is required");
-        
+
         return await getStatements({
           userId: user.id,
-          year: yearFilter !== 'all' ? yearFilter : undefined,
-          type: typeFilter !== 'all' ? typeFilter as any : undefined,
-          limit: limit
+          year: yearFilter !== "all" ? yearFilter : undefined,
+          type: typeFilter !== "all" ? (typeFilter as any) : undefined,
+          limit: limit,
         });
       } catch (error) {
-        console.error('Error fetching statements:', error);
+        console.error("Error fetching statements:", error);
         throw error;
       }
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
   });
-  
+
   // Fetch tax documents
   const { data: taxDocuments = [], isLoading: taxDocumentsLoading } = useQuery({
-    queryKey: ['taxDocuments', user?.id, yearFilter],
+    queryKey: ["taxDocuments", user?.id, yearFilter],
     queryFn: async () => {
       try {
         if (!user?.id) throw new Error("User ID is required");
-        
+
         return await getTaxDocuments({
           userId: user.id,
-          year: yearFilter !== 'all' ? yearFilter : undefined,
-          limit: limit
+          year: yearFilter !== "all" ? yearFilter : undefined,
+          limit: limit,
         });
       } catch (error) {
-        console.error('Error fetching tax documents:', error);
+        console.error("Error fetching tax documents:", error);
         throw error;
       }
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
   });
-  
+
   // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
-  
+
   // Get document years for filter
   const getDocumentYears = () => {
     const years = new Set<string>();
-    
-    [...statements, ...taxDocuments].forEach(doc => {
+
+    [...statements, ...taxDocuments].forEach((doc) => {
       const date = new Date(doc.date);
       years.add(date.getFullYear().toString());
     });
-    
+
     return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
   };
-  
+
   // Filter statements based on search query and filters
-  const filteredStatements = statements.filter(statement => {
+  const filteredStatements = statements.filter((statement) => {
     // Search filter
-    const matchesSearch = 
+    const matchesSearch =
       statement.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       statement.period.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     // Type filter
-    const matchesType = typeFilter === 'all' || statement.type === typeFilter;
-    
+    const matchesType = typeFilter === "all" || statement.type === typeFilter;
+
     // Year filter (already filtered in API call, this is just extra precaution)
-    const matchesYear = yearFilter === 'all' || new Date(statement.date).getFullYear().toString() === yearFilter;
-    
+    const matchesYear =
+      yearFilter === "all" ||
+      new Date(statement.date).getFullYear().toString() === yearFilter;
+
     return matchesSearch && matchesType && matchesYear;
   });
-  
+
   // Filter tax documents based on search query and filters
-  const filteredTaxDocuments = taxDocuments.filter(doc => {
+  const filteredTaxDocuments = taxDocuments.filter((doc) => {
     // Search filter
-    const matchesSearch = 
+    const matchesSearch =
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.period.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     // Year filter (already filtered in API call, this is just extra precaution)
-    const matchesYear = yearFilter === 'all' || new Date(doc.date).getFullYear().toString() === yearFilter;
-    
+    const matchesYear =
+      yearFilter === "all" ||
+      new Date(doc.date).getFullYear().toString() === yearFilter;
+
     return matchesSearch && matchesYear;
   });
-  
+
   // Handle document download
   const handleDownload = async (document: Document) => {
     try {
@@ -142,37 +155,39 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
         onDownload(document);
         return;
       }
-      
+
       // Download the document
       const blob = await downloadDocument(document.id);
-      
+
       // Create a download link
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      // Use window.document to avoid TS lib/DOM mixing issues and assert HTMLElement for append
+      const a = window.document.createElement("a");
       a.href = url;
       a.download = document.name;
-      document.body.appendChild(a);
+      window.document.body?.appendChild(a as HTMLAnchorElement);
       a.click();
-      
+
       // Clean up
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
+      window.document.body?.removeChild(a);
+
       toast({
-        title: 'Download Started',
+        title: "Download Started",
         description: `${document.name} is downloading.`,
       });
     } catch (error: any) {
-      console.error('Error downloading document:', error);
-      
+      console.error("Error downloading document:", error);
+
       toast({
-        title: 'Download Failed',
-        description: error.message || 'Failed to download document. Please try again.',
-        variant: 'destructive'
+        title: "Download Failed",
+        description:
+          error.message || "Failed to download document. Please try again.",
+        variant: "destructive",
       });
     }
   };
-  
+
   if (statementsLoading || taxDocumentsLoading) {
     return (
       <Card>
@@ -188,7 +203,7 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
       </Card>
     );
   }
-  
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -209,7 +224,7 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
               Tax Documents
             </TabsTrigger>
           </TabsList>
-          
+
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -227,12 +242,14 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Years</SelectItem>
-                  {getDocumentYears().map(year => (
-                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  {getDocumentYears().map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <TabsContent value="statements" className="m-0 p-0">
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className="w-[120px]">
@@ -248,7 +265,7 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
               </TabsContent>
             </div>
           </div>
-          
+
           <TabsContent value="statements">
             {filteredStatements.length > 0 ? (
               <Table className="border rounded-md">
@@ -272,9 +289,9 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
                       <TableCell>{statement.period}</TableCell>
                       <TableCell>{formatDate(statement.date)}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDownload(statement)}
                         >
                           <Download className="h-4 w-4" />
@@ -288,14 +305,16 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
               <div className="flex flex-col items-center justify-center py-8">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No statements found</p>
-                {(searchQuery || yearFilter !== 'all' || typeFilter !== 'all') && (
-                  <Button 
-                    variant="outline" 
-                    className="mt-2" 
+                {(searchQuery ||
+                  yearFilter !== "all" ||
+                  typeFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    className="mt-2"
                     onClick={() => {
-                      setSearchQuery('');
-                      setYearFilter('all');
-                      setTypeFilter('all');
+                      setSearchQuery("");
+                      setYearFilter("all");
+                      setTypeFilter("all");
                     }}
                   >
                     Clear filters
@@ -304,7 +323,7 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
               </div>
             )}
           </TabsContent>
-          
+
           <TabsContent value="tax">
             {filteredTaxDocuments.length > 0 ? (
               <Table className="border rounded-md">
@@ -328,9 +347,9 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
                       <TableCell>{doc.period}</TableCell>
                       <TableCell>{formatDate(doc.date)}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDownload(doc)}
                         >
                           <Download className="h-4 w-4" />
@@ -344,13 +363,13 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
               <div className="flex flex-col items-center justify-center py-8">
                 <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No tax documents found</p>
-                {(searchQuery || yearFilter !== 'all') && (
-                  <Button 
-                    variant="outline" 
-                    className="mt-2" 
+                {(searchQuery || yearFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    className="mt-2"
                     onClick={() => {
-                      setSearchQuery('');
-                      setYearFilter('all');
+                      setSearchQuery("");
+                      setYearFilter("all");
                     }}
                   >
                     Clear filters
@@ -360,13 +379,10 @@ const ReportsStatements: React.FC<ReportsStatementsProps> = ({
             )}
           </TabsContent>
         </Tabs>
-        
+
         {onViewAll && (statements.length > 0 || taxDocuments.length > 0) && (
           <div className="flex justify-center mt-4">
-            <Button 
-              variant="outline" 
-              onClick={onViewAll}
-            >
+            <Button variant="outline" onClick={onViewAll}>
               View All Documents
             </Button>
           </div>

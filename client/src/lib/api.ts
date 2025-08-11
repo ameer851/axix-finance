@@ -68,7 +68,9 @@ function safeJsonParse(text: string) {
  * Get the current Supabase session token for authentication
  */
 async function getAuthToken(): Promise<string | null> {
-  console.log("Attempting to get auth token from Supabase...");
+  if (import.meta.env.DEV && !sessionStorage.getItem("supaLoggedOnce")) {
+    console.log("Attempting to get auth token from Supabase...");
+  }
   try {
     const {
       data: { session },
@@ -85,14 +87,19 @@ async function getAuthToken(): Promise<string | null> {
       return null;
     }
 
-    console.log("✅ Supabase session retrieved successfully!");
-    if (session.expires_at) {
-      console.log(
-        "Session expires at:",
-        new Date(session.expires_at * 1000).toLocaleString()
-      );
+    if (import.meta.env.DEV && !sessionStorage.getItem("supaLoggedOnce")) {
+      console.log("✅ Supabase session retrieved successfully!");
     }
-    console.log("Token length:", session.access_token?.length || 0);
+    if (import.meta.env.DEV && !sessionStorage.getItem("supaLoggedOnce")) {
+      if (session.expires_at) {
+        console.log(
+          "Session expires at:",
+          new Date(session.expires_at * 1000).toLocaleString()
+        );
+      }
+      console.log("Token length:", session.access_token?.length || 0);
+      sessionStorage.setItem("supaLoggedOnce", "1");
+    }
 
     return session.access_token;
   } catch (error) {
@@ -174,6 +181,7 @@ export async function apiFetch<T = any>(
       const response = await fetch(url, {
         ...fetchOptions,
         headers,
+        credentials: "include",
         signal: controller.signal,
       });
 
@@ -352,7 +360,19 @@ export async function fetchWithTimeout<T>(
       throw new Error(errorData.message);
     }
 
-    return response.json();
+    const json = await response.json();
+    if (
+      json &&
+      typeof json === "object" &&
+      !Array.isArray(json) &&
+      !("data" in json)
+    ) {
+      // Backward compatibility: allow both response.field and response.data.field
+      try {
+        (json as any).data = json;
+      } catch {}
+    }
+    return json;
   } catch (error) {
     // Handle fetch errors (including timeout)
     if (error instanceof Error && error.name === "AbortError") {

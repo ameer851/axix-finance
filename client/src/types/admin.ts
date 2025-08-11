@@ -52,6 +52,19 @@ export interface SystemSettings {
     minWithdrawal: number;
     maxWithdrawal: number;
   };
+  // Extended UI fields (optional – align with admin SettingsPage usage)
+  siteName?: string;
+  supportEmail?: string;
+  maxDepositAmount?: number; // legacy naming
+  minDepositAmount?: number; // legacy naming
+  defaultDepositFee?: number;
+  defaultWithdrawalFee?: number;
+  maintenanceMode?: boolean; // maps to maintenance.enabled
+  registrationEnabled?: boolean; // maps to features.registration
+  emailNotifications?: boolean;
+  smsNotifications?: boolean;
+  twoFactorRequired?: boolean;
+  sessionTimeout?: number;
 }
 
 export interface AuditLog {

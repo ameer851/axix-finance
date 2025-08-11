@@ -755,7 +755,6 @@ export class DatabaseStorage {
         .select("*")
         .eq("email", email)
         .single();
-
       if (error || !data) {
         return undefined;
       }
@@ -763,6 +762,25 @@ export class DatabaseStorage {
       return data as User;
     } catch (error) {
       console.error("Failed to get user by email:", error);
+      return undefined;
+    }
+  }
+
+  // Lookup by Supabase auth UID (uuid string) for bearer token mapping
+  async getUserByUid(uid: string): Promise<User | undefined> {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("uid", uid)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+      return data as User;
+    } catch (error) {
+      console.error("Failed to get user by uid:", error);
       return undefined;
     }
   }
@@ -1052,20 +1070,33 @@ export class DatabaseStorage {
     }
   }
 
-  async getUserTransactions(userId: number): Promise<Transaction[]> {
+  async getUserTransactions(
+    userIdOrUid: number | string
+  ): Promise<Transaction[]> {
     try {
+      // New canonical schema: transactions.user_id stores auth uid (uuid)
+      const isUid = typeof userIdOrUid === "string" && userIdOrUid.length > 20;
+      let uid: string | undefined;
+      if (isUid) {
+        uid = userIdOrUid as string;
+      } else {
+        // Need to map numeric internal id -> uid
+        const user = await this.getUser(userIdOrUid as number);
+        uid = user?.uid;
+      }
+      if (!uid) return [];
+
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
-        .eq("userId", userId)
-        .order("createdAt", { ascending: false });
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Failed to get user transactions:", error);
+        console.error("Failed to get user transactions (uid schema):", error);
         return [];
       }
-
-      return data as Transaction[];
+      return (data || []) as Transaction[];
     } catch (error) {
       console.error("Failed to get user transactions:", error);
       return [];
@@ -1073,7 +1104,8 @@ export class DatabaseStorage {
   }
 
   async createTransaction(transactionData: {
-    userId: number;
+    userId: number; // legacy internal numeric id
+    userUid?: string; // auth uid (preferred)
     type: "deposit" | "withdrawal" | "investment";
     amount: string;
     status?: TransactionStatus;
@@ -1092,30 +1124,92 @@ export class DatabaseStorage {
         transactionData.type === "investment"
           ? "deposit"
           : transactionData.type;
-
-      const { data, error } = await supabase
+      let attempt = 1;
+      // Try snake_case first (likely actual schema)
+      // Prefer uid for canonical user linkage in transactions.user_id (uuid column)
+      const userIdForInsert =
+        transactionData.userUid ||
+        (await this.getUser(transactionData.userId))?.uid;
+      let { data, error } = await supabase
         .from("transactions")
         .insert({
-          userId: transactionData.userId,
+          user_id: userIdForInsert,
           type: dbType,
           amount: transactionData.amount,
           status: transactionData.status || "pending",
           description: transactionData.description || "",
-          planName: transactionData.planName || null,
-          cryptoType: transactionData.cryptoType || null,
-          walletAddress: transactionData.walletAddress || null,
-          transactionHash: transactionData.transactionHash || null,
-          planDuration: transactionData.planDuration || null,
-          dailyProfit: transactionData.dailyProfit || null,
-          totalReturn: transactionData.totalReturn || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          plan_name: transactionData.planName || null,
+          crypto_type: transactionData.cryptoType || null,
+          wallet_address: transactionData.walletAddress || null,
+          transaction_hash: transactionData.transactionHash || null,
+          plan_duration: transactionData.planDuration || null,
+          daily_profit: transactionData.dailyProfit || null,
+          total_return: transactionData.totalReturn || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .select()
         .single();
 
+      if (error) {
+        const msg = (error as any)?.message || "";
+        if (
+          msg.includes("column") ||
+          msg.includes("user_id") ||
+          (error as any)?.code === "42703"
+        ) {
+          console.warn(
+            "Retrying transaction insert using camelCase columns (attempt 2)"
+          );
+          attempt = 2;
+          const retry = await supabase
+            .from("transactions")
+            .insert({
+              userId: transactionData.userId, // legacy fallback path
+              type: dbType,
+              amount: transactionData.amount,
+              status: transactionData.status || "pending",
+              description: transactionData.description || "",
+              planName: transactionData.planName || null,
+              cryptoType: transactionData.cryptoType || null,
+              walletAddress: transactionData.walletAddress || null,
+              transactionHash: transactionData.transactionHash || null,
+              planDuration: transactionData.planDuration || null,
+              dailyProfit: transactionData.dailyProfit || null,
+              totalReturn: transactionData.totalReturn || null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            })
+            .select()
+            .single();
+          data = retry.data as any;
+          error = retry.error as any;
+        }
+      }
+
       if (error || !data) {
-        console.error("Failed to create transaction:", error);
+        const errObj: any = error || {};
+        (this as any).lastTransactionError = errObj;
+        console.error(
+          "Failed to create transaction (attempt=" +
+            attempt +
+            ") code=" +
+            (errObj.code || "?") +
+            " message=",
+          errObj.message || errObj.error || errObj
+        );
+        if (errObj.details) console.error(" details:", errObj.details);
+        if (errObj.hint) console.error(" hint:", errObj.hint);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Transaction debug payload:", {
+            attempt,
+            input: transactionData,
+            mappedType: dbType,
+            supabaseCode: errObj.code,
+            supabaseDetails: errObj.details,
+            supabaseHint: errObj.hint,
+          });
+        }
         return undefined;
       }
 
@@ -1142,6 +1236,27 @@ export class DatabaseStorage {
     } catch (error) {
       console.error("Failed to get active user count:", error);
       return 0;
+    }
+  }
+
+  async getVisitorsActivity(): Promise<VisitorTracking[]> {
+    try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("visitor_tracking")
+        .select("*")
+        .gt("lastActivity", fiveMinutesAgo)
+        .order("lastActivity", { ascending: false });
+
+      if (error) {
+        console.error("Failed to get active visitors:", error);
+        return [];
+      }
+
+      return data as VisitorTracking[];
+    } catch (error) {
+      console.error("Failed to get active visitors:", error);
+      return [];
     }
   }
 

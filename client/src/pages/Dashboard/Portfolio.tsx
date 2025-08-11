@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { Transaction } from '@shared/schema';
+import CryptoDepositAddresses from "@/components/CryptoDepositAddresses";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,20 +11,27 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/context/AuthContext";
+import { Transaction } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer
-} from 'recharts';
-import { Plus, TrendingUp, DollarSign, Target, Award, Star, Clock, Shield, Zap, Users, Trophy } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import CryptoDepositAddresses from '@/components/CryptoDepositAddresses';
+  Award,
+  Clock,
+  DollarSign,
+  Shield,
+  Star,
+  Target,
+  TrendingUp,
+  Trophy,
+  Users,
+  Zap,
+} from "lucide-react";
+import React, { useState } from "react";
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 
 const Portfolio: React.FC = () => {
   const { user } = useAuth();
@@ -37,136 +42,139 @@ const Portfolio: React.FC = () => {
   // Fetch user transactions
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
     queryKey: [`/users/${userId}/transactions`],
-    enabled: !!userId
+    enabled: !!userId,
   });
 
   // Calculate investment distribution
   const calculateInvestmentDistribution = () => {
     if (!transactions) return [];
-    
-    const investmentTransactions = transactions.filter(t => 
-      t.type === 'investment' && t.status === 'completed'
+
+    const investmentTransactions = transactions.filter(
+      (t) => t.type === "investment" && t.status === "completed"
     );
-    
-    const investmentsByCategory = investmentTransactions.reduce((acc, transaction) => {
-      const amount = parseFloat(transaction.amount);
-      let category;
-      
-      if (amount <= 999) {
-        category = 'STARTER';
-      } else if (amount <= 4999) {
-        category = 'PREMIUM';
-      } else if (amount <= 19999) {
-        category = 'DELUX';
-      } else {
-        category = 'LUXURY';
-      }
-      
-      if (!acc[category]) {
-        acc[category] = 0;
-      }
-      
-      acc[category] += amount;
-      return acc;
-    }, {} as Record<string, number>);
-    
+
+    const investmentsByCategory = investmentTransactions.reduce(
+      (acc, transaction) => {
+        const amount = parseFloat(transaction.amount);
+        let category;
+
+        if (amount <= 999) {
+          category = "STARTER";
+        } else if (amount <= 4999) {
+          category = "PREMIUM";
+        } else if (amount <= 19999) {
+          category = "DELUX";
+        } else {
+          category = "LUXURY";
+        }
+
+        if (!acc[category]) {
+          acc[category] = 0;
+        }
+
+        acc[category] += amount;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
     return Object.entries(investmentsByCategory).map(([name, value]) => ({
       name,
-      value
+      value,
     }));
   };
 
   const investmentDistribution = calculateInvestmentDistribution();
 
   // Colors for pie chart
-  const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B'];
+  const COLORS = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B"];
 
   // Enhanced investment plans with modern features and benefits
   const investmentPlans = [
     {
-      name: 'STARTER PLAN',
-      badge: 'Perfect for Beginners',
-      badgeColor: 'bg-green-500',
+      name: "STARTER PLAN",
+      badge: "Perfect for Beginners",
+      badgeColor: "bg-green-500",
       minInvestment: 50,
       maxInvestment: 999,
       dailyReturn: 2,
       duration: 3,
       totalReturn: 6,
       features: [
-        'Principal Included',
-        '10% Referral Commission',
-        'Quick 3-day Investment Cycle',
-        'Secure Investment Platform',
-        'Daily Returns Directly to Your Account'
+        "Principal Included",
+        "10% Referral Commission",
+        "Quick 3-day Investment Cycle",
+        "Secure Investment Platform",
+        "Daily Returns Directly to Your Account",
       ],
       icon: <Target className="h-6 w-6" />,
-      gradient: 'from-green-400 to-green-600',
-      bgGradient: 'from-green-50 to-emerald-50',
-      popular: true
+      gradient: "from-green-400 to-green-600",
+      bgGradient: "from-green-50 to-emerald-50",
+      popular: true,
     },
     {
-      name: 'PREMIUM PLAN',
-      badge: 'Most Popular Choice',
-      badgeColor: 'bg-blue-500',
+      name: "PREMIUM PLAN",
+      badge: "Most Popular Choice",
+      badgeColor: "bg-blue-500",
       minInvestment: 1000,
       maxInvestment: 4999,
       dailyReturn: 3.5,
       duration: 7,
       totalReturn: 24.5,
       features: [
-        'Principal Included',
-        '10% Referral Commission',
-        'Extended 7-day Investment Cycle',
-        'Priority Customer Support',
-        'Higher Daily Percentage Returns'
+        "Principal Included",
+        "10% Referral Commission",
+        "Extended 7-day Investment Cycle",
+        "Priority Customer Support",
+        "Higher Daily Percentage Returns",
       ],
       icon: <Award className="h-6 w-6" />,
-      gradient: 'from-blue-400 to-blue-600',
-      bgGradient: 'from-blue-50 to-cyan-50',
-      popular: false
+      gradient: "from-blue-400 to-blue-600",
+      bgGradient: "from-blue-50 to-cyan-50",
+      popular: false,
     },
     {
-      name: 'DELUX PLAN',
-      badge: 'High Yield Returns',
-      badgeColor: 'bg-purple-500',
+      name: "DELUX PLAN",
+      badge: "High Yield Returns",
+      badgeColor: "bg-purple-500",
       minInvestment: 5000,
       maxInvestment: 19999,
       dailyReturn: 5,
       duration: 10,
       totalReturn: 50,
       features: [
-        'Principal Included',
-        '10% Referral Commission',
-        'Premium 10-day Investment Cycle',
-        'VIP Customer Support',
-        'Superior Daily Percentage Returns'
+        "Principal Included",
+        "10% Referral Commission",
+        "Premium 10-day Investment Cycle",
+        "VIP Customer Support",
+        "Superior Daily Percentage Returns",
       ],
       icon: <Star className="h-6 w-6" />,
-      gradient: 'from-purple-400 to-purple-600',
-      bgGradient: 'from-purple-50 to-pink-50',
-      popular: false
+      gradient: "from-purple-400 to-purple-600",
+      bgGradient: "from-purple-50 to-pink-50",
+      popular: false,
     },
     {
-      name: 'LUXURY PLAN',
-      badge: 'Exclusive Elite Plan',
-      badgeColor: 'bg-yellow-500',
+      name: "LUXURY PLAN",
+      badge: "Exclusive Elite Plan",
+      badgeColor: "bg-yellow-500",
       minInvestment: 20000,
       maxInvestment: Infinity,
       dailyReturn: 7.5,
       duration: 30,
       totalReturn: 225,
       features: [
-        'Principal Included',
-        '10% Referral Commission',
-        'Extended 30-day Investment Cycle',
-        'Dedicated Account Manager',
-        'Maximum Daily Returns'
+        "Principal Included",
+        "10% Referral Commission",
+        "Extended 30-day Investment Cycle",
+        "Dedicated Account Manager",
+        "Maximum Daily Returns",
       ],
       icon: <Trophy className="h-6 w-6" />,
-      gradient: 'from-yellow-400 to-orange-500',
-      bgGradient: 'from-yellow-50 to-orange-50',
-      popular: false
-    }
+      gradient: "from-yellow-400 to-orange-500",
+      bgGradient: "from-yellow-50 to-orange-50",
+      popular: false,
+    },
   ];
 
   if (isLoading) {
@@ -189,7 +197,8 @@ const Portfolio: React.FC = () => {
           Investment Plans
         </h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Choose from our carefully designed investment plans to grow your wealth with guaranteed daily returns
+          Choose from our carefully designed investment plans to grow your
+          wealth with guaranteed daily returns
         </p>
         <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-1">
@@ -217,7 +226,9 @@ const Portfolio: React.FC = () => {
               </div>
               Portfolio Overview
             </CardTitle>
-            <CardDescription className="text-base">Track your investment performance and growth</CardDescription>
+            <CardDescription className="text-base">
+              Track your investment performance and growth
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -225,13 +236,18 @@ const Portfolio: React.FC = () => {
                 <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-1">Total Invested</p>
                 <p className="text-2xl font-bold text-green-600">
-                  ${investmentDistribution.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                  $
+                  {investmentDistribution
+                    .reduce((sum, item) => sum + item.value, 0)
+                    .toLocaleString()}
                 </p>
               </div>
               <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
                 <Target className="h-8 w-8 text-blue-600 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-1">Active Plans</p>
-                <p className="text-2xl font-bold text-blue-600">{investmentDistribution.length}</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {investmentDistribution.length}
+                </p>
               </div>
               <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200">
                 <TrendingUp className="h-8 w-8 text-purple-600 mx-auto mb-3" />
@@ -267,7 +283,10 @@ const Portfolio: React.FC = () => {
                       dataKey="value"
                     >
                       {investmentDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
                       ))}
                     </Pie>
                   </PieChart>
@@ -278,14 +297,18 @@ const Portfolio: React.FC = () => {
                 <div className="p-4 bg-gray-100 rounded-full mb-4">
                   <Clock className="h-12 w-12 text-gray-400" />
                 </div>
-                <h3 className="font-semibold text-gray-700 mb-2">No Active Investments</h3>
-                <p className="text-gray-500 mb-4 text-sm">Start your investment journey today</p>
-                <Button 
-                  variant="outline" 
+                <h3 className="font-semibold text-gray-700 mb-2">
+                  No Active Investments
+                </h3>
+                <p className="text-gray-500 mb-4 text-sm">
+                  Start your investment journey today
+                </p>
+                <Button
+                  variant="outline"
                   size="sm"
                   className="border-green-300 text-green-700 hover:bg-green-50"
                   onClick={() => {
-                    setSelectedPlan('STARTER PLAN');
+                    setSelectedPlan("STARTER PLAN");
                     setIsInvestDialogOpen(true);
                   }}
                 >
@@ -300,29 +323,34 @@ const Portfolio: React.FC = () => {
       {/* Investment Plans Grid */}
       <div>
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Choose Your Investment Plan</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Choose Your Investment Plan
+          </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            All plans include principal protection, daily returns, and 24/7 customer support
+            All plans include principal protection, daily returns, and 24/7
+            customer support
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {investmentPlans.map((plan, index) => (
             <Card
               key={index}
-              className={`min-w-[260px] max-w-xs flex-shrink-0 border ${plan.highlighted ? 'border-primary' : 'border-gray-200'} rounded-lg shadow-sm divide-y divide-gray-200`}
+              className={`min-w-[260px] max-w-xs flex-shrink-0 border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200`}
             >
               <div className="p-4">
-                <h2 className="text-base leading-6 font-bold text-primary">{plan.name}</h2>
-                <p className="mt-2 text-sm text-gray-600">{plan.description}</p>
-                <p className="mt-4">
-                  <span className="text-xl font-extrabold text-gray-900">{plan.price}</span>
-                </p>
-                <p className="mt-1">
-                  <span className="text-base font-semibold text-primary">{plan.returnRate}</span>
-                </p>
-                <Button className="mt-4 block w-full text-base py-3" href={plan.href}>
-                  {plan.cta}
+                <h2 className="text-base leading-6 font-bold text-primary">
+                  {plan.name}
+                </h2>
+                {/* Removed unused / undefined properties (description, price, returnRate, href, cta) */}
+                <Button
+                  className="mt-4 block w-full text-base py-3"
+                  onClick={() => {
+                    setSelectedPlan(plan.name);
+                    setIsInvestDialogOpen(true);
+                  }}
+                >
+                  Invest Now
                 </Button>
               </div>
               <div className="pt-4 pb-4 px-4">
@@ -351,15 +379,19 @@ const Portfolio: React.FC = () => {
               Invest in {selectedPlan}
             </DialogTitle>
             <DialogDescription>
-              Send funds to any of the cryptocurrency addresses below to start your investment.
-              Your investment will be activated within 24 hours of confirmation.
+              Send funds to any of the cryptocurrency addresses below to start
+              your investment. Your investment will be activated within 24 hours
+              of confirmation.
             </DialogDescription>
           </DialogHeader>
-          
+
           <CryptoDepositAddresses />
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInvestDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsInvestDialogOpen(false)}
+            >
               Close
             </Button>
           </DialogFooter>

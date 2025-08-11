@@ -22,16 +22,18 @@ const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response = await api.get(`/api/users/${userId}/balance`);
+    const response: any = await api.get(`/api/users/${userId}/balance`);
+    const data =
+      response && typeof response === "object" && "data" in response
+        ? response.data
+        : response;
 
     return {
-      availableBalance: Number(response.data.availableBalance) || 0,
-      pendingBalance: Number(response.data.pendingBalance) || 0,
+      availableBalance: Number(data?.availableBalance) || 0,
+      pendingBalance: Number(data?.pendingBalance) || 0,
       totalBalance:
-        Number(response.data.totalBalance) ||
-        Number(response.data.availableBalance) ||
-        0,
-      lastUpdated: response.data.lastUpdated || new Date().toISOString(),
+        Number(data?.totalBalance) || Number(data?.availableBalance) || 0,
+      lastUpdated: data?.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
     console.error("Balance fetch error:", error);
@@ -49,15 +51,12 @@ const submitWithdrawal = async (
   method: string,
   address: string
 ) => {
-  const response = await api.post("/api/transactions", {
-    userId,
+  // New unified withdrawal endpoint (creates pending withdrawal)
+  const response = await api.post("/api/transactions/withdraw", {
     amount,
-    type: "withdrawal",
-    description: `Withdrawal of $${amount} via ${method}`,
-    cryptoType: method,
-    walletAddress: address,
+    destination: address,
+    method,
   });
-
   return response.data;
 };
 

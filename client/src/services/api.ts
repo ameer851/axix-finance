@@ -171,12 +171,8 @@ export const financialAPI = {
 
 // Auth API
 export const authAPI = {
-  login: async (email: string, password: string) => {
-    return fetchWithAuth("/api/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-  },
+  // Deprecated: server session login removed in favor of direct Supabase auth in authService.login
+  // login(): use authService.login instead
 
   register: async (userData: Partial<User>) => {
     return fetchWithAuth("/api/register", {

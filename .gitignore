@@ -91,3 +91,38 @@ ngrok.exe
 ngrok.yml
 ngrok.authtoken
 .vercel
+
+# Drizzle / database config containing credentials (keep a sanitized template separately)
+drizzle.config.ts
+drizzle.config.*.backup
+
+# Local migration state snapshots not meant for commit
+migrations/*.tmp
+migrations/*-scratch.sql
+
+# Backup / legacy server route files
+server/routes.legacy.broken.ts
+server/**/routes.*.bak.ts
+server/**/auth.*.bak.ts
+
+# Helper scripts with potential inline experimentation
+scripts/*-local-*.js
+scripts/*-scratch.js
+scripts/test-resend-api-direct.js
+
+# Log and trace outputs
+logs/
+*.trace
+*.pid
+
+# Generated admin V2 build artifacts (if any future dist path)
+adminv2-dist/
+
+# Local cache
+.cache/
+.tmp/
+
+# Prevent accidental commit of raw SQL one-off helpers
+*-local.sql
+scratch.sql
+local-only.sql

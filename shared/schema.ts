@@ -8,6 +8,7 @@ import {
   serial,
   text,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -53,7 +54,7 @@ export const notificationPriorityEnum = pgEnum("notification_priority", [
 // Users table - matches the actual database structure
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  uid: text("uid").notNull().unique(), // Auth user ID from Supabase Auth
+  uid: uuid("uid").notNull().unique(), // Auth user ID from Supabase Auth (uuid)
   email: text("email").notNull().unique(),
   username: text("username").unique(),
   password: text("password"),

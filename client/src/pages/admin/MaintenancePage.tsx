@@ -1,3 +1,4 @@
+import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clock, Save, Server, Settings } from "lucide-react";
 import { useState } from "react";
@@ -20,7 +21,6 @@ import {
 } from "../../components/ui/select";
 import { Switch } from "../../components/ui/switch";
 import { Textarea } from "../../components/ui/textarea";
-import { useToast } from "../../components/ui/use-toast";
 
 export default function MaintenancePage() {
   const { toast } = useToast();

@@ -58,10 +58,10 @@ export async function getUserBalance(userId: string | number) {
 
     // Calculate pending balance from transactions
     const pendingBalance =
-      pendingTxns?.reduce((sum, txn) => {
-        const amount = Number(txn.amount) || 0;
+      pendingTxns?.reduce((sum: number, txn: { amount: any; type: string }) => {
+        const amount = Number((txn as any).amount) || 0;
         // Add deposits, subtract withdrawals
-        return sum + (txn.type === "deposit" ? amount : -amount);
+        return sum + ((txn as any).type === "deposit" ? amount : -amount);
       }, 0) || 0;
 
     // Get available balance from user data

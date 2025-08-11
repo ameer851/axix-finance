@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
-import { Check, Copy, Share2, Users, DollarSign, Award, ChevronRight } from 'lucide-react';
-import { getUserReferrals, getUserReferralStats } from '@/services/userService';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { getUserReferrals, getUserReferralStats } from "@/services/userService";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Award,
+  Check,
+  ChevronRight,
+  Copy,
+  DollarSign,
+  Share2,
+  Users,
+} from "lucide-react";
+import React, { useState } from "react";
 
 const Referrals: React.FC = () => {
   const { user } = useAuth();
@@ -19,55 +41,60 @@ const Referrals: React.FC = () => {
 
   // Fetch user referral data
   const { data: referrals = [], isLoading: referralsLoading } = useQuery({
-    queryKey: ['referrals', user?.id],
+    queryKey: ["referrals", user?.id],
     queryFn: () => getUserReferrals(user?.id),
     enabled: !!user?.id,
-    staleTime: 300000 // 5 minutes
+    staleTime: 300000, // 5 minutes
   });
 
   // Fetch user referral stats
   const { data: referralStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['referral-stats', user?.id],
+    queryKey: ["referral-stats", user?.id],
     queryFn: () => getUserReferralStats(user?.id),
     enabled: !!user?.id,
-    staleTime: 300000 // 5 minutes
+    staleTime: 300000, // 5 minutes
   });
 
-  const referralLink = `https://axixfinance.com/register?ref=${user?.referralCode || user?.id}`;
+  // Use user.id as referral code (referralCode property not present on user type)
+  const referralLink = `https://axixfinance.com/register?ref=${user?.id}`;
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(referralLink).then(() => {
-      setCopied(true);
-      toast({
-        title: 'Copied!',
-        description: 'Referral link copied to clipboard',
+    navigator.clipboard
+      .writeText(referralLink)
+      .then(() => {
+        setCopied(true);
+        toast({
+          title: "Copied!",
+          description: "Referral link copied to clipboard",
+        });
+
+        // Reset copied state after 2 seconds
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((err) => {
+        toast({
+          title: "Copy failed",
+          description: "Could not copy to clipboard",
+          variant: "destructive",
+        });
       });
-      
-      // Reset copied state after 2 seconds
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(err => {
-      toast({
-        title: 'Copy failed',
-        description: 'Could not copy to clipboard',
-        variant: 'destructive'
-      });
-    });
   };
 
   const shareReferral = async () => {
     if (navigator.share) {
-      try {        await navigator.share({
-          title: 'Join Axix Finance',
-          text: 'Sign up for Axix Finance using my referral link and get a bonus!',
+      try {
+        await navigator.share({
+          title: "Join Axix Finance",
+          text: "Sign up for Axix Finance using my referral link and get a bonus!",
           url: referralLink,
         });
-        
+
         toast({
-          title: 'Shared!',
-          description: 'Thanks for sharing your referral link',
+          title: "Shared!",
+          description: "Thanks for sharing your referral link",
         });
       } catch (err) {
-        console.error('Share failed:', err);
+        console.error("Share failed:", err);
       }
     } else {
       copyToClipboard();
@@ -87,17 +114,14 @@ const Referrals: React.FC = () => {
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg text-center mb-6">
               <h3 className="text-lg font-medium mb-2">Your Referral Link</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Share this link with friends and earn {referralStats?.commissionRate || '10%'} of their deposits
+                Share this link with friends and earn{" "}
+                {referralStats?.commissionRate || "10%"} of their deposits
               </p>
-              
+
               <div className="flex items-center mb-4">
-                <Input 
-                  value={referralLink}
-                  readOnly
-                  className="mr-2"
-                />
-                <Button 
-                  onClick={copyToClipboard} 
+                <Input value={referralLink} readOnly className="mr-2" />
+                <Button
+                  onClick={copyToClipboard}
                   variant="outline"
                   className="min-w-[100px]"
                 >
@@ -114,13 +138,13 @@ const Referrals: React.FC = () => {
                   )}
                 </Button>
               </div>
-              
+
               <Button onClick={shareReferral} className="w-full">
                 <Share2 className="h-4 w-4 mr-2" />
                 Share Referral Link
               </Button>
             </div>
-            
+
             {/* Referral Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card>
@@ -138,7 +162,7 @@ const Referrals: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center text-center">
@@ -154,7 +178,7 @@ const Referrals: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center text-center">
@@ -164,14 +188,14 @@ const Referrals: React.FC = () => {
                       {statsLoading ? (
                         <span className="animate-pulse">...</span>
                       ) : (
-                        referralStats?.currentTier || 'Bronze'
+                        referralStats?.currentTier || "Bronze"
                       )}
                     </p>
                   </div>
                 </CardContent>
               </Card>
             </div>
-            
+
             {/* Tier Progress */}
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-2">Tier Progress</h3>
@@ -179,33 +203,48 @@ const Referrals: React.FC = () => {
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="text-sm font-medium">
-                      {referralStats?.currentTier || 'Bronze'} → {referralStats?.nextTier || 'Silver'}
+                      {referralStats?.currentTier || "Bronze"} →{" "}
+                      {referralStats?.nextTier || "Silver"}
                     </span>
                     <span className="text-sm font-medium">
                       {referralStats?.tierProgress || 0}%
                     </span>
                   </div>
-                  <Progress value={referralStats?.tierProgress || 0} className="h-2" />
+                  <Progress
+                    value={referralStats?.tierProgress || 0}
+                    className="h-2"
+                  />
                 </div>
-                
+
                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md">
                   <h4 className="font-medium mb-2">Tier Benefits</h4>
                   <div className="space-y-2">
                     <div className="flex items-start">
                       <Badge className="mt-0.5 mr-2">Bronze</Badge>
-                      <span className="text-sm">10% commission on referral deposits</span>
+                      <span className="text-sm">
+                        10% commission on referral deposits
+                      </span>
                     </div>
                     <div className="flex items-start">
                       <Badge className="bg-gray-400 mt-0.5 mr-2">Silver</Badge>
-                      <span className="text-sm">12% commission + 5% bonus on your deposits</span>
+                      <span className="text-sm">
+                        12% commission + 5% bonus on your deposits
+                      </span>
                     </div>
                     <div className="flex items-start">
                       <Badge className="bg-yellow-500 mt-0.5 mr-2">Gold</Badge>
-                      <span className="text-sm">15% commission + 10% bonus on your deposits</span>
+                      <span className="text-sm">
+                        15% commission + 10% bonus on your deposits
+                      </span>
                     </div>
                     <div className="flex items-start">
-                      <Badge className="bg-blue-500 mt-0.5 mr-2">Platinum</Badge>
-                      <span className="text-sm">20% commission + 15% bonus on your deposits + VIP support</span>
+                      <Badge className="bg-blue-500 mt-0.5 mr-2">
+                        Platinum
+                      </Badge>
+                      <span className="text-sm">
+                        20% commission + 15% bonus on your deposits + VIP
+                        support
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -213,12 +252,14 @@ const Referrals: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Referrals List Card */}
         <Card>
           <CardHeader>
             <CardTitle>Your Referrals</CardTitle>
-            <CardDescription>People who joined using your referral link</CardDescription>
+            <CardDescription>
+              People who joined using your referral link
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {referralsLoading ? (
@@ -253,17 +294,29 @@ const Referrals: React.FC = () => {
                     {referrals.map((referral: any) => (
                       <TableRow key={referral.id}>
                         <TableCell>
-                          <div className="font-medium">{referral.name || `User #${referral.id}`}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{referral.email}</div>
+                          <div className="font-medium">
+                            {referral.name || `User #${referral.id}`}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {referral.email}
+                          </div>
                         </TableCell>
                         <TableCell>{formatDate(referral.joinedAt)}</TableCell>
                         <TableCell>
-                          <Badge className={referral.isActive ? 'bg-green-500' : 'bg-gray-500'}>
-                            {referral.isActive ? 'Active' : 'Inactive'}
+                          <Badge
+                            className={
+                              referral.isActive ? "bg-green-500" : "bg-gray-500"
+                            }
+                          >
+                            {referral.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatCurrency(referral.totalDeposits || 0)}</TableCell>
-                        <TableCell>{formatCurrency(referral.yourEarnings || 0)}</TableCell>
+                        <TableCell>
+                          {formatCurrency(referral.totalDeposits || 0)}
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(referral.yourEarnings || 0)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

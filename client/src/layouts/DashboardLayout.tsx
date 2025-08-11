@@ -570,7 +570,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   Welcome,{" "}
                   {user?.full_name ||
-                    user?.name ||
+                    (user as any)?.name ||
+                    (user as any)?.full_name ||
+                    ((user as any)?.firstName && (user as any)?.lastName
+                      ? `${(user as any).firstName} ${(user as any).lastName}`
+                      : (user as any)?.username) ||
                     (user?.firstName && user?.lastName
                       ? `${user.firstName} ${user.lastName}`
                       : null) ||

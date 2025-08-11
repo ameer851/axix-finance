@@ -15,6 +15,15 @@ import { Route, Switch, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 
 // Client pages
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminLayout from "@/pages/admin/AdminLayout";
+import AuditLogsPageStatic from "@/pages/admin/AuditLogsPageStatic";
+import DepositsPage from "@/pages/admin/DepositsPage";
+import MaintenancePageStatic from "@/pages/admin/MaintenancePageStatic";
+import SettingsPageStatic from "@/pages/admin/SettingsPageStatic";
+import UsersPageSimple from "@/pages/admin/UsersPageSimple";
+import VisitorsPage from "@/pages/admin/VisitorsPage";
+import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
 import Deposit from "@/pages/Client/Deposit";
 import DepositConfirmation from "@/pages/Client/DepositConfirmation";
 import DepositsHistoryPage from "@/pages/Client/DepositsHistoryPage";
@@ -31,15 +40,8 @@ import Withdraw from "@/pages/Client/Withdraw";
 import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
 
 // Admin pages
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminLayout from "@/pages/admin/AdminLayout";
-import AuditLogsPageStatic from "@/pages/admin/AuditLogsPageStatic";
-import DepositsPage from "@/pages/admin/DepositsPage";
-import MaintenancePageStatic from "@/pages/admin/MaintenancePageStatic";
-import SettingsPageStatic from "@/pages/admin/SettingsPageStatic";
-import UsersPageSimple from "@/pages/admin/UsersPageSimple";
-import VisitorsPage from "@/pages/admin/VisitorsPage";
-import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
+// Legacy Admin (will be deprecated) - guarded by feature flag
+const ENABLE_LEGACY_ADMIN = false;
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -64,7 +66,8 @@ function AdminRedirect() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    setLocation("/admin/dashboard");
+    // Redirect legacy admin entrypoint to new Admin V2 Users page
+    setLocation("/adminv2/users");
   }, [setLocation]);
 
   return <LoadingSpinner />;
@@ -87,7 +90,8 @@ function Router() {
       ) {
         // Redirect based on user role
         if (user.role === "admin") {
-          setLocation("/admin");
+          // Send admins to new Admin V2 panel instead of legacy /admin
+          setLocation("/adminv2/users");
         } else {
           setLocation("/dashboard");
         }
@@ -357,76 +361,132 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      {/* Admin Routes */}
-      <Route path="/admin">
+      {/* Admin Routes (legacy optionally enabled) */}
+      {ENABLE_LEGACY_ADMIN && (
+        <>
+          <Route path="/admin">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <AdminDashboard />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/users">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <UsersPageSimple />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/settings">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <SettingsPageStatic />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/maintenance">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <MaintenancePageStatic />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/deposits">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <DepositsPage />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/withdrawals">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <WithdrawalsPage />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/audit-logs">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <AuditLogsPageStatic />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/visitors">
+            {() => (
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <VisitorsPage />
+                </AdminLayout>
+              </ProtectedRoute>
+            )}
+          </Route>
+        </>
+      )}
+      {!ENABLE_LEGACY_ADMIN && (
+        <Route path="/admin">
+          {() => (
+            <ProtectedRoute requireAdmin>
+              {/* Redirect any legacy /admin hit to new panel */}
+              {(() => {
+                const [, setLoc] = useLocation();
+                setTimeout(() => setLoc("/adminv2/users"), 0);
+                return <LoadingSpinner />;
+              })()}
+            </ProtectedRoute>
+          )}
+        </Route>
+      )}
+      <Route path="/adminv2">
         {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AdminDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>{" "}
-      <Route path="/admin/users">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <UsersPageSimple />
-            </AdminLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              {/* Admin V2 Dashboard - Placeholder for actual content */}
+              <div className="p-4">Admin V2 Dashboard</div>
+            </DashboardLayout>
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/admin/settings">
+      <Route path="/adminv2/users">
         {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <SettingsPageStatic />
-            </AdminLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              {/* minimal admin v2 users */}
+              {require("@/pages/AdminV2/users").default()}
+            </DashboardLayout>
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/admin/maintenance">
+      <Route path="/adminv2/deposits">
         {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <MaintenancePageStatic />
-            </AdminLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              {require("@/pages/AdminV2/deposits").default()}
+            </DashboardLayout>
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/admin/deposits">
+      <Route path="/adminv2/withdrawals">
         {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <DepositsPage />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/withdrawals">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <WithdrawalsPage />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/audit-logs">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <AuditLogsPageStatic />
-            </AdminLayout>
-          </ProtectedRoute>
-        )}
-      </Route>
-      <Route path="/admin/visitors">
-        {() => (
-          <ProtectedRoute requireAdmin>
-            <AdminLayout>
-              <VisitorsPage />
-            </AdminLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              {require("@/pages/AdminV2/withdrawals").default()}
+            </DashboardLayout>
           </ProtectedRoute>
         )}
       </Route>
@@ -443,7 +503,7 @@ function AppContent() {
       <TooltipProvider>
         <Router />
         <Toaster />
-        {!location.startsWith("/admin") && (
+        {!location.startsWith("/admin") && !location.startsWith("/adminv2") && (
           <ErrorBoundary
             fallback={<div className="hidden">Support unavailable</div>}
           >

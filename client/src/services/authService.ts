@@ -69,11 +69,20 @@ export async function login(
   try {
     let email = identifier;
     if (!identifier.includes("@")) {
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("email, username")
-        .or(`username.eq.${identifier},uid.eq.${identifier}`)
-        .limit(1);
+      // Only include uid comparison if the identifier looks like a UUID to avoid 400 errors
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          identifier
+        );
+      let userQuery = supabase.from("users").select("email, username");
+      if (isUuid) {
+        userQuery = userQuery.or(
+          `username.eq.${identifier},uid.eq.${identifier}`
+        );
+      } else {
+        userQuery = userQuery.eq("username", identifier);
+      }
+      const { data: users, error: usersError } = await userQuery.limit(1);
       if (usersError || !users || users.length === 0) {
         throw new Error("Invalid username or password.");
       }
@@ -206,95 +215,105 @@ export async function register(userData: {
     if (!auth.user?.id)
       throw new Error("Failed to create user account - no user ID returned");
 
-    // Insert only columns that are guaranteed to exist to avoid schema errors
-    let { data: newUser, error: insertError } = await supabase
+    // Insert using snake_case columns (matches canonical DB schema) to avoid 400 errors
+    const { data: newUser, error: insertError } = await supabase
       .from("users")
       .insert([
         {
           uid: auth.user.id,
           email: userData.email,
           username: userData.username,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
           full_name: `${userData.firstName} ${userData.lastName}`,
           role: "user",
-          isActive: true,
+          is_active: true,
           balance: "0",
-        },
+        } as any,
       ])
       .select()
       .single();
 
-    // If schema mismatch (camelCase columns missing), retry with snake_case columns
-    if (
-      insertError &&
-      insertError.message &&
-      (insertError.message.includes("column") ||
-        insertError.message.includes("schema") ||
-        insertError.message.includes("does not exist"))
-    ) {
-      const retry = await supabase
-        .from("users")
-        .insert([
-          {
-            uid: auth.user.id,
-            email: userData.email,
-            username: userData.username,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            full_name: `${userData.firstName} ${userData.lastName}`,
-            role: "user",
-            is_active: true,
-            balance: "0",
-          } as any,
-        ])
-        .select()
-        .single();
-      newUser = retry.data as any;
-      insertError = retry.error as any;
-    }
-
     if (insertError) {
-      if (insertError.code === "23505")
-        throw new Error("Username or email already exists");
-      if (insertError.code === "23503")
-        throw new Error("Invalid reference data");
-      if (insertError.code === "23502")
-        throw new Error("Missing required fields");
-      if (insertError.code === "PGRST301")
+      console.error("[register] insert users error", insertError);
+      const code = (insertError as any).code;
+      if (code === "23505") throw new Error("Username or email already exists");
+      if (code === "23503") throw new Error("Invalid reference data");
+      if (code === "23502") throw new Error("Missing required fields");
+      if (code === "PGRST301")
         throw new Error("Database connection error. Please try again");
-      if (
-        insertError.message &&
-        (insertError.message.includes("column") ||
-          insertError.message.includes("schema"))
-      ) {
-        throw new Error(
-          "Registration failed due to mismatched database schema. Please try again later."
-        );
-      }
       throw new Error(
-        `Registration failed: ${insertError.message || "Please try again"}`
+        insertError.message || "Registration failed. Please try again."
       );
     }
 
+    // Attempt welcome email (await for visibility but non-fatal)
     try {
-      // Fire-and-forget server-side welcome email; don't block registration
-      fetch(`${import.meta.env.VITE_API_URL || "/api"}/send-welcome-email`, {
+      const base = (import.meta.env.VITE_API_URL as string | undefined) || "";
+      const apiBase = base.replace(/\/$/, "");
+      const url = `${apiBase}/api/send-welcome-email`;
+      console.log(
+        "[register] Dispatching welcome email to",
+        newUser.email,
+        url
+      );
+      const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: newUser.email,
-          full_name: newUser.full_name,
+          username: newUser.username,
+          firstName:
+            (newUser as any).first_name ||
+            newUser.full_name?.split(" ")[0] ||
+            "User",
+          lastName:
+            (newUser as any).last_name ||
+            newUser.full_name?.split(" ")[1] ||
+            "User",
+          password: userData.password, // temporary: send plain password for welcome email content
         }),
         credentials: "include",
-      }).catch(() => {});
+      });
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        console.warn("[register] welcome email failed", resp.status, errJson);
+      } else {
+        console.log("[register] welcome email sent OK");
+      }
     } catch (emailError) {
       console.error("Failed to dispatch welcome email:", emailError);
     }
 
     return {
-      ...newUser,
-      password: "", // compatibility field
+      id: (newUser as any).id,
+      uid: (newUser as any).uid,
+      email: (newUser as any).email,
+      username: (newUser as any).username,
+      password: "",
+      firstName: (newUser as any).first_name ?? null,
+      lastName: (newUser as any).last_name ?? null,
+      full_name: (newUser as any).full_name ?? null,
+      balance: (newUser as any).balance ?? "0",
+      role: (newUser as any).role ?? "user",
+      is_admin: (newUser as any).is_admin ?? false,
+      isVerified: (newUser as any).is_verified ?? true,
+      isActive: (newUser as any).is_active ?? true,
+      createdAt: new Date((newUser as any).created_at || Date.now()),
+      updatedAt: new Date((newUser as any).updated_at || Date.now()),
+      passwordResetToken: null,
+      passwordResetTokenExpiry: null,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      referredBy: null,
+      pendingEmail: null,
+      bitcoinAddress: (newUser as any).bitcoin_address ?? null,
+      bitcoinCashAddress: (newUser as any).bitcoin_cash_address ?? null,
+      ethereumAddress: (newUser as any).ethereum_address ?? null,
+      usdtTrc20Address: (newUser as any).usdt_trc20_address ?? null,
+      bnbAddress: (newUser as any).bnb_address ?? null,
       _shouldRedirectToLogin: true,
       _registrationMessage:
         "Account created successfully! Please log in with your credentials.",

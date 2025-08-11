@@ -113,7 +113,10 @@ export function DataTable<T extends { id: number }>({
                   <Checkbox
                     checked={isAllSelected}
                     ref={(el) => {
-                      if (el) el.indeterminate = isIndeterminate;
+                      if (el) {
+                        // shadcn Checkbox forwards ref to button/input depending on implementation; force-cast
+                        (el as any).indeterminate = isIndeterminate;
+                      }
                     }}
                     onCheckedChange={handleSelectAll}
                   />

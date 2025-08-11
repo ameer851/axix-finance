@@ -159,10 +159,19 @@ export default function WithdrawalsPage() {
       data?: any
     ) => {
       try {
-        await executeAction("PUT", `/${withdrawalId}/status`, {
-          status,
-          ...data,
-        });
+        if (status === "approved") {
+          await executeAction(
+            "POST",
+            `/api/admin/withdrawals/${withdrawalId}/approve`,
+            data || {}
+          );
+        } else {
+          await executeAction(
+            "PUT",
+            `/api/admin/withdrawals/${withdrawalId}/status`,
+            { status, ...data }
+          );
+        }
 
         if (status === "approved") {
           setProcessingWithdrawal(null);

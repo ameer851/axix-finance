@@ -1,46 +1,46 @@
-import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  HelpCircle, 
-  MessageCircle, 
-  Phone,
-  Mail,
-  Clock,
-  Send,
-  RefreshCw,
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import {
   ChevronDown,
   ChevronRight,
+  Clock,
   ExternalLink,
+  FileText,
   Headphones,
-  FileText
-} from 'lucide-react';
+  HelpCircle,
+  Mail,
+  MessageCircle,
+  Phone,
+  RefreshCw,
+  Send,
+} from "lucide-react";
+import React, { useState } from "react";
 
 // API function for submitting support ticket
 const submitSupportTicket = async (userId: number, ticketData: any) => {
-  const response = await fetch('/api/support/tickets', {
-    method: 'POST',
+  const response = await fetch("/api/support/tickets", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
-    credentials: 'include',
+    credentials: "include",
     body: JSON.stringify({
       userId,
-      ...ticketData
-    })
+      ...ticketData,
+    }),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to submit support ticket');
+    throw new Error(errorData.message || "Failed to submit support ticket");
   }
 
   return response.json();
@@ -49,122 +49,136 @@ const submitSupportTicket = async (userId: number, ticketData: any) => {
 // FAQ Data
 const FAQ_DATA = [
   {
-    category: 'Account & Security',
+    category: "Account & Security",
     questions: [
       {
-        question: 'How do I verify my account?',
-        answer: 'To verify your account, go to your Profile page and upload the required documents including a government-issued ID and proof of address. Verification typically takes 1-3 business days.'
+        question: "How do I verify my account?",
+        answer:
+          "To verify your account, go to your Profile page and upload the required documents including a government-issued ID and proof of address. Verification typically takes 1-3 business days.",
       },
       {
-        question: 'How do I change my password?',
-        answer: 'Go to Profile > Security tab and use the Change Password form. You\'ll need to enter your current password and choose a new secure password.'
+        question: "How do I change my password?",
+        answer:
+          "Go to Profile > Security tab and use the Change Password form. You'll need to enter your current password and choose a new secure password.",
       },
       {
-        question: 'Is my personal information secure?',
-        answer: 'Yes, we use bank-level encryption and security measures to protect your personal and financial information. We never share your data with third parties without your consent.'
-      }
-    ]
+        question: "Is my personal information secure?",
+        answer:
+          "Yes, we use bank-level encryption and security measures to protect your personal and financial information. We never share your data with third parties without your consent.",
+      },
+    ],
   },
   {
-    category: 'Deposits & Investments',
+    category: "Deposits & Investments",
     questions: [
       {
-        question: 'How do I make a deposit?',
-        answer: 'Go to the Deposit page, select an investment plan, choose your payment method (cryptocurrency), and follow the instructions. Make sure to submit your transaction hash for verification.'
+        question: "How do I make a deposit?",
+        answer:
+          "Go to the Deposit page, select an investment plan, choose your payment method (cryptocurrency), and follow the instructions. Make sure to submit your transaction hash for verification.",
       },
       {
-        question: 'What cryptocurrencies do you accept?',
-        answer: 'We accept Bitcoin (BTC), Ethereum (ETH), USDT (TRC20), and BNB (BSC). More cryptocurrencies may be added in the future.'
+        question: "What cryptocurrencies do you accept?",
+        answer:
+          "We accept Bitcoin (BTC), Ethereum (ETH), USDT (TRC20), and BNB (BSC). More cryptocurrencies may be added in the future.",
       },
       {
-        question: 'How long does it take for deposits to be processed?',
-        answer: 'Cryptocurrency deposits are typically processed within 1-24 hours after submission of the transaction hash and network confirmation.'
+        question: "How long does it take for deposits to be processed?",
+        answer:
+          "Cryptocurrency deposits are typically processed within 1-24 hours after submission of the transaction hash and network confirmation.",
       },
       {
-        question: 'What are the minimum and maximum deposit amounts?',
-        answer: 'Minimum deposit varies by investment plan, typically starting from $100. Maximum amounts depend on your account verification level and selected plan.'
-      }
-    ]
+        question: "What are the minimum and maximum deposit amounts?",
+        answer:
+          "Minimum deposit varies by investment plan, typically starting from $100. Maximum amounts depend on your account verification level and selected plan.",
+      },
+    ],
   },
   {
-    category: 'Withdrawals',
+    category: "Withdrawals",
     questions: [
       {
-        question: 'How do I withdraw my funds?',
-        answer: 'Go to the Withdraw page, enter the amount you wish to withdraw, select your preferred cryptocurrency, and provide your wallet address. Withdrawals require admin approval.'
+        question: "How do I withdraw my funds?",
+        answer:
+          "Go to the Withdraw page, enter the amount you wish to withdraw, select your preferred cryptocurrency, and provide your wallet address. Withdrawals require admin approval.",
       },
       {
-        question: 'How long do withdrawals take?',
-        answer: 'Withdrawals are typically processed within 24-48 hours after admin approval. Network confirmation may take additional time depending on the cryptocurrency.'
+        question: "How long do withdrawals take?",
+        answer:
+          "Withdrawals are typically processed within 24-48 hours after admin approval. Network confirmation may take additional time depending on the cryptocurrency.",
       },
       {
-        question: 'Are there any withdrawal fees?',
-        answer: 'Yes, network fees apply based on the cryptocurrency you choose. These fees cover blockchain transaction costs and are clearly displayed before you confirm your withdrawal.'
+        question: "Are there any withdrawal fees?",
+        answer:
+          "Yes, network fees apply based on the cryptocurrency you choose. These fees cover blockchain transaction costs and are clearly displayed before you confirm your withdrawal.",
       },
       {
-        question: 'What is the minimum withdrawal amount?',
-        answer: 'The minimum withdrawal amount is $50 for most cryptocurrencies. This may vary depending on network fees and the specific cryptocurrency.'
-      }
-    ]
+        question: "What is the minimum withdrawal amount?",
+        answer:
+          "The minimum withdrawal amount is $50 for most cryptocurrencies. This may vary depending on network fees and the specific cryptocurrency.",
+      },
+    ],
   },
   {
-    category: 'Trading & Returns',
+    category: "Trading & Returns",
     questions: [
       {
-        question: 'How are investment returns calculated?',
-        answer: 'Returns are calculated based on your selected investment plan\'s rate and duration. Daily profits are added to your account balance automatically.'
+        question: "How are investment returns calculated?",
+        answer:
+          "Returns are calculated based on your selected investment plan's rate and duration. Daily profits are added to your account balance automatically.",
       },
       {
-        question: 'Can I cancel my investment before maturity?',
-        answer: 'Investment terms vary by plan. Some plans allow early withdrawal with penalties, while others require completion of the full term. Check your specific plan details.'
+        question: "Can I cancel my investment before maturity?",
+        answer:
+          "Investment terms vary by plan. Some plans allow early withdrawal with penalties, while others require completion of the full term. Check your specific plan details.",
       },
       {
-        question: 'How can I track my investment performance?',
-        answer: 'Visit your Portfolio page to see detailed information about your active investments, returns, and performance metrics.'
-      }
-    ]
-  }
+        question: "How can I track my investment performance?",
+        answer:
+          "Visit your Portfolio page to see detailed information about your active investments, returns, and performance metrics.",
+      },
+    ],
+  },
 ];
 
 // Contact information
 const CONTACT_INFO = [
   {
     icon: Mail,
-    title: 'Email Support',
-    value: 'support@axixfinance.com',
-    description: 'Get help via email within 24 hours',
-    action: 'Send Email'
+    title: "Email Support",
+    value: "support@axixfinance.com",
+    description: "Get help via email within 24 hours",
+    action: "Send Email",
   },
   {
     icon: MessageCircle,
-    title: 'Live Chat',
-    value: 'Available 24/7',
-    description: 'Instant support via live chat',
-    action: 'Start Chat'
+    title: "Live Chat",
+    value: "Available 24/7",
+    description: "Instant support via live chat",
+    action: "Start Chat",
   },
   {
     icon: Phone,
-    title: 'Phone Support',
-    value: '+1 (555) 123-4567',
-    description: 'Speak with our support team',
-    action: 'Call Now'
-  }
+    title: "Phone Support",
+    value: "+1 (555) 123-4567",
+    description: "Speak with our support team",
+    action: "Call Now",
+  },
 ];
 
 const NewSupport: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  const [activeTab, setActiveTab] = useState('faq');
+
+  const [activeTab, setActiveTab] = useState("faq");
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
-  
+
   // Support ticket form state
   const [ticketForm, setTicketForm] = useState({
-    subject: '',
-    category: 'general',
-    priority: 'medium',
-    message: '',
-    attachments: []
+    subject: "",
+    category: "general",
+    priority: "medium",
+    message: "",
+    attachments: [],
   });
 
   // Submit support ticket mutation
@@ -172,35 +186,36 @@ const NewSupport: React.FC = () => {
     mutationFn: (data: any) => submitSupportTicket(user?.id as number, data),
     onSuccess: () => {
       setTicketForm({
-        subject: '',
-        category: 'general',
-        priority: 'medium',
-        message: '',
-        attachments: []
+        subject: "",
+        category: "general",
+        priority: "medium",
+        message: "",
+        attachments: [],
       });
       toast({
-        title: 'Ticket Submitted',
-        description: 'Your support ticket has been submitted successfully. We\'ll respond within 24 hours.',
+        title: "Ticket Submitted",
+        description:
+          "Your support ticket has been submitted successfully. We'll respond within 24 hours.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Submission Failed',
-        description: error.message || 'Failed to submit support ticket.',
-        variant: 'destructive'
+        title: "Submission Failed",
+        description: error.message || "Failed to submit support ticket.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Handle ticket form submit
   const handleTicketSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!ticketForm.subject.trim() || !ticketForm.message.trim()) {
       toast({
-        title: 'Missing Information',
-        description: 'Please fill in all required fields.',
-        variant: 'destructive'
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
       });
       return;
     }
@@ -216,13 +231,13 @@ const NewSupport: React.FC = () => {
   // Get priority badge
   const getPriorityBadge = (priority: string) => {
     const styles = {
-      low: { bg: 'bg-blue-100', text: 'text-blue-800' },
-      medium: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-      high: { bg: 'bg-red-100', text: 'text-red-800' }
+      low: { bg: "bg-blue-100", text: "text-blue-800" },
+      medium: { bg: "bg-yellow-100", text: "text-yellow-800" },
+      high: { bg: "bg-red-100", text: "text-red-800" },
     };
-    
+
     const style = styles[priority as keyof typeof styles] || styles.medium;
-    
+
     return (
       <Badge className={`${style.bg} ${style.text} border-0 text-xs`}>
         {priority.charAt(0).toUpperCase() + priority.slice(1)}
@@ -239,7 +254,8 @@ const NewSupport: React.FC = () => {
           Help & Support
         </h1>
         <p className="text-gray-600 mt-2">
-          Get help with your account, find answers to common questions, or contact our support team.
+          Get help with your account, find answers to common questions, or
+          contact our support team.
         </p>
       </div>
 
@@ -257,7 +273,9 @@ const NewSupport: React.FC = () => {
                   <p className="text-sm text-gray-600">{contact.value}</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-4">{contact.description}</p>
+              <p className="text-sm text-gray-500 mb-4">
+                {contact.description}
+              </p>
               <Button variant="outline" className="w-full">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 {contact.action}
@@ -295,14 +313,19 @@ const NewSupport: React.FC = () => {
                       {category.questions.map((faq, faqIndex) => {
                         const faqId = `${categoryIndex}-${faqIndex}`;
                         const isExpanded = expandedFaq === faqId;
-                        
+
                         return (
-                          <div key={faqIndex} className="border border-gray-200 rounded-lg">
+                          <div
+                            key={faqIndex}
+                            className="border border-gray-200 rounded-lg"
+                          >
                             <button
                               onClick={() => toggleFaq(faqId)}
                               className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50"
                             >
-                              <span className="font-medium">{faq.question}</span>
+                              <span className="font-medium">
+                                {faq.question}
+                              </span>
                               {isExpanded ? (
                                 <ChevronDown className="h-4 w-4 text-gray-500" />
                               ) : (
@@ -311,7 +334,9 @@ const NewSupport: React.FC = () => {
                             </button>
                             {isExpanded && (
                               <div className="px-4 pb-4 border-t border-gray-100">
-                                <p className="text-gray-600 pt-3">{faq.answer}</p>
+                                <p className="text-gray-600 pt-3">
+                                  {faq.answer}
+                                </p>
                               </div>
                             )}
                           </div>
@@ -343,7 +368,12 @@ const NewSupport: React.FC = () => {
                       id="subject"
                       placeholder="Brief description of your issue"
                       value={ticketForm.subject}
-                      onChange={(e) => setTicketForm(prev => ({ ...prev, subject: e.target.value }))}
+                      onChange={(e) =>
+                        setTicketForm((prev) => ({
+                          ...prev,
+                          subject: e.target.value,
+                        }))
+                      }
                       required
                     />
                   </div>
@@ -352,7 +382,12 @@ const NewSupport: React.FC = () => {
                     <select
                       id="category"
                       value={ticketForm.category}
-                      onChange={(e) => setTicketForm(prev => ({ ...prev, category: e.target.value }))}
+                      onChange={(e) =>
+                        setTicketForm((prev) => ({
+                          ...prev,
+                          category: e.target.value,
+                        }))
+                      }
                       className="w-full h-10 pl-3 pr-10 py-2 border rounded-md bg-background text-foreground"
                     >
                       <option value="general">General Question</option>
@@ -370,7 +405,12 @@ const NewSupport: React.FC = () => {
                   <select
                     id="priority"
                     value={ticketForm.priority}
-                    onChange={(e) => setTicketForm(prev => ({ ...prev, priority: e.target.value }))}
+                    onChange={(e) =>
+                      setTicketForm((prev) => ({
+                        ...prev,
+                        priority: e.target.value,
+                      }))
+                    }
                     className="w-full h-10 pl-3 pr-10 py-2 border rounded-md bg-background text-foreground"
                   >
                     <option value="low">Low - General question</option>
@@ -385,7 +425,12 @@ const NewSupport: React.FC = () => {
                     id="message"
                     placeholder="Please describe your issue in detail..."
                     value={ticketForm.message}
-                    onChange={(e) => setTicketForm(prev => ({ ...prev, message: e.target.value }))}
+                    onChange={(e) =>
+                      setTicketForm((prev) => ({
+                        ...prev,
+                        message: e.target.value,
+                      }))
+                    }
                     rows={6}
                     required
                   />
@@ -405,12 +450,12 @@ const NewSupport: React.FC = () => {
                   </div>
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
-                  disabled={submitTicketMutation.isLoading}
+                  disabled={submitTicketMutation.isPending}
                 >
-                  {submitTicketMutation.isLoading ? (
+                  {submitTicketMutation.isPending ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                       Submitting...
@@ -478,7 +523,7 @@ const NewSupport: React.FC = () => {
                       Visit Forum
                     </Button>
                   </div>
-                  
+
                   <div className="p-3 border border-gray-200 rounded-lg">
                     <h4 className="font-medium mb-1">Video Tutorials</h4>
                     <p className="text-sm text-gray-600 mb-2">
@@ -489,7 +534,7 @@ const NewSupport: React.FC = () => {
                       Watch Videos
                     </Button>
                   </div>
-                  
+
                   <div className="p-3 border border-gray-200 rounded-lg">
                     <h4 className="font-medium mb-1">Status Page</h4>
                     <p className="text-sm text-gray-600 mb-2">

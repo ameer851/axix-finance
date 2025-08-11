@@ -1,11 +1,11 @@
+import react from "@vitejs/plugin-react";
 import express, { type Express } from "express";
 import fs from "fs";
-import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
-import { fileURLToPath } from 'url';
-import react from "@vitejs/plugin-react";
+import path from "path";
+import { fileURLToPath } from "url";
+import { createLogger, createServer as createViteServer } from "vite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,9 +24,18 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Guard: ensure we pass a plain Node HTTP server that Vite can attach to.
+  // Some environments may pass a wrapper lacking the needed event API.
+  const hasOn = typeof (server as any)?.on === "function";
+  const hmrServer = hasOn ? server : undefined;
+  if (!hasOn) {
+    console.warn(
+      "⚠️ Provided server lacks 'on' method; HMR websocket disabled."
+    );
+  }
   const serverOptions = {
     middlewareMode: true as const,
-    hmr: { server },
+    hmr: hmrServer ? { server: hmrServer } : false,
     allowedHosts: true as const,
   };
 
@@ -40,9 +49,7 @@ export async function setupVite(app: Express, server: Server) {
         "@assets": path.resolve(__dirname, "..", "attached_assets"),
       },
     },
-    plugins: [
-      react(),
-    ],
+    plugins: [react()],
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -70,7 +77,7 @@ export async function setupVite(app: Express, server: Server) {
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
+        `src="/src/main.tsx?v=${nanoid()}"`
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -86,7 +93,7 @@ export function serveStatic(app: Express) {
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
 

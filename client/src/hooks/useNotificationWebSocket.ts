@@ -1,16 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { notificationKeys } from '@/hooks/useNotifications';
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useState } from "react";
+// import { notificationKeys } from '@/hooks/useNotifications'; // disabled: module removed / pending reimplementation
 
-const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || (
-  window.location.protocol === 'https:' 
-    ? `wss://localhost:5000/ws` 
-    : `ws://localhost:5000/ws`
-);
+const WEBSOCKET_URL =
+  import.meta.env.VITE_WS_URL ||
+  (window.location.protocol === "https:"
+    ? `wss://localhost:5000/ws`
+    : `ws://localhost:5000/ws`);
 
 interface WebSocketMessage {
-  type: 'notification' | 'system' | 'error' | 'balance_update';
+  type: "notification" | "system" | "error" | "balance_update";
   data: any;
 }
 
@@ -18,7 +18,10 @@ interface BalanceUpdateHandler {
   onBalanceUpdate?: (newBalance: number, amount: number) => void;
 }
 
-const useNotificationWebSocket = (userId?: number, handlers?: BalanceUpdateHandler) => {
+const useNotificationWebSocket = (
+  userId?: number,
+  handlers?: BalanceUpdateHandler
+) => {
   // WebSocket disabled: return early to prevent connection attempts
   return {
     isConnected: false,
@@ -37,84 +40,89 @@ const useNotificationWebSocket = (userId?: number, handlers?: BalanceUpdateHandl
 
     // Max 5 connection attempts
     if (connectionAttempts >= 5) return;
-    
+
     try {
-      const ws = new WebSocket(`ws://localhost:5000/ws/notifications?userId=${userId}`);
-      
+      const ws = new WebSocket(
+        `ws://localhost:5000/ws/notifications?userId=${userId}`
+      );
+
       ws.onopen = () => {
-        console.log('WebSocket connection established');
+        console.log("WebSocket connection established");
         setIsConnected(true);
         setConnectionAttempts(0);
       };
-      
+
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          
-          if (message.type === 'notification') {
+
+          if (message.type === "notification") {
             // Invalidate notification queries to trigger refetch
-            queryClient.invalidateQueries({ queryKey: notificationKeys.all });
-            
+            // queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+
             // Show toast notification for important notifications
-            if (message.data.priority === 'high') {
+            if (message.data.priority === "high") {
               toast({
-                title: message.data.title || 'New notification',
+                title: message.data.title || "New notification",
                 description: message.data.message,
-                variant: 'default',
+                variant: "default",
               });
             }
-          } else if (message.type === 'balance_update') {
+          } else if (message.type === "balance_update") {
             // Handle balance updates
-            console.log('Balance update received:', message.data);
-            
+            console.log("Balance update received:", message.data);
+
             // Call the balance update handler if provided
             if (handlers?.onBalanceUpdate) {
-              handlers.onBalanceUpdate(message.data.newBalance, message.data.amount);
+              handlers.onBalanceUpdate(
+                message.data.newBalance,
+                message.data.amount
+              );
             }
-            
+
             // Invalidate relevant queries to trigger refetch
-            queryClient.invalidateQueries({ queryKey: ['profile'] });
-            queryClient.invalidateQueries({ queryKey: ['balance'] });
-            
+            queryClient.invalidateQueries({ queryKey: ["profile"] });
+            queryClient.invalidateQueries({ queryKey: ["balance"] });
+
             // Show toast notification for balance updates
             toast({
-              title: message.data.title || 'Balance Updated',
+              title: message.data.title || "Balance Updated",
               description: message.data.message,
-              variant: 'default',
+              variant: "default",
             });
-          } else if (message.type === 'system') {
+          } else if (message.type === "system") {
             // Handle system messages
-            console.log('System message:', message.data);
-          } else if (message.type === 'error') {
-            console.error('WebSocket error message:', message.data);
+            console.log("System message:", message.data);
+          } else if (message.type === "error") {
+            console.error("WebSocket error message:", message.data);
           }
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          console.error("Failed to parse WebSocket message:", error);
         }
       };
-      
+
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
         setIsConnected(false);
       };
-      
+
       ws.onclose = () => {
-        console.log('WebSocket connection closed');
+        console.log("WebSocket connection closed");
         setIsConnected(false);
         setSocket(null);
-        
+
         // Attempt to reconnect after a delay
         setTimeout(() => {
-          setConnectionAttempts(prev => prev + 1);
+          setConnectionAttempts((prev) => prev + 1);
         }, 5000); // 5 second delay before reconnecting
       };
-      
+
       setSocket(ws);
     } catch (error) {
-      console.error('Failed to establish WebSocket connection:', error);
-      setConnectionAttempts(prev => prev + 1);
+      console.error("Failed to establish WebSocket connection:", error);
+      setConnectionAttempts((prev) => prev + 1);
     }
-    
+
     // Cleanup on unmount
     return () => {
       if (socket && socket.readyState === WebSocket.OPEN) {
@@ -122,16 +130,19 @@ const useNotificationWebSocket = (userId?: number, handlers?: BalanceUpdateHandl
       }
     };
   }, [userId, connectionAttempts, queryClient, toast, handlers]);
-  
+
   // Send a message through the WebSocket
-  const sendMessage = useCallback((message: any) => {
-    if (socket && isConnected) {
-      socket.send(JSON.stringify(message));
-      return true;
-    }
-    return false;
-  }, [socket, isConnected]);
-  
+  const sendMessage = useCallback(
+    (message: any) => {
+      if (socket && isConnected) {
+        socket.send(JSON.stringify(message));
+        return true;
+      }
+      return false;
+    },
+    [socket, isConnected]
+  );
+
   return {
     isConnected,
     sendMessage,

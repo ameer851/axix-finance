@@ -38,11 +38,18 @@ import { api } from "@/lib/api";
 // API function for submitting deposit confirmation (matches server route)
 const submitDepositConfirmation = async (
   _userId: number,
-  confirmationData: { amount: string; transactionHash: string }
+  confirmationData: {
+    amount: string;
+    transactionHash: string;
+    method?: string;
+    planName?: string;
+  }
 ) => {
   const response = await api.post("/api/transactions/deposit-confirmation", {
     amount: Number(confirmationData.amount),
     transactionHash: confirmationData.transactionHash,
+    method: confirmationData.method,
+    planName: confirmationData.planName,
   });
   return response as any;
 };
@@ -93,6 +100,8 @@ const NewDepositConfirmation: React.FC = () => {
       const payload = {
         transactionHash: data.transactionHash,
         amount: data.depositDetails.amount,
+        method: data.depositDetails.method,
+        planName: data.depositDetails.planName,
       };
 
       console.log("📦 Final payload:", payload);

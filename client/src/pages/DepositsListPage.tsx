@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
+import { queryKeys } from "@/lib/queryKeys";
 import { getTransactions } from "@/services/transactionService";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
@@ -16,7 +17,7 @@ import React from "react";
 const DepositsListPage: React.FC = () => {
   const { user } = useAuth();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["deposits", user?.id],
+    queryKey: queryKeys.deposits(user?.id),
     queryFn: () =>
       getTransactions({
         type: "deposit",
@@ -65,7 +66,18 @@ const DepositsListPage: React.FC = () => {
               data.transactions.map((deposit) => (
                 <TableRow key={deposit.id}>
                   <TableCell>
-                    {new Date(deposit.createdAt).toLocaleDateString()}
+                    {deposit.createdAt
+                      ? (() => {
+                          const value = deposit.createdAt;
+                          const date =
+                            value instanceof Date
+                              ? value
+                              : new Date(value as string);
+                          return isNaN(date.getTime())
+                            ? "Invalid"
+                            : date.toLocaleDateString();
+                        })()
+                      : "N/A"}
                   </TableCell>
                   <TableCell>${deposit.amount}</TableCell>
                   <TableCell>

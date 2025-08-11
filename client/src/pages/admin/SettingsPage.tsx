@@ -1,20 +1,36 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminService } from '../../services/adminService';
-import { toast } from '../../hooks/use-toast';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Switch } from '../../components/ui/switch';
-import { Settings, Save, Globe, Mail, DollarSign, Shield, Clock, Key, Eye, EyeOff } from 'lucide-react';
-import EmailTester from '@/components/admin/EmailTester';
+import EmailTester from "@/components/admin/EmailTester";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Clock,
+  DollarSign,
+  Eye,
+  EyeOff,
+  Globe,
+  Key,
+  Mail,
+  Save,
+  Settings,
+  Shield,
+} from "lucide-react";
+import React, { useState } from "react";
+import { Button } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Switch } from "../../components/ui/switch";
+import { toast } from "../../hooks/use-toast";
+import { adminService } from "../../services/adminService";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const [settings, setSettings] = useState({
-    siteName: 'AxixFinance',
-    supportEmail: 'support@axixfinance.com',
+  const [settings, setSettings] = useState<{ [k: string]: any }>({
+    siteName: "AxixFinance",
+    supportEmail: "support@axixfinance.com",
     maxDepositAmount: 10000,
     minDepositAmount: 100,
     defaultDepositFee: 0.02,
@@ -24,38 +40,42 @@ export default function SettingsPage() {
     emailNotifications: true,
     smsNotifications: false,
     twoFactorRequired: false,
-    sessionTimeout: 30
+    sessionTimeout: 30,
   });
 
   // Password change state
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
-  
+
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
-    confirm: false
+    confirm: false,
   });
 
   const { data: serverSettings, isLoading } = useQuery({
-    queryKey: ['admin-settings'],
-    queryFn: adminService.getSystemSettings
+    queryKey: ["admin-settings"],
+    queryFn: adminService.getSystemSettings,
   });
 
   React.useEffect(() => {
     if (serverSettings) {
-      setSettings(prev => ({
+      setSettings((prev) => ({
         ...prev,
         ...serverSettings,
         // Ensure numeric fields are properly handled
-        maxDepositAmount: serverSettings.maxDepositAmount || prev.maxDepositAmount,
-        minDepositAmount: serverSettings.minDepositAmount || prev.minDepositAmount,
-        defaultDepositFee: serverSettings.defaultDepositFee || prev.defaultDepositFee,
-        defaultWithdrawalFee: serverSettings.defaultWithdrawalFee || prev.defaultWithdrawalFee,
-        sessionTimeout: serverSettings.sessionTimeout || prev.sessionTimeout
+        maxDepositAmount:
+          serverSettings.maxDepositAmount || prev.maxDepositAmount,
+        minDepositAmount:
+          serverSettings.minDepositAmount || prev.minDepositAmount,
+        defaultDepositFee:
+          serverSettings.defaultDepositFee || prev.defaultDepositFee,
+        defaultWithdrawalFee:
+          serverSettings.defaultWithdrawalFee || prev.defaultWithdrawalFee,
+        sessionTimeout: serverSettings.sessionTimeout || prev.sessionTimeout,
       }));
     }
   }, [serverSettings]);
@@ -63,50 +83,55 @@ export default function SettingsPage() {
   const updateMutation = useMutation({
     mutationFn: adminService.updateSystemSettings,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
-      toast({ title: 'Success', description: 'Settings updated successfully' });
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      toast({ title: "Success", description: "Settings updated successfully" });
     },
     onError: () => {
-      toast({ title: 'Error', description: 'Failed to update settings', variant: 'destructive' });
-    }
+      toast({
+        title: "Error",
+        description: "Failed to update settings",
+        variant: "destructive",
+      });
+    },
   });
 
   const passwordMutation = useMutation({
-    mutationFn: () => adminService.updateAdminPassword(
-      passwordData.currentPassword,
-      passwordData.newPassword,
-      passwordData.confirmPassword
-    ),
+    mutationFn: () =>
+      adminService.updateAdminPassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword,
+      }),
     onSuccess: () => {
-      toast({ 
-        title: 'Success', 
-        description: 'Password updated successfully' 
+      toast({
+        title: "Success",
+        description: "Password updated successfully",
       });
       // Reset password form
       setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
       setShowPasswords({
         current: false,
         new: false,
-        confirm: false
+        confirm: false,
       });
     },
     onError: (error: any) => {
-      toast({ 
-        title: 'Error', 
-        description: error.message || 'Failed to update password', 
-        variant: 'destructive' 
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update password",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleInputChange = (field: string, value: any) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -114,38 +139,45 @@ export default function SettingsPage() {
     updateMutation.mutate(settings);
   };
 
-  const handlePasswordChange = (field: keyof typeof passwordData, value: string) => {
-    setPasswordData(prev => ({
+  const handlePasswordChange = (
+    field: keyof typeof passwordData,
+    value: string
+  ) => {
+    setPasswordData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const handlePasswordSubmit = () => {
     // Validation
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+    if (
+      !passwordData.currentPassword ||
+      !passwordData.newPassword ||
+      !passwordData.confirmPassword
+    ) {
       toast({
-        title: 'Error',
-        description: 'All password fields are required',
-        variant: 'destructive'
+        title: "Error",
+        description: "All password fields are required",
+        variant: "destructive",
       });
       return;
     }
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast({
-        title: 'Error',
-        description: 'New password and confirm password do not match',
-        variant: 'destructive'
+        title: "Error",
+        description: "New password and confirm password do not match",
+        variant: "destructive",
       });
       return;
     }
 
     if (passwordData.newPassword.length < 8) {
       toast({
-        title: 'Error',
-        description: 'New password must be at least 8 characters long',
-        variant: 'destructive'
+        title: "Error",
+        description: "New password must be at least 8 characters long",
+        variant: "destructive",
       });
       return;
     }
@@ -154,9 +186,9 @@ export default function SettingsPage() {
   };
 
   const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
-    setShowPasswords(prev => ({
+    setShowPasswords((prev) => ({
       ...prev,
-      [field]: !prev[field]
+      [field]: !prev[field],
     }));
   };
 
@@ -175,8 +207,8 @@ export default function SettingsPage() {
           <Settings className="h-8 w-8" />
           System Settings
         </h1>
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={updateMutation.isPending}
           className="bg-blue-600 hover:bg-blue-700"
         >
@@ -199,8 +231,8 @@ export default function SettingsPage() {
               <Label htmlFor="siteName">Site Name</Label>
               <Input
                 id="siteName"
-                value={settings.siteName || ''}
-                onChange={(e) => handleInputChange('siteName', e.target.value)}
+                value={settings.siteName || ""}
+                onChange={(e) => handleInputChange("siteName", e.target.value)}
                 placeholder="Enter site name"
               />
             </div>
@@ -209,8 +241,10 @@ export default function SettingsPage() {
               <Input
                 id="supportEmail"
                 type="email"
-                value={settings.supportEmail || ''}
-                onChange={(e) => handleInputChange('supportEmail', e.target.value)}
+                value={settings.supportEmail || ""}
+                onChange={(e) =>
+                  handleInputChange("supportEmail", e.target.value)
+                }
                 placeholder="support@example.com"
               />
             </div>
@@ -220,7 +254,12 @@ export default function SettingsPage() {
                 id="sessionTimeout"
                 type="number"
                 value={settings.sessionTimeout || 30}
-                onChange={(e) => handleInputChange('sessionTimeout', parseInt(e.target.value) || 30)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "sessionTimeout",
+                    parseInt(e.target.value) || 30
+                  )
+                }
                 placeholder="30"
               />
             </div>
@@ -237,22 +276,36 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="minDepositAmount">Minimum Deposit Amount ($)</Label>
+              <Label htmlFor="minDepositAmount">
+                Minimum Deposit Amount ($)
+              </Label>
               <Input
                 id="minDepositAmount"
                 type="number"
                 value={settings.minDepositAmount || 100}
-                onChange={(e) => handleInputChange('minDepositAmount', parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "minDepositAmount",
+                    parseFloat(e.target.value) || 0
+                  )
+                }
                 placeholder="100"
               />
             </div>
             <div>
-              <Label htmlFor="maxDepositAmount">Maximum Deposit Amount ($)</Label>
+              <Label htmlFor="maxDepositAmount">
+                Maximum Deposit Amount ($)
+              </Label>
               <Input
                 id="maxDepositAmount"
                 type="number"
                 value={settings.maxDepositAmount || 10000}
-                onChange={(e) => handleInputChange('maxDepositAmount', parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "maxDepositAmount",
+                    parseFloat(e.target.value) || 0
+                  )
+                }
                 placeholder="10000"
               />
             </div>
@@ -263,18 +316,30 @@ export default function SettingsPage() {
                 type="number"
                 step="0.01"
                 value={(settings.defaultDepositFee || 0) * 100}
-                onChange={(e) => handleInputChange('defaultDepositFee', (parseFloat(e.target.value) || 0) / 100)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "defaultDepositFee",
+                    (parseFloat(e.target.value) || 0) / 100
+                  )
+                }
                 placeholder="2.0"
               />
             </div>
             <div>
-              <Label htmlFor="defaultWithdrawalFee">Default Withdrawal Fee (%)</Label>
+              <Label htmlFor="defaultWithdrawalFee">
+                Default Withdrawal Fee (%)
+              </Label>
               <Input
                 id="defaultWithdrawalFee"
                 type="number"
                 step="0.01"
                 value={(settings.defaultWithdrawalFee || 0) * 100}
-                onChange={(e) => handleInputChange('defaultWithdrawalFee', (parseFloat(e.target.value) || 0) / 100)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "defaultWithdrawalFee",
+                    (parseFloat(e.target.value) || 0) / 100
+                  )
+                }
                 placeholder="3.0"
               />
             </div>
@@ -293,23 +358,31 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="registrationEnabled">User Registration</Label>
-                <p className="text-sm text-gray-500">Allow new users to register</p>
+                <p className="text-sm text-gray-500">
+                  Allow new users to register
+                </p>
               </div>
               <Switch
                 id="registrationEnabled"
                 checked={settings.registrationEnabled}
-                onCheckedChange={(checked) => handleInputChange('registrationEnabled', checked)}
+                onCheckedChange={(checked) =>
+                  handleInputChange("registrationEnabled", checked)
+                }
               />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="twoFactorRequired">Require 2FA</Label>
-                <p className="text-sm text-gray-500">Mandatory two-factor authentication</p>
+                <p className="text-sm text-gray-500">
+                  Mandatory two-factor authentication
+                </p>
               </div>
               <Switch
                 id="twoFactorRequired"
                 checked={settings.twoFactorRequired}
-                onCheckedChange={(checked) => handleInputChange('twoFactorRequired', checked)}
+                onCheckedChange={(checked) =>
+                  handleInputChange("twoFactorRequired", checked)
+                }
               />
             </div>
           </CardContent>
@@ -327,28 +400,36 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="emailNotifications">Email Notifications</Label>
-                <p className="text-sm text-gray-500">Send email notifications to users</p>
+                <p className="text-sm text-gray-500">
+                  Send email notifications to users
+                </p>
               </div>
               <Switch
                 id="emailNotifications"
                 checked={settings.emailNotifications}
-                onCheckedChange={(checked) => handleInputChange('emailNotifications', checked)}
+                onCheckedChange={(checked) =>
+                  handleInputChange("emailNotifications", checked)
+                }
               />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="smsNotifications">SMS Notifications</Label>
-                <p className="text-sm text-gray-500">Send SMS notifications to users</p>
+                <p className="text-sm text-gray-500">
+                  Send SMS notifications to users
+                </p>
               </div>
               <Switch
                 id="smsNotifications"
                 checked={settings.smsNotifications}
-                onCheckedChange={(checked) => handleInputChange('smsNotifications', checked)}
+                onCheckedChange={(checked) =>
+                  handleInputChange("smsNotifications", checked)
+                }
               />
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Email Testing Tool */}
         <EmailTester />
 
@@ -364,19 +445,26 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="maintenanceMode">Maintenance Mode</Label>
-                <p className="text-sm text-gray-500">Put the system in maintenance mode</p>
+                <p className="text-sm text-gray-500">
+                  Put the system in maintenance mode
+                </p>
               </div>
               <Switch
                 id="maintenanceMode"
                 checked={settings.maintenanceMode}
-                onCheckedChange={(checked) => handleInputChange('maintenanceMode', checked)}
+                onCheckedChange={(checked) =>
+                  handleInputChange("maintenanceMode", checked)
+                }
               />
             </div>
             {settings.maintenanceMode && (
               <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 font-semibold">⚠️ Maintenance Mode Active</p>
+                <p className="text-yellow-800 font-semibold">
+                  ⚠️ Maintenance Mode Active
+                </p>
                 <p className="text-yellow-700 text-sm mt-1">
-                  The system is currently in maintenance mode. Only administrators can access the platform.
+                  The system is currently in maintenance mode. Only
+                  administrators can access the platform.
                 </p>
               </div>
             )}
@@ -402,7 +490,9 @@ export default function SettingsPage() {
                   id="currentPassword"
                   type={showPasswords.current ? "text" : "password"}
                   value={passwordData.currentPassword}
-                  onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
+                  onChange={(e) =>
+                    handlePasswordChange("currentPassword", e.target.value)
+                  }
                   placeholder="Enter current password"
                   className="pr-10"
                 />
@@ -411,7 +501,7 @@ export default function SettingsPage() {
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => togglePasswordVisibility('current')}
+                  onClick={() => togglePasswordVisibility("current")}
                 >
                   {showPasswords.current ? (
                     <EyeOff className="h-4 w-4" />
@@ -430,7 +520,9 @@ export default function SettingsPage() {
                   id="newPassword"
                   type={showPasswords.new ? "text" : "password"}
                   value={passwordData.newPassword}
-                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                  onChange={(e) =>
+                    handlePasswordChange("newPassword", e.target.value)
+                  }
                   placeholder="Enter new password"
                   className="pr-10"
                 />
@@ -439,7 +531,7 @@ export default function SettingsPage() {
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => togglePasswordVisibility('new')}
+                  onClick={() => togglePasswordVisibility("new")}
                 >
                   {showPasswords.new ? (
                     <EyeOff className="h-4 w-4" />
@@ -448,11 +540,12 @@ export default function SettingsPage() {
                   )}
                 </Button>
               </div>
-              {passwordData.newPassword && passwordData.newPassword.length < 8 && (
-                <p className="text-sm text-red-600 mt-1">
-                  Password must be at least 8 characters long
-                </p>
-              )}
+              {passwordData.newPassword &&
+                passwordData.newPassword.length < 8 && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Password must be at least 8 characters long
+                  </p>
+                )}
             </div>
 
             {/* Confirm Password */}
@@ -463,7 +556,9 @@ export default function SettingsPage() {
                   id="confirmPassword"
                   type={showPasswords.confirm ? "text" : "password"}
                   value={passwordData.confirmPassword}
-                  onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                  onChange={(e) =>
+                    handlePasswordChange("confirmPassword", e.target.value)
+                  }
                   placeholder="Confirm new password"
                   className="pr-10"
                 />
@@ -472,7 +567,7 @@ export default function SettingsPage() {
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => togglePasswordVisibility('confirm')}
+                  onClick={() => togglePasswordVisibility("confirm")}
                 >
                   {showPasswords.confirm ? (
                     <EyeOff className="h-4 w-4" />
@@ -481,22 +576,23 @@ export default function SettingsPage() {
                   )}
                 </Button>
               </div>
-              {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
-                <p className="text-sm text-red-600 mt-1">
-                  Passwords do not match
-                </p>
-              )}
+              {passwordData.confirmPassword &&
+                passwordData.newPassword !== passwordData.confirmPassword && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Passwords do not match
+                  </p>
+                )}
             </div>
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button 
+            <Button
               onClick={handlePasswordSubmit}
               disabled={passwordMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
               <Shield className="w-4 h-4 mr-2" />
-              {passwordMutation.isPending ? 'Updating...' : 'Update Password'}
+              {passwordMutation.isPending ? "Updating..." : "Update Password"}
             </Button>
           </div>
         </CardContent>
@@ -504,14 +600,14 @@ export default function SettingsPage() {
 
       {/* Save Button at Bottom */}
       <div className="flex justify-end">
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={updateMutation.isPending}
           size="lg"
           className="bg-blue-600 hover:bg-blue-700"
         >
           <Save className="w-4 h-4 mr-2" />
-          {updateMutation.isPending ? 'Saving...' : 'Save All Settings'}
+          {updateMutation.isPending ? "Saving..." : "Save All Settings"}
         </Button>
       </div>
     </div>

@@ -22,7 +22,7 @@ const VerificationBanner: React.FC = () => {
   }
   */
 
-  const userEmail = user.email || "";
+  const userEmail = user?.email || "";
 
   const handleResendClick = async () => {
     setIsResending(true);

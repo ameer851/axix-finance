@@ -29,6 +29,7 @@
     "email:test:resend:simple": "node scripts/simple-test-resend.js",
     "email:test:resend:direct": "node scripts/direct-test-resend.js",
     "email:test:resend:smtp": "node scripts/test-resend-smtp.js",
+    "email:test:resend:api": "cross-env RESEND_DISABLE_SMTP_FALLBACK=true node scripts/test-resend-api-direct.js",
     "email:setup:resend": "node scripts/setup-resend.js",
     "email:diagnose:prod": "node scripts/email-diagnostic.js --prod",
     "build:prod": "NODE_ENV=production npm run build",

@@ -4,14 +4,14 @@ import { adminService } from "@/services/adminService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-interface DashboardStats {
+type DashboardStats = {
   totalUsers: number;
   activeUsers: number;
   totalDeposits: number;
   totalWithdrawals: number;
   pendingTransactions: number;
-  maintenanceMode: boolean;
-}
+  maintenanceMode?: boolean; // optional from backend
+};
 
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
   });
 
   // Provide default values if stats is undefined
-  const dashboardStats = stats || {
+  const dashboardStats: DashboardStats = stats || {
     totalUsers: 0,
     activeUsers: 0,
     totalDeposits: 0,
@@ -65,11 +65,11 @@ export default function AdminDashboard() {
     }
 
     try {
-      await adminService.updateAdminPassword(
+      await adminService.updateAdminPassword({
         currentPassword,
         newPassword,
-        newPassword
-      );
+        confirmPassword: newPassword,
+      });
 
       toast({
         title: "Success",

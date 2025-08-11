@@ -24,10 +24,15 @@ const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response = await api.get(`/api/users/${userId}/balance`);
-    if (!response.data) {
-      // Handle cases where response.data is undefined
-      console.error("Balance fetch error: Response data is undefined.");
+    const response: any = await api.get(`/api/users/${userId}/balance`);
+    // Support both flat object and { data: { ... } } shapes
+    const data =
+      response && typeof response === "object" && "data" in response
+        ? response.data
+        : response;
+
+    if (!data || typeof data !== "object") {
+      console.warn("Balance fetch: unexpected response shape", response);
       return {
         availableBalance: 0,
         pendingBalance: 0,
@@ -35,14 +40,15 @@ const fetchUserBalance = async (userId: number) => {
         lastUpdated: new Date().toISOString(),
       };
     }
+
     return {
-      availableBalance: Number(response.data.availableBalance) || 0,
-      pendingBalance: Number(response.data.pendingBalance) || 0,
+      availableBalance: Number((data as any).availableBalance) || 0,
+      pendingBalance: Number((data as any).pendingBalance) || 0,
       totalBalance:
-        Number(response.data.totalBalance) ||
-        Number(response.data.availableBalance) ||
+        Number((data as any).totalBalance) ||
+        Number((data as any).availableBalance) ||
         0,
-      lastUpdated: response.data.lastUpdated || new Date().toISOString(),
+      lastUpdated: (data as any).lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
     console.error("Balance fetch error:", error);
@@ -60,10 +66,14 @@ const fetchUserTransactions = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response = await api.get(
+    const response: any = await api.get(
       `/api/users/${userId}/transactions?limit=10`
     );
-    return Array.isArray(response.data) ? response.data : [];
+    const data =
+      response && typeof response === "object" && "data" in response
+        ? response.data
+        : response;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Network error fetching transactions:", error);
     return [];

@@ -65,7 +65,11 @@ const WithdrawalsHistoryPage: React.FC = () => {
               data.transactions.map((withdrawal) => (
                 <TableRow key={withdrawal.id}>
                   <TableCell>
-                    {new Date(withdrawal.createdAt).toLocaleDateString()}
+                    {withdrawal.createdAt
+                      ? new Date(
+                          withdrawal.createdAt as any
+                        ).toLocaleDateString()
+                      : "N/A"}
                   </TableCell>
                   <TableCell>${withdrawal.amount}</TableCell>
                   <TableCell>

@@ -153,45 +153,50 @@ export async function getUserBalance(userId?: number | string): Promise<{
   }
 
   try {
-    const data = await api.get<{
-      availableBalance?: number;
-      pendingBalance?: number;
-      totalBalance?: number;
-      lastUpdated?: string;
-    }>(`/api/users/${userId}/balance`);
+    const raw = await api.get<any>(`/api/users/${userId}/balance`);
+    if (!raw || typeof raw !== "object")
+      throw new Error("Empty balance response");
 
-    const {
-      availableBalance = 0,
-      pendingBalance = 0,
-      totalBalance,
-      lastUpdated,
-    } = data;
-
+    const available =
+      raw.availableBalance !== undefined
+        ? Number(raw.availableBalance)
+        : raw.balance !== undefined
+          ? Number(raw.balance)
+          : 0;
+    const pending = Number(raw.pendingBalance || 0);
+    const total = Number(
+      raw.totalBalance !== undefined ? raw.totalBalance : available + pending
+    );
     return {
-      availableBalance: Number(availableBalance),
-      pendingBalance: Number(pendingBalance),
-      totalBalance: Number(totalBalance || availableBalance + pendingBalance),
-      lastUpdated: lastUpdated || new Date().toISOString(),
+      availableBalance: available,
+      pendingBalance: pending,
+      totalBalance: total,
+      lastUpdated: raw.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
     console.error("Error fetching user balance:", error);
-
-    // Try to get balance from localStorage as fallback
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user?.balance) {
-        const balance = Number(user.balance);
-        return {
-          availableBalance: balance,
-          pendingBalance: 0,
-          totalBalance: balance,
-          lastUpdated: new Date().toISOString(),
-        };
+    // Fallback to stored user
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        if (user?.balance != null) {
+          const balance = Number(user.balance) || 0;
+          return {
+            availableBalance: balance,
+            pendingBalance: 0,
+            totalBalance: balance,
+            lastUpdated: new Date().toISOString(),
+          };
+        }
       }
-    }
-
-    throw new Error(error.message || "Failed to fetch balance");
+    } catch {}
+    return {
+      availableBalance: 0,
+      pendingBalance: 0,
+      totalBalance: 0,
+      lastUpdated: new Date().toISOString(),
+    };
   }
 }
 
