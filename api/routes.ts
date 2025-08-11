@@ -1,36 +1,23 @@
 // Import minimal routes for Vercel serverless function
 import type { Express, Request, Response } from "express";
 import express from "express";
-import {
-  RequestWithAuth as AuthenticatedRequest,
-  requireAuth,
-} from "./middleware/auth-middleware";
-import {
-  approveDeposit,
-  approveWithdrawal,
-  createDeposit,
-  createWithdrawal,
-  getAdminDashboardData,
-  getAdminDeposits,
-  getAdminWithdrawals,
-  getUserBalance,
-  getUserDeposits,
-  getUserWithdrawals,
-  isSupabaseConfigured,
-  supabase,
-} from "./supabase";
-import { registerDebugRoutes } from "./utils/debug-env";
-import {
-  emailHealth,
-  sendWelcomeEmail as sendBasicWelcomeEmail,
-} from "./utils/email";
-import { registerVisitorsApi } from "./utils/visitors-api";
+import type { RequestWithAuth as AuthenticatedRequest } from "./middleware/auth-middleware";
+// NOTE: Runtime imports for local modules use .js extensions for Vercel ESM
 
 /**
  * Registers minimal routes for the Vercel serverless function
  * This is a simplified version of the server/routes.ts file
  */
 export async function registerRoutes(app: Express) {
+  // Dynamic runtime imports to avoid ESM extension issues
+  const { requireAuth } = await import("./middleware/auth-middleware.js");
+  const supa = await import("./supabase.js");
+  const { registerDebugRoutes } = await import("./utils/debug-env.js");
+  const { emailHealth, sendWelcomeEmail: sendBasicWelcomeEmail } = await import(
+    "./utils/email.js"
+  );
+  const { registerVisitorsApi } = await import("./utils/visitors-api.js");
+
   // Use JSON middleware
   app.use(express.json());
 
@@ -70,11 +57,14 @@ export async function registerRoutes(app: Express) {
   // DB health (lightweight, no data leakage)
   app.get("/api/db-health", async (_req, res) => {
     try {
-      if (!isSupabaseConfigured || !supabase) {
+      if (!supa.isSupabaseConfigured || !supa.supabase) {
         return res.json({ configured: false, reachable: false });
       }
       // Minimal ping: attempt a cheap RPC (or select 1 pattern via from)
-      const { error } = await supabase.from("users").select("id").limit(1);
+      const { error } = await supa.supabase
+        .from("users")
+        .select("id")
+        .limit(1);
       if (error) {
         console.error("/api/db-health select error", error);
         return res.json({ configured: true, reachable: false });
@@ -82,7 +72,7 @@ export async function registerRoutes(app: Express) {
       res.json({ configured: true, reachable: true });
     } catch (e) {
       console.error("/api/db-health error", e);
-      res.json({ configured: !!isSupabaseConfigured, reachable: false });
+      res.json({ configured: !!supa.isSupabaseConfigured, reachable: false });
     }
   });
 
@@ -145,7 +135,7 @@ export async function registerRoutes(app: Express) {
         }
 
         // Get actual balance from database
-        const balanceData = await getUserBalance(userId);
+      const balanceData = await supa.getUserBalance(userId);
 
         if (!balanceData) {
           return res.status(404).json({ message: "User or balance not found" });
@@ -169,7 +159,7 @@ export async function registerRoutes(app: Express) {
           return res.status(403).json({ message: "Admin access required" });
         }
 
-        const dashboardData = await getAdminDashboardData();
+  const dashboardData = await supa.getAdminDashboardData();
         return res.status(200).json(dashboardData);
       } catch (error) {
         console.error("Admin dashboard error:", error);
@@ -192,7 +182,7 @@ export async function registerRoutes(app: Express) {
 
         const { status, dateFrom, dateTo, amountMin, amountMax } = req.query;
 
-        const deposits = await getAdminDeposits({
+  const deposits = await supa.getAdminDeposits({
           status: status as string,
           dateFrom: dateFrom as string,
           dateTo: dateTo as string,
@@ -222,7 +212,7 @@ export async function registerRoutes(app: Express) {
           return res.status(403).json({ message: "Admin access required" });
         }
 
-        const success = await approveDeposit(req.params.id);
+  const success = await supa.approveDeposit(req.params.id);
 
         if (!success) {
           return res.status(500).json({ message: "Failed to approve deposit" });
@@ -250,7 +240,7 @@ export async function registerRoutes(app: Express) {
 
         const { status, dateFrom, dateTo, amountMin, amountMax } = req.query;
 
-        const withdrawals = await getAdminWithdrawals({
+  const withdrawals = await supa.getAdminWithdrawals({
           status: status as string,
           dateFrom: dateFrom as string,
           dateTo: dateTo as string,
@@ -282,7 +272,7 @@ export async function registerRoutes(app: Express) {
           return res.status(403).json({ message: "Admin access required" });
         }
 
-        const success = await approveWithdrawal(req.params.id);
+  const success = await supa.approveWithdrawal(req.params.id);
 
         if (!success) {
           return res
@@ -310,7 +300,7 @@ export async function registerRoutes(app: Express) {
         const userId = req.params.userId;
 
         // Get deposits from database
-        const deposits = await getUserDeposits(userId);
+  const deposits = await supa.getUserDeposits(userId);
 
         if (!deposits) {
           return res.status(404).json({ message: "User deposits not found" });
@@ -332,7 +322,7 @@ export async function registerRoutes(app: Express) {
         const userId = req.params.userId;
 
         // Get withdrawals from database
-        const withdrawals = await getUserWithdrawals(userId);
+  const withdrawals = await supa.getUserWithdrawals(userId);
 
         if (!withdrawals) {
           return res
@@ -365,7 +355,7 @@ export async function registerRoutes(app: Express) {
         }
 
         // Create deposit in database
-        const deposit = await createDeposit(
+  const deposit = await supa.createDeposit(
           userId,
           Number(amount),
           method,
@@ -399,7 +389,7 @@ export async function registerRoutes(app: Express) {
         }
 
         // Create withdrawal in database
-        const withdrawal = await createWithdrawal(
+  const withdrawal = await supa.createWithdrawal(
           userId,
           Number(amount),
           method,
@@ -454,10 +444,10 @@ export async function registerRoutes(app: Express) {
   // Balance deposit transaction (method balance)
   app.post(
     "/api/transactions/deposit",
-    requireAuth,
+  requireAuth,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        if (!isSupabaseConfigured || !supabase) {
+    if (!supa.isSupabaseConfigured || !supa.supabase) {
           console.error("[deposit] Supabase not configured", {
             urlPresent: !!process.env.SUPABASE_URL,
             keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -473,7 +463,7 @@ export async function registerRoutes(app: Express) {
           return res.status(400).json({ message: "Invalid amount" });
         if (!method)
           return res.status(400).json({ message: "Method required" });
-        const { data, error } = await supabase
+  const { data, error } = await supa.supabase
           .from("deposits")
           .insert([
             {
@@ -506,7 +496,7 @@ export async function registerRoutes(app: Express) {
     res: Response
   ) => {
     try {
-      if (!isSupabaseConfigured || !supabase) {
+  if (!supa.isSupabaseConfigured || !supa.supabase) {
         console.error("[deposit-confirmation] Supabase not configured", {
           urlPresent: !!process.env.SUPABASE_URL,
           keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -523,7 +513,7 @@ export async function registerRoutes(app: Express) {
       const combinedRef = [planName, transactionHash]
         .filter(Boolean)
         .join(" | ");
-      const { data, error } = await supabase
+  const { data, error } = await supa.supabase
         .from("deposits")
         .insert([
           {
@@ -565,7 +555,7 @@ export async function registerRoutes(app: Express) {
       emailFromPresent: !!process.env.EMAIL_FROM,
       supabaseUrlPresent: !!process.env.SUPABASE_URL,
       supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      supabaseConfigured: isSupabaseConfigured,
+  supabaseConfigured: supa.isSupabaseConfigured,
     });
   });
 
