@@ -4,6 +4,7 @@
 
 server/
 scripts/
+!scripts/verify-dist.cjs
 migrations/
 docs/
 logs/
