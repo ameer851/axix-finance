@@ -56,6 +56,16 @@ function logSection(title) {
   summary.boot = bootRes;
   console.log(bootRes);
 
+  logSection("PREFLIGHT");
+  const preflightRes = await fetchJson("/api/preflight");
+  summary.preflight = preflightRes;
+  console.log(preflightRes);
+
+  logSection("INIT STATUS");
+  const initStatusRes = await fetchJson("/api/init-status");
+  summary.initStatus = initStatusRes;
+  console.log(initStatusRes);
+
   logSection("ENV CHECK");
   const envRes = await fetchJson("/api/env-check");
   summary.env = envRes;

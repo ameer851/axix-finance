@@ -1,7 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import cors from "cors";
 import express from "express";
-import { registerRoutes } from "./routes";
+
+// NOTE: Do NOT import routes here – dynamic import inside ensureInitialized isolates import-time errors
+// import { registerRoutes } from "./routes";
 
 // Early bootstrap log (helps identify cold start vs reuse)
 console.log(
@@ -12,6 +14,8 @@ console.log(
 // Create Express app once; initialize lazily on first request
 const app = express();
 let initialized = false;
+let initializing = false;
+let lastInitError: { message: string; stack?: string } | null = null;
 
 // CORS configuration
 const corsOptions = {
@@ -38,33 +42,63 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
+// Always-available ultra-early diagnostics BEFORE initialization
+app.get("/api/preflight", (_req: any, res: any) => {
+  res.json({
+    initialized,
+    initializing,
+    hasInitError: !!lastInitError,
+    nodeEnv: process.env.NODE_ENV,
+    timestamp: Date.now(),
+    resendKeyPresent: !!process.env.RESEND_API_KEY,
+    supabaseUrlPresent: !!process.env.SUPABASE_URL,
+    supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+});
+
+app.get("/api/init-status", (_req: any, res: any) => {
+  res.json({
+    initialized,
+    initializing,
+    error: lastInitError,
+  });
+});
+
 async function ensureInitialized() {
-  if (initialized) return;
+  if (initialized || initializing) return;
+  initializing = true;
   console.log("[bootstrap] Initializing express app");
-  // Core middleware
+  // Core middleware (idempotent – Express ignores duplicate .use order for identical stack we invoke only once)
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   try {
+    console.log("[bootstrap] Dynamically importing routes.ts");
+    const mod = await import("./routes" /* webpackChunkName: 'routes' */);
+    const registerRoutes = (mod as any).registerRoutes;
+    if (typeof registerRoutes !== "function") {
+      throw new Error("registerRoutes export missing in ./routes");
+    }
     await registerRoutes(app);
     initialized = true;
     console.log("[bootstrap] Route registration complete");
-  } catch (e) {
+  } catch (e: any) {
+    lastInitError = { message: e?.message || String(e), stack: e?.stack };
     console.error("[bootstrap] registerRoutes failed", e);
-    // Provide minimal fallback endpoints so we can see env presence instead of opaque 500
+    // Provide minimal fallback env-check
     app.get("/api/env-check", (_req: any, res: any) => {
       res.json({
         bootstrapError: true,
-        errorMessage: (e as any)?.message || String(e),
+        errorMessage: lastInitError?.message,
         nodeEnv: process.env.NODE_ENV,
         resendKeyPresent: !!process.env.RESEND_API_KEY,
         supabaseUrlPresent: !!process.env.SUPABASE_URL,
         supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       });
     });
-    // Mark initialized so we don't retry every request (avoids log spam)
-    initialized = true;
+  } finally {
+    initializing = false;
   }
 }
 
@@ -88,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.end(
       JSON.stringify({
         error: { code: "500", message: "A server error has occurred" },
+        initStatus: { initialized, initializing, lastInitError },
       })
     );
   }
