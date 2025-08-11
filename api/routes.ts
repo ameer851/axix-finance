@@ -16,8 +16,13 @@ import {
   getUserBalance,
   getUserDeposits,
   getUserWithdrawals,
+  supabase,
 } from "./supabase";
 import { registerDebugRoutes } from "./utils/debug-env";
+import {
+  emailHealth,
+  sendWelcomeEmail as sendBasicWelcomeEmail,
+} from "./utils/email";
 import { registerVisitorsApi } from "./utils/visitors-api";
 
 /**
@@ -54,6 +59,11 @@ export async function registerRoutes(app: Express) {
       res.setHeader("Content-Type", "text/plain");
       res.status(200).end("ok");
     }
+  });
+
+  // Email health (no secrets exposed)
+  app.get("/api/email-health", (_req, res) => {
+    res.json(emailHealth());
   });
 
   // Basic health check endpoint (no auth required)
@@ -389,6 +399,117 @@ export async function registerRoutes(app: Express) {
       }
     }
   );
+
+  // --- Additional client-required endpoints (welcome email + deposit flows) ---
+
+  app.post("/api/send-welcome-email", async (req: Request, res: Response) => {
+    try {
+      const { email, username, firstName, lastName, password } = req.body || {};
+      if (!email) return res.status(400).json({ message: "Email required" });
+      const result = await sendBasicWelcomeEmail({
+        email,
+        username,
+        firstName,
+        lastName,
+        plainPassword: password || null,
+      });
+      if (!result.success) {
+        return res
+          .status(500)
+          .json({ message: result.error || "Failed to send welcome email" });
+      }
+      res.json({ message: "Welcome email sent", success: true });
+    } catch (e: any) {
+      console.error("/api/send-welcome-email error", e);
+      res.status(500).json({ message: e?.message || "Internal error" });
+    }
+  });
+
+  // Balance deposit transaction (method balance)
+  app.post(
+    "/api/transactions/deposit",
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { amount, method, planName, plan } = req.body || {};
+        const numericAmount = Number(amount);
+        if (!numericAmount || numericAmount <= 0)
+          return res.status(400).json({ message: "Invalid amount" });
+        if (!method)
+          return res.status(400).json({ message: "Method required" });
+        const { data, error } = await supabase
+          .from("deposits")
+          .insert([
+            {
+              user_id: req.authUser!.id,
+              amount: numericAmount,
+              method,
+              reference: planName || plan || null,
+              status: "pending",
+              created_at: new Date().toISOString(),
+            },
+          ])
+          .select();
+        if (error) {
+          console.error("/api/transactions/deposit insert error", error);
+          return res.status(500).json({ message: "Failed to process deposit" });
+        }
+        return res
+          .status(201)
+          .json({ success: true, amount: numericAmount, deposit: data?.[0] });
+      } catch (e) {
+        console.error("/api/transactions/deposit error", e);
+        res.status(500).json({ message: "Failed to process deposit" });
+      }
+    }
+  );
+
+  // Crypto deposit confirmation
+  const depositConfirmationHandler = async (
+    req: AuthenticatedRequest,
+    res: Response
+  ) => {
+    try {
+      const { amount, transactionHash, method, planName } = req.body || {};
+      const numericAmount = Number(amount);
+      if (!numericAmount || numericAmount <= 0)
+        return res.status(400).json({ message: "Invalid amount" });
+      const combinedRef = [planName, transactionHash]
+        .filter(Boolean)
+        .join(" | ");
+      const { data, error } = await supabase
+        .from("deposits")
+        .insert([
+          {
+            user_id: req.authUser!.id,
+            amount: numericAmount,
+            method: method || "crypto",
+            reference: combinedRef || null,
+            status: "pending",
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select();
+      if (error) {
+        console.error("deposit confirmation insert error", error);
+        return res.status(500).json({ message: "Failed to submit deposit" });
+      }
+      return res.status(201).json({ success: true, deposit: data?.[0] });
+    } catch (e) {
+      console.error("deposit confirmation error", e);
+      res.status(500).json({ message: "Failed to submit deposit" });
+    }
+  };
+  app.post(
+    "/api/transactions/deposit-confirmation",
+    requireAuth,
+    depositConfirmationHandler
+  );
+  app.post(
+    "/api/transactions/deposit/confirm",
+    requireAuth,
+    depositConfirmationHandler
+  ); // legacy alias
 
   // Default route handler
   app.use("*", (req, res) => {
