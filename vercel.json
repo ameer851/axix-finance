@@ -5,15 +5,9 @@
   "outputDirectory": "client/dist",
   "framework": "vite",
   "functions": {
-    "api/index.ts": {
-      "runtime": "nodejs22.x",
+    "api/**": {
       "memory": 1024,
       "maxDuration": 10
-    },
-    "api/ping.ts": {
-      "runtime": "nodejs22.x",
-      "memory": 128,
-      "maxDuration": 5
     }
   },
   "rewrites": [
