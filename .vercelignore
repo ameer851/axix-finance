@@ -21,16 +21,21 @@ ngrok.zip
 _.backup_
 \*.bak
 
-# Ignore individual API files to prevent creating separate serverless functions
+# Ignore individual API files to prevent creating separate serverless functions creating multiple endpoints
 
 api/auth.ts
 api/health.ts
 api/server.ts
-api/supabase.ts
 api/fallback.ts
 api/routes.ts.new
 
-# Keep only the bundled JS entry for the API; exclude TS sources to avoid conflicts
+# Keep only the main TS entry and its dependencies for a single bundled function
+!api/index.ts
+!api/routes.ts
+!api/supabase.ts
+!api/middleware/**
+!api/utils/**
+!api/ping.ts
 
-api/**/*.ts
-!api/index.js
+# Exclude stray JS shim that conflicts with TS
+api/middleware/auth-middleware.js
