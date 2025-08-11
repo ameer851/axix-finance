@@ -16,6 +16,7 @@ import {
   getUserBalance,
   getUserDeposits,
   getUserWithdrawals,
+  isSupabaseConfigured,
   supabase,
 } from "./supabase";
 import { registerDebugRoutes } from "./utils/debug-env";
@@ -64,6 +65,25 @@ export async function registerRoutes(app: Express) {
   // Email health (no secrets exposed)
   app.get("/api/email-health", (_req, res) => {
     res.json(emailHealth());
+  });
+
+  // DB health (lightweight, no data leakage)
+  app.get("/api/db-health", async (_req, res) => {
+    try {
+      if (!isSupabaseConfigured || !supabase) {
+        return res.json({ configured: false, reachable: false });
+      }
+      // Minimal ping: attempt a cheap RPC (or select 1 pattern via from)
+      const { error } = await supabase.from("users").select("id").limit(1);
+      if (error) {
+        console.error("/api/db-health select error", error);
+        return res.json({ configured: true, reachable: false });
+      }
+      res.json({ configured: true, reachable: true });
+    } catch (e) {
+      console.error("/api/db-health error", e);
+      res.json({ configured: !!isSupabaseConfigured, reachable: false });
+    }
   });
 
   // Basic health check endpoint (no auth required)
@@ -406,6 +426,12 @@ export async function registerRoutes(app: Express) {
     try {
       const { email, username, firstName, lastName, password } = req.body || {};
       if (!email) return res.status(400).json({ message: "Email required" });
+      console.log("[api] /api/send-welcome-email invoked", {
+        email,
+        hasResendKey: !!process.env.RESEND_API_KEY,
+        fromEmail: process.env.EMAIL_FROM || null,
+        nodeEnv: process.env.NODE_ENV,
+      });
       const result = await sendBasicWelcomeEmail({
         email,
         username,

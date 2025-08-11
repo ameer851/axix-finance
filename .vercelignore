@@ -34,5 +34,6 @@ api/routes.ts.new
 
 !api/index.ts
 !api/routes.ts
+!api/supabase.ts
 !api/middleware/
 !api/utils/

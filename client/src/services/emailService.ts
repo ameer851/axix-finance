@@ -42,9 +42,22 @@ export async function sendWelcomeEmail(user: {
   full_name: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    const base = (import.meta.env.VITE_API_URL as string | undefined) || "";
-    const apiBase = base.replace(/\/$/, "");
-    const response = await fetch(`${apiBase}/api/send-welcome-email`, {
+    const rawBase = (import.meta.env.VITE_API_URL as string | undefined) || "";
+    // Treat undefined, null, or literal string "undefined"/"null" as empty -> relative URL
+    const sanitizedBase =
+      !rawBase || /^(undefined|null)$/i.test(rawBase) ? "" : rawBase;
+    const apiBase = sanitizedBase.replace(/\/$/, "");
+    const url = `${apiBase}/api/send-welcome-email`;
+    // Lightweight client-side debug (won't leak secrets)
+    if (typeof window !== "undefined") {
+      (window as any)._welcomeEmailDebug = {
+        url,
+        baseProvided: !!rawBase,
+        sanitizedBase,
+        ts: Date.now(),
+      };
+    }
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
