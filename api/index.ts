@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import cors from "cors";
 import express from "express";
+import { registerRoutes } from "./routes";
 
 // NOTE: Do NOT import routes here – dynamic import inside ensureInitialized isolates import-time errors
 // import { registerRoutes } from "./routes";
@@ -79,13 +80,7 @@ async function ensureInitialized() {
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   try {
-  console.log("[bootstrap] Dynamically importing routes (TS) for bundling");
-  // Import without extension so Vercel bundles the TS source
-  const mod = await import("./routes");
-    const registerRoutes = (mod as any).registerRoutes;
-    if (typeof registerRoutes !== "function") {
-      throw new Error("registerRoutes export missing in ./routes");
-    }
+    console.log("[bootstrap] Registering routes");
     await registerRoutes(app);
     initialized = true;
     console.log("[bootstrap] Route registration complete");
