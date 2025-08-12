@@ -107,17 +107,19 @@ async function ensureInitialized() {
       console.log(
         "[bootstrap] Loading routes lazily via dynamic import (compiled)"
       );
-      // Prefer explicit .js to satisfy Node ESM on Vercel, fallback to extensionless if inlined
-      const mod = await import("./routes.cjs")
-        .catch(async () => import("./routes.js"))
-        .catch(async (e) => {
-          try {
-            return await import("./routes");
-          } catch (e2) {
-            throw e;
-          }
-        });
-      const { registerRoutes } = mod as any;
+      // Prefer explicit .js to satisfy Node ESM on Vercel, then fallback
+      const mod: any = await import("./routes.js").catch(async (e1) => {
+        try {
+          return await import("./routes");
+        } catch (e2) {
+          // Surface the original error for clarity
+          throw e1;
+        }
+      });
+      const registerRoutes = mod.registerRoutes || mod.default?.registerRoutes;
+      if (typeof registerRoutes !== "function") {
+        throw new Error("registerRoutes not found in routes module");
+      }
       await registerRoutes(app);
     }
     initialized = true;
@@ -144,6 +146,37 @@ async function ensureInitialized() {
 // Export handler for Vercel with lazy init
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    // Always handle diagnostics endpoints before any initialization to avoid crashes blocking them
+    {
+      const url = String(req.url || "");
+      const headers: any = (req as any).headers || {};
+      const originalPath = String(
+        headers["x-original-path"] || headers["x-forwarded-uri"] || url
+      );
+      if (originalPath.includes("/api/preflight")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        return res.end(
+          JSON.stringify({
+            initialized,
+            initializing,
+            hasInitError: !!lastInitError,
+            nodeEnv: process.env.NODE_ENV,
+            timestamp: Date.now(),
+            resendKeyPresent: !!process.env.RESEND_API_KEY,
+            supabaseUrlPresent: !!process.env.SUPABASE_URL,
+            supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+          })
+        );
+      }
+      if (originalPath.includes("/api/init-status")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        return res.end(
+          JSON.stringify({ initialized, initializing, error: lastInitError })
+        );
+      }
+    }
     // Serve ultra-minimal endpoints without Express when in MINIMAL_MODE
     if (MINIMAL_MODE) {
       const url = String(req.url || "");
