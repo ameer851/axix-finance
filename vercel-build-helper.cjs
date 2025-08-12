@@ -19,19 +19,6 @@ function main() {
     return;
   }
   console.log("[vercel-build-helper] api/index.js found (OK)");
-  // Remove TypeScript entry so Vercel picks the bundled JS for the index function
-  const indexTs = path.join(apiDir, "index.ts");
-  if (fs.existsSync(indexTs)) {
-    try {
-      fs.unlinkSync(indexTs);
-      console.log("[vercel-build-helper] removed", indexTs);
-    } catch (e) {
-      console.warn(
-        "[vercel-build-helper] could not remove",
-        indexTs,
-        e.message
-      );
-    }
-  }
+  // Leave api/index.ts in place to satisfy Vercel's Node builder scanning
 }
 main();
