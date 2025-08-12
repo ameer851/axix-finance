@@ -4,14 +4,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 // Force Node.js runtime for Vercel
 export const config = { runtime: "nodejs" };
 
-// NOTE: Do NOT import routes here – dynamic import inside ensureInitialized isolates import-time errors
-// import { registerRoutes } from "./routes";
-// WARNING: tsconfig has "noEmit": true so raw .ts files are shipped.
-// Vercel ESM loader cannot import TypeScript directly at runtime; ensure either:
-// 1) Build step emits compiled .js for api/, or
-// 2) Provide .js shims (temporary) alongside .ts (we added auth-middleware.js).
-// Recommended fix: introduce a separate tsconfig.build.json that emits serverless API code.
-
 // Early bootstrap log (helps identify cold start vs reuse)
 console.log(
   "[bootstrap] Serverless function file loaded at",
@@ -110,6 +102,16 @@ async function ensureInitialized() {
       }
     });
 
+    // Basic health endpoint available even in MINIMAL_MODE
+    (app as any).get("/api/health", (_req: any, res: any) => {
+      res.status(200).json({
+        status: "ok",
+        message: "Axix Finance API is operational",
+        serverTime: new Date().toISOString(),
+        minimalMode: !!MINIMAL_MODE,
+      });
+    });
+
     // Make basic health endpoints available even in MINIMAL_MODE
     (app as any).get("/api/email-health", async (_req: any, res: any) => {
       try {
@@ -205,11 +207,32 @@ async function ensureInitialized() {
 // Export handler for Vercel with lazy init
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    // Ultra-early fast path for ping: handle before any other logic to avoid rewrite/header ambiguity
+    try {
+      const rawUrl = String(req.url || "");
+      const hdrs: any = (req as any).headers || {};
+      const fwdPath = String(
+        hdrs["x-original-path"] ||
+          hdrs["x-forwarded-uri"] ||
+          hdrs["x-rewrite-url"] ||
+          hdrs["x-matched-path"] ||
+          ""
+      );
+      if (rawUrl.includes("/api/ping") || fwdPath.includes("/api/ping")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/plain");
+        return res.end("ok");
+      }
+    } catch {}
     // Determine the originally requested path (Vercel rewrites /api/* to /api/index)
     const headers: any = (req as any).headers || {};
     const currentUrl = String(req.url || "");
     const originalPath = String(
-      headers["x-original-path"] || headers["x-forwarded-uri"] || currentUrl
+      headers["x-original-path"] ||
+        headers["x-forwarded-uri"] ||
+        headers["x-rewrite-url"] ||
+        headers["x-matched-path"] ||
+        currentUrl
     );
 
     // Always handle diagnostics endpoints before any initialization to avoid crashes blocking them
@@ -243,7 +266,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Try to recover original path in case of rewrites
       const headers: any = (req as any).headers || {};
       const originalPath = String(
-        headers["x-original-path"] || headers["x-forwarded-uri"] || url
+        headers["x-original-path"] ||
+          headers["x-forwarded-uri"] ||
+          headers["x-rewrite-url"] ||
+          headers["x-matched-path"] ||
+          url
       );
 
       if (originalPath.includes("/api/preflight")) {
@@ -267,6 +294,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/plain");
         return res.end("ok");
+      }
+      if (originalPath.includes("/api/health")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        return res.end(
+          JSON.stringify({
+            status: "ok",
+            message: "Axix Finance API is operational",
+            serverTime: new Date().toISOString(),
+            minimalMode: true,
+          })
+        );
       }
       if (originalPath.includes("/api/init-status")) {
         res.statusCode = 200;

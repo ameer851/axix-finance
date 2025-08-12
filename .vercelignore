@@ -35,7 +35,8 @@ api/index.ts
 !api/supabase.ts
 !api/middleware/**
 !api/utils/**
-!api/ping.ts
+# Do not deploy standalone ping; route through api/index.js handler
+# !api/ping.ts
 
 # Exclude stray JS shim that conflicts with TS
 api/middleware/auth-middleware.js

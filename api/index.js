@@ -68764,6 +68764,14 @@ async function ensureInitialized() {
         res.status(200).end("ok");
       }
     });
+    app.get("/api/health", (_req, res) => {
+      res.status(200).json({
+        status: "ok",
+        message: "Axix Finance API is operational",
+        serverTime: (/* @__PURE__ */ new Date()).toISOString(),
+        minimalMode: !!MINIMAL_MODE
+      });
+    });
     app.get("/api/email-health", async (_req, res) => {
       try {
         const { emailHealth: emailHealth2 } = await Promise.resolve().then(() => (init_email(), email_exports));
@@ -68847,10 +68855,23 @@ async function ensureInitialized() {
 }
 async function handler(req, res) {
   try {
+    try {
+      const rawUrl = String(req.url || "");
+      const hdrs = req.headers || {};
+      const fwdPath = String(
+        hdrs["x-original-path"] || hdrs["x-forwarded-uri"] || hdrs["x-rewrite-url"] || hdrs["x-matched-path"] || ""
+      );
+      if (rawUrl.includes("/api/ping") || fwdPath.includes("/api/ping")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/plain");
+        return res.end("ok");
+      }
+    } catch {
+    }
     const headers = req.headers || {};
     const currentUrl = String(req.url || "");
     const originalPath = String(
-      headers["x-original-path"] || headers["x-forwarded-uri"] || currentUrl
+      headers["x-original-path"] || headers["x-forwarded-uri"] || headers["x-rewrite-url"] || headers["x-matched-path"] || currentUrl
     );
     if (originalPath.includes("/api/preflight")) {
       res.statusCode = 200;
@@ -68880,7 +68901,7 @@ async function handler(req, res) {
       const url = String(req.url || "");
       const headers2 = req.headers || {};
       const originalPath2 = String(
-        headers2["x-original-path"] || headers2["x-forwarded-uri"] || url
+        headers2["x-original-path"] || headers2["x-forwarded-uri"] || headers2["x-rewrite-url"] || headers2["x-matched-path"] || url
       );
       if (originalPath2.includes("/api/preflight")) {
         res.statusCode = 200;
@@ -68903,6 +68924,18 @@ async function handler(req, res) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/plain");
         return res.end("ok");
+      }
+      if (originalPath2.includes("/api/health")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        return res.end(
+          JSON.stringify({
+            status: "ok",
+            message: "Axix Finance API is operational",
+            serverTime: (/* @__PURE__ */ new Date()).toISOString(),
+            minimalMode: true
+          })
+        );
       }
       if (originalPath2.includes("/api/init-status")) {
         res.statusCode = 200;
