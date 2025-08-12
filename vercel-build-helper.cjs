@@ -11,6 +11,7 @@ const path = require("path");
 function main() {
   const apiDir = path.resolve(__dirname, "api");
   const indexJs = path.join(apiDir, "index.js");
+  const indexTs = path.join(apiDir, "index.ts");
   if (!fs.existsSync(indexJs)) {
     console.error(
       "[vercel-build-helper] ERROR: api/index.js not found. Ensure build:api ran before this step."
@@ -19,6 +20,20 @@ function main() {
     return;
   }
   console.log("[vercel-build-helper] api/index.js found (OK)");
+  // Remove TS entry after build to avoid Vercel function path conflicts
+  if (fs.existsSync(indexTs)) {
+    try {
+      fs.unlinkSync(indexTs);
+      console.log(
+        "[vercel-build-helper] Removed api/index.ts to prevent deployment conflict"
+      );
+    } catch (e) {
+      console.warn(
+        "[vercel-build-helper] Could not remove api/index.ts:",
+        e?.message || e
+      );
+    }
+  }
   // Clean up previously generated JS files that conflict with TS sources to avoid Vercel filename conflicts
   const entries = fs.readdirSync(apiDir, { withFileTypes: true });
   for (const ent of entries) {

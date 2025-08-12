@@ -29,9 +29,8 @@ api/server.ts
 api/fallback.ts
 api/routes.ts.new
 
-# Keep only necessary sources; use compiled JS for the main entry to avoid conflicts
-# IMPORTANT: Exclude api/index.ts so it doesn't conflict with the compiled api/index.js
-api/index.ts
+# Keep necessary sources; main entry is built from TS and then TS is removed post-build by vercel-build-helper
+!api/index.ts
 !api/routes.ts
 !api/supabase.ts
 !api/middleware/**
