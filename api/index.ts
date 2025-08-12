@@ -54,27 +54,7 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-// Always-available ultra-early diagnostics BEFORE initialization
-app.get("/api/preflight", (_req: any, res: any) => {
-  res.json({
-    initialized,
-    initializing,
-    hasInitError: !!lastInitError,
-    nodeEnv: process.env.NODE_ENV,
-    timestamp: Date.now(),
-    resendKeyPresent: !!process.env.RESEND_API_KEY,
-    supabaseUrlPresent: !!process.env.SUPABASE_URL,
-    supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  });
-});
-
-app.get("/api/init-status", (_req: any, res: any) => {
-  res.json({
-    initialized,
-    initializing,
-    error: lastInitError,
-  });
-});
+// Note: Do NOT register routes on `app` at module load. `app` is initialized lazily.
 
 async function ensureInitialized() {
   if (initialized || initializing) return;
@@ -138,7 +118,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Serve ultra-minimal endpoints without Express when in MINIMAL_MODE
     if (MINIMAL_MODE) {
       const url = String(req.url || "");
-      if (url.startsWith("/api/preflight")) {
+      // Try to recover original path in case of rewrites
+      const headers: any = (req as any).headers || {};
+      const originalPath = String(
+        headers["x-original-path"] || headers["x-forwarded-uri"] || url
+      );
+
+      if (originalPath.includes("/api/preflight")) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         return res.end(
@@ -155,10 +141,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
         );
       }
-      if (url.startsWith("/api/ping")) {
+      if (originalPath.includes("/api/ping")) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/plain");
         return res.end("ok");
+      }
+      if (originalPath.includes("/api/init-status")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        return res.end(
+          JSON.stringify({ initialized, initializing, error: lastInitError })
+        );
       }
     }
 
