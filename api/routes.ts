@@ -51,6 +51,17 @@ export async function registerRoutes(app: Express) {
     res.json(emailHealth());
   });
 
+  // Basic env check without requiring DB/auth modules; keeps it fast and always available
+  app.get("/api/env-check", (_req, res) => {
+    res.json({
+      nodeEnv: process.env.NODE_ENV,
+      resendKeyPresent: !!process.env.RESEND_API_KEY,
+      emailFromPresent: !!process.env.EMAIL_FROM,
+      supabaseUrlPresent: !!process.env.SUPABASE_URL,
+      supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    });
+  });
+
   // Heavy routes (require DB/auth) – attempt to load and register; on failure, keep basic routes alive
   try {
     const { requireAuth } = await import("./middleware/auth-middleware");
@@ -568,7 +579,7 @@ export async function registerRoutes(app: Express) {
       depositConfirmationHandler
     ); // legacy alias
 
-    // Environment (sanitized) diagnostics endpoint (no secrets exposed)
+    // Detailed env check including supabase configured flag
     app.get("/api/env-check", (_req, res) => {
       res.json({
         nodeEnv: process.env.NODE_ENV,

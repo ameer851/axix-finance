@@ -68788,43 +68788,41 @@ async function ensureInitialized() {
 }
 async function handler(req, res) {
   try {
-    {
-      const url = String(req.url || "");
-      const headers = req.headers || {};
-      const originalPath = String(
-        headers["x-original-path"] || headers["x-forwarded-uri"] || url
+    const headers = req.headers || {};
+    const currentUrl = String(req.url || "");
+    const originalPath = String(
+      headers["x-original-path"] || headers["x-forwarded-uri"] || currentUrl
+    );
+    if (originalPath.includes("/api/preflight")) {
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      return res.end(
+        JSON.stringify({
+          initialized,
+          initializing,
+          hasInitError: !!lastInitError,
+          nodeEnv: process.env.NODE_ENV,
+          timestamp: Date.now(),
+          resendKeyPresent: !!process.env.RESEND_API_KEY,
+          supabaseUrlPresent: !!process.env.SUPABASE_URL,
+          supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+        })
       );
-      if (originalPath.includes("/api/preflight")) {
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "application/json");
-        return res.end(
-          JSON.stringify({
-            initialized,
-            initializing,
-            hasInitError: !!lastInitError,
-            nodeEnv: process.env.NODE_ENV,
-            timestamp: Date.now(),
-            resendKeyPresent: !!process.env.RESEND_API_KEY,
-            supabaseUrlPresent: !!process.env.SUPABASE_URL,
-            supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-          })
-        );
-      }
-      if (originalPath.includes("/api/init-status")) {
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "application/json");
-        return res.end(
-          JSON.stringify({ initialized, initializing, error: lastInitError })
-        );
-      }
+    }
+    if (originalPath.includes("/api/init-status")) {
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      return res.end(
+        JSON.stringify({ initialized, initializing, error: lastInitError })
+      );
     }
     if (MINIMAL_MODE) {
       const url = String(req.url || "");
-      const headers = req.headers || {};
-      const originalPath = String(
-        headers["x-original-path"] || headers["x-forwarded-uri"] || url
+      const headers2 = req.headers || {};
+      const originalPath2 = String(
+        headers2["x-original-path"] || headers2["x-forwarded-uri"] || url
       );
-      if (originalPath.includes("/api/preflight")) {
+      if (originalPath2.includes("/api/preflight")) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         return res.end(
@@ -68841,12 +68839,12 @@ async function handler(req, res) {
           })
         );
       }
-      if (originalPath.includes("/api/ping")) {
+      if (originalPath2.includes("/api/ping")) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/plain");
         return res.end("ok");
       }
-      if (originalPath.includes("/api/init-status")) {
+      if (originalPath2.includes("/api/init-status")) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         return res.end(
@@ -68855,6 +68853,12 @@ async function handler(req, res) {
       }
     }
     await ensureInitialized();
+    try {
+      req.originalUrl = originalPath;
+      req.url = originalPath;
+      req.path = originalPath;
+    } catch {
+    }
     return app(req, res);
   } catch (err) {
     const isPing = typeof req.url === "string" && req.url.startsWith("/api/ping");
