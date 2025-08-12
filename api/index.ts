@@ -107,10 +107,10 @@ async function ensureInitialized() {
       console.log(
         "[bootstrap] Loading routes lazily via dynamic import (compiled)"
       );
-      // Prefer explicit .js to satisfy Node ESM on Vercel, then fallback
-      const mod: any = await import("./routes.js").catch(async (e1) => {
+      // Prefer extensionless import so Vercel's TS build resolves correctly; fallback to .js when running prebuilt locally
+      const mod: any = await import("./routes").catch(async (e1) => {
         try {
-          return await import("./routes");
+          return await import("./routes.js");
         } catch (e2) {
           // Surface the original error for clarity
           throw e1;

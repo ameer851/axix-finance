@@ -10,11 +10,11 @@ import type { RequestWithAuth as AuthenticatedRequest } from "./middleware/auth-
  */
 export async function registerRoutes(app: Express) {
   // Resolve safe utils first; avoid importing DB/auth until after basic routes are registered
-  const { registerDebugRoutes } = await import("./utils/debug-env.js");
+  const { registerDebugRoutes } = await import("./utils/debug-env");
   const { emailHealth, sendWelcomeEmail: sendBasicWelcomeEmail } = await import(
-    "./utils/email.js"
+    "./utils/email"
   );
-  const { registerVisitorsApi } = await import("./utils/visitors-api.js");
+  const { registerVisitorsApi } = await import("./utils/visitors-api");
   // Use JSON middleware
   app.use(express.json());
 
@@ -53,8 +53,8 @@ export async function registerRoutes(app: Express) {
 
   // Heavy routes (require DB/auth) – attempt to load and register; on failure, keep basic routes alive
   try {
-    const { requireAuth } = await import("./middleware/auth-middleware.js");
-    const supa = await import("./supabase.js");
+    const { requireAuth } = await import("./middleware/auth-middleware");
+    const supa = await import("./supabase");
 
     // DB health (lightweight, no data leakage)
     app.get("/api/db-health", async (_req, res) => {

@@ -19,6 +19,32 @@ function main() {
     return;
   }
   console.log("[vercel-build-helper] api/index.js found (OK)");
-  // Leave api/index.ts in place to satisfy Vercel's Node builder scanning
+  // Clean up previously generated JS files that conflict with TS sources to avoid Vercel filename conflicts
+  const entries = fs.readdirSync(apiDir, { withFileTypes: true });
+  for (const ent of entries) {
+    const full = path.join(apiDir, ent.name);
+    if (ent.isFile()) {
+      // remove top-level compiled JS except index.js
+      if (ent.name.endsWith(".js") && ent.name !== "index.js") {
+        try {
+          fs.unlinkSync(full);
+        } catch {}
+      }
+    } else if (ent.isDirectory()) {
+      // in subfolders, remove compiled .js that have a sibling .ts
+      const subEntries = fs.readdirSync(full, { withFileTypes: true });
+      for (const s of subEntries) {
+        if (s.isFile() && s.name.endsWith(".js")) {
+          const tsName = s.name.replace(/\.js$/, ".ts");
+          const tsPath = path.join(full, tsName);
+          if (fs.existsSync(tsPath)) {
+            try {
+              fs.unlinkSync(path.join(full, s.name));
+            } catch {}
+          }
+        }
+      }
+    }
+  }
 }
 main();
