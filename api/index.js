@@ -68022,41 +68022,6 @@ var init_supabase = __esm({
   }
 });
 
-// api/utils/debug-env.ts
-var debug_env_exports = {};
-__export(debug_env_exports, {
-  registerDebugRoutes: () => registerDebugRoutes
-});
-function registerDebugRoutes(app2) {
-  app2.get("/api/debug/env", (req, res) => {
-    const env = {
-      NODE_ENV: process.env.NODE_ENV,
-      // Show partial keys for debugging
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
-      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
-      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? `${process.env.VITE_SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
-      VITE_FRONTEND_URL: process.env.VITE_FRONTEND_URL,
-      FRONTEND_URL: process.env.FRONTEND_URL,
-      SITE_URL: process.env.SITE_URL,
-      CLIENT_URL: process.env.CLIENT_URL
-    };
-    return res.status(200).json({
-      env,
-      headers: {
-        origin: req.headers.origin,
-        host: req.headers.host,
-        referer: req.headers.referer
-      }
-    });
-  });
-}
-var init_debug_env = __esm({
-  "api/utils/debug-env.ts"() {
-    "use strict";
-  }
-});
-
 // api/utils/cors-middleware.ts
 function corsMiddleware(req, res, next) {
   const allowedOrigins = [
@@ -68179,6 +68144,41 @@ var init_visitors_api = __esm({
   "api/utils/visitors-api.ts"() {
     "use strict";
     init_cors_middleware();
+  }
+});
+
+// api/utils/debug-env.ts
+var debug_env_exports = {};
+__export(debug_env_exports, {
+  registerDebugRoutes: () => registerDebugRoutes
+});
+function registerDebugRoutes(app2) {
+  app2.get("/api/debug/env", (req, res) => {
+    const env = {
+      NODE_ENV: process.env.NODE_ENV,
+      // Show partial keys for debugging
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? `${process.env.VITE_SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
+      VITE_FRONTEND_URL: process.env.VITE_FRONTEND_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      SITE_URL: process.env.SITE_URL,
+      CLIENT_URL: process.env.CLIENT_URL
+    };
+    return res.status(200).json({
+      env,
+      headers: {
+        origin: req.headers.origin,
+        host: req.headers.host,
+        referer: req.headers.referer
+      }
+    });
+  });
+}
+var init_debug_env = __esm({
+  "api/utils/debug-env.ts"() {
+    "use strict";
   }
 });
 
@@ -68756,12 +68756,24 @@ async function ensureInitialized() {
     app.get("/api/init-status", (_req, res) => {
       res.json({ initialized, initializing, error: lastInitError });
     });
+    app.get("/api/ping", (_req, res) => {
+      try {
+        res.status(200).type("text/plain").send("ok");
+      } catch {
+        res.setHeader("Content-Type", "text/plain");
+        res.status(200).end("ok");
+      }
+    });
     app.get("/api/email-health", async (_req, res) => {
       try {
         const { emailHealth: emailHealth2 } = await Promise.resolve().then(() => (init_email(), email_exports));
         res.json(emailHealth2());
       } catch (e2) {
-        res.json({ apiKeyPresent: !!process.env.RESEND_API_KEY, clientReady: false, error: "email util load failed" });
+        res.json({
+          apiKeyPresent: !!process.env.RESEND_API_KEY,
+          clientReady: false,
+          error: "email util load failed"
+        });
       }
     });
     app.get("/api/env-check", (_req, res) => {
@@ -68787,6 +68799,12 @@ async function ensureInitialized() {
         return res.json({ configured: false, reachable: false });
       }
     });
+    try {
+      const { registerVisitorsApi: registerVisitorsApi2 } = await Promise.resolve().then(() => (init_visitors_api(), visitors_api_exports));
+      registerVisitorsApi2(app);
+    } catch (e2) {
+      console.warn("[bootstrap] visitors-api unavailable", e2);
+    }
     if (MINIMAL_MODE) {
       console.log(
         "[bootstrap] MINIMAL_MODE enabled \u2013 skipping route registration"

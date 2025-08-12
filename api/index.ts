@@ -100,13 +100,27 @@ async function ensureInitialized() {
       res.json({ initialized, initializing, error: lastInitError });
     });
 
+    // Ultra-fast ping endpoint available even in MINIMAL_MODE
+    (app as any).get("/api/ping", (_req: any, res: any) => {
+      try {
+        res.status(200).type("text/plain").send("ok");
+      } catch {
+        res.setHeader("Content-Type", "text/plain");
+        res.status(200).end("ok");
+      }
+    });
+
     // Make basic health endpoints available even in MINIMAL_MODE
     (app as any).get("/api/email-health", async (_req: any, res: any) => {
       try {
         const { emailHealth } = await import("./utils/email");
         res.json(emailHealth());
       } catch (e) {
-        res.json({ apiKeyPresent: !!process.env.RESEND_API_KEY, clientReady: false, error: "email util load failed" });
+        res.json({
+          apiKeyPresent: !!process.env.RESEND_API_KEY,
+          clientReady: false,
+          error: "email util load failed",
+        });
       }
     });
     (app as any).get("/api/env-check", (_req: any, res: any) => {
@@ -125,13 +139,24 @@ async function ensureInitialized() {
         if (!supa.isSupabaseConfigured || !supa.supabase) {
           return res.json({ configured: false, reachable: false });
         }
-        const { error } = await supa.supabase.from("users").select("id").limit(1);
+        const { error } = await supa.supabase
+          .from("users")
+          .select("id")
+          .limit(1);
         if (error) return res.json({ configured: true, reachable: false });
         return res.json({ configured: true, reachable: true });
       } catch (e) {
         return res.json({ configured: false, reachable: false });
       }
     });
+
+    // Make visitor tracking endpoints available even in MINIMAL_MODE
+    try {
+      const { registerVisitorsApi } = await import("./utils/visitors-api");
+      registerVisitorsApi(app);
+    } catch (e) {
+      console.warn("[bootstrap] visitors-api unavailable", e);
+    }
 
     if (MINIMAL_MODE) {
       console.log(

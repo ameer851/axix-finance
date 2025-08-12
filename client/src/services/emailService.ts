@@ -42,20 +42,16 @@ export async function sendWelcomeEmail(user: {
   full_name: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    const rawBase = (import.meta.env.VITE_API_URL as string | undefined) || "";
-    // Treat undefined, null, or literal string "undefined"/"null" as empty -> relative URL
-    const sanitizedBase =
-      !rawBase || /^(undefined|null)$/i.test(rawBase) ? "" : rawBase;
-    const apiBase = sanitizedBase.replace(/\/$/, "");
+    // Prefer same-origin relative path to satisfy production CSP; fall back to explicit base if provided
+    const envBase = (import.meta.env.VITE_API_URL as string | undefined) || "";
+    const baseOk =
+      envBase && !/^(undefined|null)$/i.test(envBase) ? envBase : "";
+    const preferRelative = typeof window !== "undefined";
+    const apiBase = preferRelative ? "" : baseOk.replace(/\/$/, "");
     const url = `${apiBase}/api/send-welcome-email`;
     // Lightweight client-side debug (won't leak secrets)
     if (typeof window !== "undefined") {
-      (window as any)._welcomeEmailDebug = {
-        url,
-        baseProvided: !!rawBase,
-        sanitizedBase,
-        ts: Date.now(),
-      };
+      (window as any)._welcomeEmailDebug = { url, ts: Date.now() };
     }
     const response = await fetch(url, {
       method: "POST",
