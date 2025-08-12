@@ -108,13 +108,15 @@ async function ensureInitialized() {
         "[bootstrap] Loading routes lazily via dynamic import (compiled)"
       );
       // Prefer explicit .js to satisfy Node ESM on Vercel, fallback to extensionless if inlined
-      const mod = await import("./routes.js").catch(async (e) => {
-        try {
-          return await import("./routes");
-        } catch (e2) {
-          throw e;
-        }
-      });
+      const mod = await import("./routes.cjs")
+        .catch(async () => import("./routes.js"))
+        .catch(async (e) => {
+          try {
+            return await import("./routes");
+          } catch (e2) {
+            throw e;
+          }
+        });
       const { registerRoutes } = mod as any;
       await registerRoutes(app);
     }

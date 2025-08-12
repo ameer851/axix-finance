@@ -9,9 +9,7 @@ import type { RequestWithAuth as AuthenticatedRequest } from "./middleware/auth-
  * This is a simplified version of the server/routes.ts file
  */
 export async function registerRoutes(app: Express) {
-  // Resolve internal modules lazily at runtime with explicit .js paths for Node ESM
-  const { requireAuth } = await import("./middleware/auth-middleware.js");
-  const supa = await import("./supabase.js");
+  // Resolve safe utils first; avoid importing DB/auth until after basic routes are registered
   const { registerDebugRoutes } = await import("./utils/debug-env.js");
   const { emailHealth, sendWelcomeEmail: sendBasicWelcomeEmail } = await import(
     "./utils/email.js"
@@ -53,398 +51,474 @@ export async function registerRoutes(app: Express) {
     res.json(emailHealth());
   });
 
-  // DB health (lightweight, no data leakage)
-  app.get("/api/db-health", async (_req, res) => {
-    try {
-      if (!supa.isSupabaseConfigured || !supa.supabase) {
-        return res.json({ configured: false, reachable: false });
-      }
-      // Minimal ping: attempt a cheap RPC (or select 1 pattern via from)
-      const { error } = await supa.supabase.from("users").select("id").limit(1);
-      if (error) {
-        console.error("/api/db-health select error", error);
-        return res.json({ configured: true, reachable: false });
-      }
-      res.json({ configured: true, reachable: true });
-    } catch (e) {
-      console.error("/api/db-health error", e);
-      res.json({ configured: !!supa.isSupabaseConfigured, reachable: false });
-    }
-  });
+  // Heavy routes (require DB/auth) – attempt to load and register; on failure, keep basic routes alive
+  try {
+    const { requireAuth } = await import("./middleware/auth-middleware.js");
+    const supa = await import("./supabase.js");
 
-  // Basic health check endpoint (no auth required)
-  app.get("/api/health", (req, res) => {
-    res.status(200).json({
-      status: "ok",
-      message: "API is up and running",
-      timestamp: new Date().toISOString(),
-      version: "1.0.0",
+    // DB health (lightweight, no data leakage)
+    app.get("/api/db-health", async (_req, res) => {
+      try {
+        if (!supa.isSupabaseConfigured || !supa.supabase) {
+          return res.json({ configured: false, reachable: false });
+        }
+        // Minimal ping: attempt a cheap RPC (or select 1 pattern via from)
+        const { error } = await supa.supabase
+          .from("users")
+          .select("id")
+          .limit(1);
+        if (error) {
+          console.error("/api/db-health select error", error);
+          return res.json({ configured: true, reachable: false });
+        }
+        res.json({ configured: true, reachable: true });
+      } catch (e) {
+        console.error("/api/db-health error", e);
+        res.json({ configured: !!supa.isSupabaseConfigured, reachable: false });
+      }
     });
-  });
 
-  // Proxy Google Translate log to avoid CORS issues
-  app.get("/api/translate-log", async (req: Request, res: Response) => {
-    try {
-      const targetBase =
-        "https://translate.googleapis.com/element/log?format=json";
-      const qs = new URLSearchParams(req.query as any).toString();
-      const url = qs ? `${targetBase}&${qs}` : targetBase;
-      const response = await fetch(
-        url as any,
-        {
-          headers: { "User-Agent": "AxixFinanceServerless/1.0" },
-        } as any
-      );
-      const text = await response.text();
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Content-Type", "application/json");
-      try {
-        const json = text ? JSON.parse(text) : null;
-        res.status(response.status).json(json);
-      } catch {
-        res.status(response.status).send(text);
-      }
-    } catch (err) {
-      console.error("translate-log proxy error", err);
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.status(500).json({
-        error: "translate_log_failed",
-        message: "Failed to fetch translate log",
+    // Basic health check endpoint (no auth required)
+    app.get("/api/health", (req, res) => {
+      res.status(200).json({
+        status: "ok",
+        message: "API is up and running",
+        timestamp: new Date().toISOString(),
+        version: "1.0.0",
       });
-    }
-  });
+    });
 
-  // Get user balance endpoint - requires authentication
-  app.get(
-    "/api/users/:userId/balance",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
+    // Proxy Google Translate log to avoid CORS issues
+    app.get("/api/translate-log", async (req: Request, res: Response) => {
       try {
-        const userId = req.params.userId;
-
-        // Verify user is requesting their own data or is admin
-        if (
-          req.authUser?.id !== parseInt(userId) &&
-          req.authUser?.role !== "admin"
-        ) {
-          return res.status(403).json({ message: "Unauthorized access" });
+        const targetBase =
+          "https://translate.googleapis.com/element/log?format=json";
+        const qs = new URLSearchParams(req.query as any).toString();
+        const url = qs ? `${targetBase}&${qs}` : targetBase;
+        const response = await fetch(
+          url as any,
+          {
+            headers: { "User-Agent": "AxixFinanceServerless/1.0" },
+          } as any
+        );
+        const text = await response.text();
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Content-Type", "application/json");
+        try {
+          const json = text ? JSON.parse(text) : null;
+          res.status(response.status).json(json);
+        } catch {
+          res.status(response.status).send(text);
         }
-
-        // Get actual balance from database
-        const balanceData = await supa.getUserBalance(userId);
-
-        if (!balanceData) {
-          return res.status(404).json({ message: "User or balance not found" });
-        }
-
-        return res.status(200).json(balanceData);
-      } catch (error) {
-        console.error("Get balance error:", error);
-        return res.status(500).json({ message: "Failed to get user balance" });
-      }
-    }
-  );
-
-  // Admin dashboard data endpoint
-  app.get(
-    "/api/admin/dashboard",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
-      try {
-        if (req.authUser?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-
-        const dashboardData = await supa.getAdminDashboardData();
-        return res.status(200).json(dashboardData);
-      } catch (error) {
-        console.error("Admin dashboard error:", error);
-        return res
-          .status(500)
-          .json({ message: "Failed to fetch admin dashboard data" });
-      }
-    }
-  );
-
-  // Admin deposits endpoint
-  app.get(
-    "/api/admin/deposits",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
-      try {
-        if (req.authUser?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-
-        const { status, dateFrom, dateTo, amountMin, amountMax } = req.query;
-
-        const deposits = await supa.getAdminDeposits({
-          status: status as string,
-          dateFrom: dateFrom as string,
-          dateTo: dateTo as string,
-          amountMin: amountMin ? Number(amountMin) : undefined,
-          amountMax: amountMax ? Number(amountMax) : undefined,
+      } catch (err) {
+        console.error("translate-log proxy error", err);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.status(500).json({
+          error: "translate_log_failed",
+          message: "Failed to fetch translate log",
         });
+      }
+    });
 
-        if (!deposits) {
+    // Get user balance endpoint - requires authentication
+    app.get(
+      "/api/users/:userId/balance",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          const userId = req.params.userId;
+
+          // Verify user is requesting their own data or is admin
+          if (
+            req.authUser?.id !== parseInt(userId) &&
+            req.authUser?.role !== "admin"
+          ) {
+            return res.status(403).json({ message: "Unauthorized access" });
+          }
+
+          // Get actual balance from database
+          const balanceData = await supa.getUserBalance(userId);
+
+          if (!balanceData) {
+            return res
+              .status(404)
+              .json({ message: "User or balance not found" });
+          }
+
+          return res.status(200).json(balanceData);
+        } catch (error) {
+          console.error("Get balance error:", error);
+          return res
+            .status(500)
+            .json({ message: "Failed to get user balance" });
+        }
+      }
+    );
+
+    // Admin dashboard data endpoint
+    app.get(
+      "/api/admin/dashboard",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
+
+          const dashboardData = await supa.getAdminDashboardData();
+          return res.status(200).json(dashboardData);
+        } catch (error) {
+          console.error("Admin dashboard error:", error);
+          return res
+            .status(500)
+            .json({ message: "Failed to fetch admin dashboard data" });
+        }
+      }
+    );
+
+    // Admin deposits endpoint
+    app.get(
+      "/api/admin/deposits",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
+
+          const { status, dateFrom, dateTo, amountMin, amountMax } = req.query;
+
+          const deposits = await supa.getAdminDeposits({
+            status: status as string,
+            dateFrom: dateFrom as string,
+            dateTo: dateTo as string,
+            amountMin: amountMin ? Number(amountMin) : undefined,
+            amountMax: amountMax ? Number(amountMax) : undefined,
+          });
+
+          if (!deposits) {
+            return res
+              .status(500)
+              .json({ message: "Failed to fetch deposits" });
+          }
+
+          return res.status(200).json(deposits);
+        } catch (error) {
+          console.error("Admin deposits error:", error);
           return res.status(500).json({ message: "Failed to fetch deposits" });
         }
-
-        return res.status(200).json(deposits);
-      } catch (error) {
-        console.error("Admin deposits error:", error);
-        return res.status(500).json({ message: "Failed to fetch deposits" });
       }
-    }
-  );
+    );
 
-  // Admin approve deposit endpoint
-  app.post(
-    "/api/admin/deposits/:id/approve",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
-      try {
-        if (req.authUser?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
+    // Admin approve deposit endpoint
+    app.post(
+      "/api/admin/deposits/:id/approve",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
 
-        const success = await supa.approveDeposit(req.params.id);
+          const success = await supa.approveDeposit(req.params.id);
 
-        if (!success) {
+          if (!success) {
+            return res
+              .status(500)
+              .json({ message: "Failed to approve deposit" });
+          }
+
+          return res
+            .status(200)
+            .json({ message: "Deposit approved successfully" });
+        } catch (error) {
+          console.error("Admin approve deposit error:", error);
           return res.status(500).json({ message: "Failed to approve deposit" });
         }
-
-        return res
-          .status(200)
-          .json({ message: "Deposit approved successfully" });
-      } catch (error) {
-        console.error("Admin approve deposit error:", error);
-        return res.status(500).json({ message: "Failed to approve deposit" });
       }
-    }
-  );
+    );
 
-  // Admin withdrawals endpoint
-  app.get(
-    "/api/admin/withdrawals",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
-      try {
-        if (req.authUser?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
+    // Admin withdrawals endpoint
+    app.get(
+      "/api/admin/withdrawals",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
 
-        const { status, dateFrom, dateTo, amountMin, amountMax } = req.query;
+          const { status, dateFrom, dateTo, amountMin, amountMax } = req.query;
 
-        const withdrawals = await supa.getAdminWithdrawals({
-          status: status as string,
-          dateFrom: dateFrom as string,
-          dateTo: dateTo as string,
-          amountMin: amountMin ? Number(amountMin) : undefined,
-          amountMax: amountMax ? Number(amountMax) : undefined,
-        });
+          const withdrawals = await supa.getAdminWithdrawals({
+            status: status as string,
+            dateFrom: dateFrom as string,
+            dateTo: dateTo as string,
+            amountMin: amountMin ? Number(amountMin) : undefined,
+            amountMax: amountMax ? Number(amountMax) : undefined,
+          });
 
-        if (!withdrawals) {
+          if (!withdrawals) {
+            return res
+              .status(500)
+              .json({ message: "Failed to fetch withdrawals" });
+          }
+
+          return res.status(200).json(withdrawals);
+        } catch (error) {
+          console.error("Admin withdrawals error:", error);
           return res
             .status(500)
             .json({ message: "Failed to fetch withdrawals" });
         }
-
-        return res.status(200).json(withdrawals);
-      } catch (error) {
-        console.error("Admin withdrawals error:", error);
-        return res.status(500).json({ message: "Failed to fetch withdrawals" });
       }
-    }
-  );
+    );
 
-  // Admin approve withdrawal endpoint
-  app.post(
-    "/api/admin/withdrawals/:id/approve",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
-      try {
-        if (req.authUser?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
+    // Admin approve withdrawal endpoint
+    app.post(
+      "/api/admin/withdrawals/:id/approve",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
 
-        const success = await supa.approveWithdrawal(req.params.id);
+          const success = await supa.approveWithdrawal(req.params.id);
 
-        if (!success) {
+          if (!success) {
+            return res
+              .status(500)
+              .json({ message: "Failed to approve withdrawal" });
+          }
+
+          return res
+            .status(200)
+            .json({ message: "Withdrawal approved successfully" });
+        } catch (error) {
+          console.error("Admin approve withdrawal error:", error);
           return res
             .status(500)
             .json({ message: "Failed to approve withdrawal" });
         }
-
-        return res
-          .status(200)
-          .json({ message: "Withdrawal approved successfully" });
-      } catch (error) {
-        console.error("Admin approve withdrawal error:", error);
-        return res
-          .status(500)
-          .json({ message: "Failed to approve withdrawal" });
       }
-    }
-  );
+    );
 
-  // Get user deposits endpoint
-  app.get(
-    "/api/users/:userId/deposits",
-    async (req: Request, res: Response) => {
-      try {
-        const userId = req.params.userId;
+    // Get user deposits endpoint
+    app.get(
+      "/api/users/:userId/deposits",
+      async (req: Request, res: Response) => {
+        try {
+          const userId = req.params.userId;
 
-        // Get deposits from database
-        const deposits = await supa.getUserDeposits(userId);
+          // Get deposits from database
+          const deposits = await supa.getUserDeposits(userId);
 
-        if (!deposits) {
-          return res.status(404).json({ message: "User deposits not found" });
-        }
+          if (!deposits) {
+            return res.status(404).json({ message: "User deposits not found" });
+          }
 
-        return res.status(200).json(deposits);
-      } catch (error) {
-        console.error("Get deposits error:", error);
-        return res.status(500).json({ message: "Failed to get user deposits" });
-      }
-    }
-  );
-
-  // Get user withdrawals endpoint
-  app.get(
-    "/api/users/:userId/withdrawals",
-    async (req: Request, res: Response) => {
-      try {
-        const userId = req.params.userId;
-
-        // Get withdrawals from database
-        const withdrawals = await supa.getUserWithdrawals(userId);
-
-        if (!withdrawals) {
+          return res.status(200).json(deposits);
+        } catch (error) {
+          console.error("Get deposits error:", error);
           return res
-            .status(404)
-            .json({ message: "User withdrawals not found" });
+            .status(500)
+            .json({ message: "Failed to get user deposits" });
         }
-
-        return res.status(200).json(withdrawals);
-      } catch (error) {
-        console.error("Get withdrawals error:", error);
-        return res
-          .status(500)
-          .json({ message: "Failed to get user withdrawals" });
       }
-    }
-  );
+    );
 
-  // Create deposit endpoint
-  app.post(
-    "/api/users/:userId/deposits",
-    async (req: Request, res: Response) => {
-      try {
-        const userId = req.params.userId;
-        const { amount, method, reference } = req.body;
+    // Get user withdrawals endpoint
+    app.get(
+      "/api/users/:userId/withdrawals",
+      async (req: Request, res: Response) => {
+        try {
+          const userId = req.params.userId;
 
-        if (!amount || !method) {
+          // Get withdrawals from database
+          const withdrawals = await supa.getUserWithdrawals(userId);
+
+          if (!withdrawals) {
+            return res
+              .status(404)
+              .json({ message: "User withdrawals not found" });
+          }
+
+          return res.status(200).json(withdrawals);
+        } catch (error) {
+          console.error("Get withdrawals error:", error);
           return res
-            .status(400)
-            .json({ message: "Amount and method are required" });
+            .status(500)
+            .json({ message: "Failed to get user withdrawals" });
         }
+      }
+    );
 
-        // Create deposit in database
-        const deposit = await supa.createDeposit(
-          userId,
-          Number(amount),
-          method,
-          reference || ""
-        );
+    // Create deposit endpoint
+    app.post(
+      "/api/users/:userId/deposits",
+      async (req: Request, res: Response) => {
+        try {
+          const userId = req.params.userId;
+          const { amount, method, reference } = req.body;
 
-        if (!deposit) {
+          if (!amount || !method) {
+            return res
+              .status(400)
+              .json({ message: "Amount and method are required" });
+          }
+
+          // Create deposit in database
+          const deposit = await supa.createDeposit(
+            userId,
+            Number(amount),
+            method,
+            reference || ""
+          );
+
+          if (!deposit) {
+            return res
+              .status(500)
+              .json({ message: "Failed to create deposit" });
+          }
+
+          return res.status(201).json(deposit);
+        } catch (error) {
+          console.error("Create deposit error:", error);
           return res.status(500).json({ message: "Failed to create deposit" });
         }
-
-        return res.status(201).json(deposit);
-      } catch (error) {
-        console.error("Create deposit error:", error);
-        return res.status(500).json({ message: "Failed to create deposit" });
       }
-    }
-  );
+    );
 
-  // Create withdrawal endpoint
-  app.post(
-    "/api/users/:userId/withdrawals",
-    async (req: Request, res: Response) => {
-      try {
-        const userId = req.params.userId;
-        const { amount, method, address } = req.body;
+    // Create withdrawal endpoint
+    app.post(
+      "/api/users/:userId/withdrawals",
+      async (req: Request, res: Response) => {
+        try {
+          const userId = req.params.userId;
+          const { amount, method, address } = req.body;
 
-        if (!amount || !method || !address) {
-          return res
-            .status(400)
-            .json({ message: "Amount, method, and address are required" });
-        }
+          if (!amount || !method || !address) {
+            return res
+              .status(400)
+              .json({ message: "Amount, method, and address are required" });
+          }
 
-        // Create withdrawal in database
-        const withdrawal = await supa.createWithdrawal(
-          userId,
-          Number(amount),
-          method,
-          address
-        );
+          // Create withdrawal in database
+          const withdrawal = await supa.createWithdrawal(
+            userId,
+            Number(amount),
+            method,
+            address
+          );
 
-        if (!withdrawal) {
+          if (!withdrawal) {
+            return res
+              .status(500)
+              .json({ message: "Failed to create withdrawal" });
+          }
+
+          return res.status(201).json(withdrawal);
+        } catch (error) {
+          console.error("Create withdrawal error:", error);
           return res
             .status(500)
             .json({ message: "Failed to create withdrawal" });
         }
-
-        return res.status(201).json(withdrawal);
-      } catch (error) {
-        console.error("Create withdrawal error:", error);
-        return res.status(500).json({ message: "Failed to create withdrawal" });
       }
-    }
-  );
+    );
 
-  // --- Additional client-required endpoints (welcome email + deposit flows) ---
+    // --- Additional client-required endpoints (welcome email + deposit flows) ---
 
-  app.post("/api/send-welcome-email", async (req: Request, res: Response) => {
-    try {
-      const { email, username, firstName, lastName, password } = req.body || {};
-      if (!email) return res.status(400).json({ message: "Email required" });
-      console.log("[api] /api/send-welcome-email invoked", {
-        email,
-        hasResendKey: !!process.env.RESEND_API_KEY,
-        fromEmail: process.env.EMAIL_FROM || null,
-        nodeEnv: process.env.NODE_ENV,
-      });
-      const result = await sendBasicWelcomeEmail({
-        email,
-        username,
-        firstName,
-        lastName,
-        plainPassword: password || null,
-      });
-      if (!result.success) {
-        return res
-          .status(500)
-          .json({ message: result.error || "Failed to send welcome email" });
+    app.post("/api/send-welcome-email", async (req: Request, res: Response) => {
+      try {
+        const { email, username, firstName, lastName, password } =
+          req.body || {};
+        if (!email) return res.status(400).json({ message: "Email required" });
+        console.log("[api] /api/send-welcome-email invoked", {
+          email,
+          hasResendKey: !!process.env.RESEND_API_KEY,
+          fromEmail: process.env.EMAIL_FROM || null,
+          nodeEnv: process.env.NODE_ENV,
+        });
+        const result = await sendBasicWelcomeEmail({
+          email,
+          username,
+          firstName,
+          lastName,
+          plainPassword: password || null,
+        });
+        if (!result.success) {
+          return res
+            .status(500)
+            .json({ message: result.error || "Failed to send welcome email" });
+        }
+        res.json({ message: "Welcome email sent", success: true });
+      } catch (e: any) {
+        console.error("/api/send-welcome-email error", e);
+        res.status(500).json({ message: e?.message || "Internal error" });
       }
-      res.json({ message: "Welcome email sent", success: true });
-    } catch (e: any) {
-      console.error("/api/send-welcome-email error", e);
-      res.status(500).json({ message: e?.message || "Internal error" });
-    }
-  });
+    });
 
-  // Balance deposit transaction (method balance)
-  app.post(
-    "/api/transactions/deposit",
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
+    // Balance deposit transaction (method balance)
+    app.post(
+      "/api/transactions/deposit",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (!supa.isSupabaseConfigured || !supa.supabase) {
+            console.error("[deposit] Supabase not configured", {
+              urlPresent: !!process.env.SUPABASE_URL,
+              keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+            });
+            return res.status(500).json({
+              message: "Database not configured",
+              supabaseConfigured: false,
+            });
+          }
+          const { amount, method, planName, plan } = req.body || {};
+          const numericAmount = Number(amount);
+          if (!numericAmount || numericAmount <= 0)
+            return res.status(400).json({ message: "Invalid amount" });
+          if (!method)
+            return res.status(400).json({ message: "Method required" });
+          const { data, error } = await supa.supabase
+            .from("deposits")
+            .insert([
+              {
+                user_id: req.authUser!.id,
+                amount: numericAmount,
+                method,
+                reference: planName || plan || null,
+                status: "pending",
+                created_at: new Date().toISOString(),
+              },
+            ])
+            .select();
+          if (error) {
+            console.error("/api/transactions/deposit insert error", error);
+            return res
+              .status(500)
+              .json({ message: "Failed to process deposit" });
+          }
+          return res
+            .status(201)
+            .json({ success: true, amount: numericAmount, deposit: data?.[0] });
+        } catch (e) {
+          console.error("/api/transactions/deposit error", e);
+          res.status(500).json({ message: "Failed to process deposit" });
+        }
+      }
+    );
+
+    // Crypto deposit confirmation
+    const depositConfirmationHandler = async (
+      req: AuthenticatedRequest,
+      res: Response
+    ) => {
       try {
         if (!supa.isSupabaseConfigured || !supa.supabase) {
-          console.error("[deposit] Supabase not configured", {
+          console.error("[deposit-confirmation] Supabase not configured", {
             urlPresent: !!process.env.SUPABASE_URL,
             keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
           });
@@ -453,107 +527,61 @@ export async function registerRoutes(app: Express) {
             supabaseConfigured: false,
           });
         }
-        const { amount, method, planName, plan } = req.body || {};
+        const { amount, transactionHash, method, planName } = req.body || {};
         const numericAmount = Number(amount);
         if (!numericAmount || numericAmount <= 0)
           return res.status(400).json({ message: "Invalid amount" });
-        if (!method)
-          return res.status(400).json({ message: "Method required" });
+        const combinedRef = [planName, transactionHash]
+          .filter(Boolean)
+          .join(" | ");
         const { data, error } = await supa.supabase
           .from("deposits")
           .insert([
             {
               user_id: req.authUser!.id,
               amount: numericAmount,
-              method,
-              reference: planName || plan || null,
+              method: method || "crypto",
+              reference: combinedRef || null,
               status: "pending",
               created_at: new Date().toISOString(),
             },
           ])
           .select();
         if (error) {
-          console.error("/api/transactions/deposit insert error", error);
-          return res.status(500).json({ message: "Failed to process deposit" });
+          console.error("deposit confirmation insert error", error);
+          return res.status(500).json({ message: "Failed to submit deposit" });
         }
-        return res
-          .status(201)
-          .json({ success: true, amount: numericAmount, deposit: data?.[0] });
+        return res.status(201).json({ success: true, deposit: data?.[0] });
       } catch (e) {
-        console.error("/api/transactions/deposit error", e);
-        res.status(500).json({ message: "Failed to process deposit" });
+        console.error("deposit confirmation error", e);
+        res.status(500).json({ message: "Failed to submit deposit" });
       }
-    }
-  );
+    };
+    app.post(
+      "/api/transactions/deposit-confirmation",
+      requireAuth,
+      depositConfirmationHandler
+    );
+    app.post(
+      "/api/transactions/deposit/confirm",
+      requireAuth,
+      depositConfirmationHandler
+    ); // legacy alias
 
-  // Crypto deposit confirmation
-  const depositConfirmationHandler = async (
-    req: AuthenticatedRequest,
-    res: Response
-  ) => {
-    try {
-      if (!supa.isSupabaseConfigured || !supa.supabase) {
-        console.error("[deposit-confirmation] Supabase not configured", {
-          urlPresent: !!process.env.SUPABASE_URL,
-          keyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-        });
-        return res.status(500).json({
-          message: "Database not configured",
-          supabaseConfigured: false,
-        });
-      }
-      const { amount, transactionHash, method, planName } = req.body || {};
-      const numericAmount = Number(amount);
-      if (!numericAmount || numericAmount <= 0)
-        return res.status(400).json({ message: "Invalid amount" });
-      const combinedRef = [planName, transactionHash]
-        .filter(Boolean)
-        .join(" | ");
-      const { data, error } = await supa.supabase
-        .from("deposits")
-        .insert([
-          {
-            user_id: req.authUser!.id,
-            amount: numericAmount,
-            method: method || "crypto",
-            reference: combinedRef || null,
-            status: "pending",
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select();
-      if (error) {
-        console.error("deposit confirmation insert error", error);
-        return res.status(500).json({ message: "Failed to submit deposit" });
-      }
-      return res.status(201).json({ success: true, deposit: data?.[0] });
-    } catch (e) {
-      console.error("deposit confirmation error", e);
-      res.status(500).json({ message: "Failed to submit deposit" });
-    }
-  };
-  app.post(
-    "/api/transactions/deposit-confirmation",
-    requireAuth,
-    depositConfirmationHandler
-  );
-  app.post(
-    "/api/transactions/deposit/confirm",
-    requireAuth,
-    depositConfirmationHandler
-  ); // legacy alias
-
-  // Environment (sanitized) diagnostics endpoint (no secrets exposed)
-  app.get("/api/env-check", (_req, res) => {
-    res.json({
-      nodeEnv: process.env.NODE_ENV,
-      resendKeyPresent: !!process.env.RESEND_API_KEY,
-      emailFromPresent: !!process.env.EMAIL_FROM,
-      supabaseUrlPresent: !!process.env.SUPABASE_URL,
-      supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      supabaseConfigured: supa.isSupabaseConfigured,
+    // Environment (sanitized) diagnostics endpoint (no secrets exposed)
+    app.get("/api/env-check", (_req, res) => {
+      res.json({
+        nodeEnv: process.env.NODE_ENV,
+        resendKeyPresent: !!process.env.RESEND_API_KEY,
+        emailFromPresent: !!process.env.EMAIL_FROM,
+        supabaseUrlPresent: !!process.env.SUPABASE_URL,
+        supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        supabaseConfigured: supa.isSupabaseConfigured,
+      });
     });
-  });
+  } catch (err) {
+    console.error("[routes] Failed to register DB/auth routes", err);
+  }
 
   // Default route handler
   app.use("*", (req, res) => {
