@@ -24019,41 +24019,6 @@ var require_lib3 = __commonJS({
   }
 });
 
-// api/utils/debug-env.ts
-var debug_env_exports = {};
-__export(debug_env_exports, {
-  registerDebugRoutes: () => registerDebugRoutes
-});
-function registerDebugRoutes(app2) {
-  app2.get("/api/debug/env", (req, res) => {
-    const env = {
-      NODE_ENV: process.env.NODE_ENV,
-      // Show partial keys for debugging
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
-      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
-      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? `${process.env.VITE_SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
-      VITE_FRONTEND_URL: process.env.VITE_FRONTEND_URL,
-      FRONTEND_URL: process.env.FRONTEND_URL,
-      SITE_URL: process.env.SITE_URL,
-      CLIENT_URL: process.env.CLIENT_URL
-    };
-    return res.status(200).json({
-      env,
-      headers: {
-        origin: req.headers.origin,
-        host: req.headers.host,
-        referer: req.headers.referer
-      }
-    });
-  });
-}
-var init_debug_env = __esm({
-  "api/utils/debug-env.ts"() {
-    "use strict";
-  }
-});
-
 // node_modules/domelementtype/lib/esm/index.js
 function isTag(elem) {
   return elem.type === ElementType.Tag || elem.type === ElementType.Script || elem.type === ElementType.Style;
@@ -52483,131 +52448,6 @@ var init_email = __esm({
   }
 });
 
-// api/utils/cors-middleware.ts
-function corsMiddleware(req, res, next) {
-  const allowedOrigins = [
-    "https://www.axixfinance.com",
-    "https://axixfinance.com",
-    "https://axix-finance.vercel.app",
-    "http://localhost:4000",
-    // Add local development
-    "http://localhost:3000",
-    process.env.VITE_FRONTEND_URL || "",
-    process.env.FRONTEND_URL || "",
-    process.env.CLIENT_URL || "",
-    process.env.SITE_URL || ""
-  ].filter((origin2) => origin2);
-  const origin = req.headers.origin;
-  if (process.env.NODE_ENV === "development" && origin?.includes("localhost")) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,HEAD,PUT,PATCH,POST,DELETE"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-    if (req.method === "OPTIONS") {
-      return res.status(200).end();
-    }
-    return next();
-  }
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0] || "*");
-  }
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With"
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  try {
-    const url = req.url;
-    if (typeof url === "string" && url.includes("/api/translate-log")) {
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Access-Control-Allow-Credentials", "false");
-    }
-  } catch {
-  }
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  next();
-}
-var init_cors_middleware = __esm({
-  "api/utils/cors-middleware.ts"() {
-    "use strict";
-  }
-});
-
-// api/utils/visitors-api.ts
-var visitors_api_exports = {};
-__export(visitors_api_exports, {
-  registerVisitorsApi: () => registerVisitorsApi
-});
-function registerVisitorsApi(app2) {
-  app2.all(
-    "/api/visitors/*",
-    (req, res, next) => corsMiddleware(req, res, next)
-  );
-  app2.get("/api/visitors/track", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.post("/api/visitors/track", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.get("/api/visitors/session", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.post("/api/visitors/session", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.delete("/api/visitors/session", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.get("/api/visitors/activity", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.put("/api/visitors/activity", (req, res) => {
-    res.status(200).json({ success: true });
-  });
-  app2.post("/api/visitors/activity", async (req, res) => {
-    try {
-      const { activityType, visitorId, timestamp, details } = req.body || {};
-      if (!activityType || !visitorId) {
-        console.warn(
-          "Missing activityType or visitorId in visitor activity payload",
-          req.body
-        );
-        return res.status(400).json({ success: false, error: "Missing required fields" });
-      }
-      console.info("Visitor activity recorded", {
-        activityType,
-        visitorId,
-        timestamp,
-        details
-      });
-      res.status(200).json({ success: true });
-    } catch (err) {
-      console.error("Error in /api/visitors/activity", err, req.body);
-      res.status(500).json({ success: false, error: "Internal server error" });
-    }
-  });
-}
-var init_visitors_api = __esm({
-  "api/utils/visitors-api.ts"() {
-    "use strict";
-    init_cors_middleware();
-  }
-});
-
 // node_modules/webidl-conversions/lib/index.js
 var require_lib4 = __commonJS({
   "node_modules/webidl-conversions/lib/index.js"(exports2, module2) {
@@ -68182,6 +68022,166 @@ var init_supabase = __esm({
   }
 });
 
+// api/utils/debug-env.ts
+var debug_env_exports = {};
+__export(debug_env_exports, {
+  registerDebugRoutes: () => registerDebugRoutes
+});
+function registerDebugRoutes(app2) {
+  app2.get("/api/debug/env", (req, res) => {
+    const env = {
+      NODE_ENV: process.env.NODE_ENV,
+      // Show partial keys for debugging
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? `${process.env.VITE_SUPABASE_ANON_KEY.substring(0, 10)}...` : void 0,
+      VITE_FRONTEND_URL: process.env.VITE_FRONTEND_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      SITE_URL: process.env.SITE_URL,
+      CLIENT_URL: process.env.CLIENT_URL
+    };
+    return res.status(200).json({
+      env,
+      headers: {
+        origin: req.headers.origin,
+        host: req.headers.host,
+        referer: req.headers.referer
+      }
+    });
+  });
+}
+var init_debug_env = __esm({
+  "api/utils/debug-env.ts"() {
+    "use strict";
+  }
+});
+
+// api/utils/cors-middleware.ts
+function corsMiddleware(req, res, next) {
+  const allowedOrigins = [
+    "https://www.axixfinance.com",
+    "https://axixfinance.com",
+    "https://axix-finance.vercel.app",
+    "http://localhost:4000",
+    // Add local development
+    "http://localhost:3000",
+    process.env.VITE_FRONTEND_URL || "",
+    process.env.FRONTEND_URL || "",
+    process.env.CLIENT_URL || "",
+    process.env.SITE_URL || ""
+  ].filter((origin2) => origin2);
+  const origin = req.headers.origin;
+  if (process.env.NODE_ENV === "development" && origin?.includes("localhost")) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,HEAD,PUT,PATCH,POST,DELETE"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+    return next();
+  }
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0] || "*");
+  }
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With"
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  try {
+    const url = req.url;
+    if (typeof url === "string" && url.includes("/api/translate-log")) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Credentials", "false");
+    }
+  } catch {
+  }
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+}
+var init_cors_middleware = __esm({
+  "api/utils/cors-middleware.ts"() {
+    "use strict";
+  }
+});
+
+// api/utils/visitors-api.ts
+var visitors_api_exports = {};
+__export(visitors_api_exports, {
+  registerVisitorsApi: () => registerVisitorsApi
+});
+function registerVisitorsApi(app2) {
+  app2.all(
+    "/api/visitors/*",
+    (req, res, next) => corsMiddleware(req, res, next)
+  );
+  app2.get("/api/visitors/track", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.post("/api/visitors/track", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.get("/api/visitors/session", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.post("/api/visitors/session", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.delete("/api/visitors/session", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.get("/api/visitors/activity", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.put("/api/visitors/activity", (req, res) => {
+    res.status(200).json({ success: true });
+  });
+  app2.post("/api/visitors/activity", async (req, res) => {
+    try {
+      const { activityType, visitorId, timestamp, details } = req.body || {};
+      if (!activityType || !visitorId) {
+        console.warn(
+          "Missing activityType or visitorId in visitor activity payload",
+          req.body
+        );
+        return res.status(400).json({ success: false, error: "Missing required fields" });
+      }
+      console.info("Visitor activity recorded", {
+        activityType,
+        visitorId,
+        timestamp,
+        details
+      });
+      res.status(200).json({ success: true });
+    } catch (err) {
+      console.error("Error in /api/visitors/activity", err, req.body);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+}
+var init_visitors_api = __esm({
+  "api/utils/visitors-api.ts"() {
+    "use strict";
+    init_cors_middleware();
+  }
+});
+
 // api/middleware/auth-middleware.ts
 var auth_middleware_exports = {};
 __export(auth_middleware_exports, {
@@ -68265,6 +68265,15 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/email-health", (_req, res) => {
     res.json(emailHealth2());
+  });
+  app2.get("/api/env-check", (_req, res) => {
+    res.json({
+      nodeEnv: process.env.NODE_ENV,
+      resendKeyPresent: !!process.env.RESEND_API_KEY,
+      emailFromPresent: !!process.env.EMAIL_FROM,
+      supabaseUrlPresent: !!process.env.SUPABASE_URL,
+      supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    });
   });
   try {
     const { requireAuth: requireAuth2 } = await Promise.resolve().then(() => (init_auth_middleware(), auth_middleware_exports));
@@ -68738,6 +68747,7 @@ async function ensureInitialized() {
         hasInitError: !!lastInitError,
         nodeEnv: process.env.NODE_ENV,
         timestamp: Date.now(),
+        minimalMode: !!MINIMAL_MODE,
         resendKeyPresent: !!process.env.RESEND_API_KEY,
         supabaseUrlPresent: !!process.env.SUPABASE_URL,
         supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -68745,6 +68755,37 @@ async function ensureInitialized() {
     });
     app.get("/api/init-status", (_req, res) => {
       res.json({ initialized, initializing, error: lastInitError });
+    });
+    app.get("/api/email-health", async (_req, res) => {
+      try {
+        const { emailHealth: emailHealth2 } = await Promise.resolve().then(() => (init_email(), email_exports));
+        res.json(emailHealth2());
+      } catch (e2) {
+        res.json({ apiKeyPresent: !!process.env.RESEND_API_KEY, clientReady: false, error: "email util load failed" });
+      }
+    });
+    app.get("/api/env-check", (_req, res) => {
+      res.json({
+        nodeEnv: process.env.NODE_ENV,
+        resendKeyPresent: !!process.env.RESEND_API_KEY,
+        emailFromPresent: !!process.env.EMAIL_FROM,
+        supabaseUrlPresent: !!process.env.SUPABASE_URL,
+        supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        minimalMode: !!MINIMAL_MODE
+      });
+    });
+    app.get("/api/db-health", async (_req, res) => {
+      try {
+        const supa = await Promise.resolve().then(() => (init_supabase(), supabase_exports));
+        if (!supa.isSupabaseConfigured || !supa.supabase) {
+          return res.json({ configured: false, reachable: false });
+        }
+        const { error } = await supa.supabase.from("users").select("id").limit(1);
+        if (error) return res.json({ configured: true, reachable: false });
+        return res.json({ configured: true, reachable: true });
+      } catch (e2) {
+        return res.json({ configured: false, reachable: false });
+      }
     });
     if (MINIMAL_MODE) {
       console.log(
@@ -68803,6 +68844,7 @@ async function handler(req, res) {
           hasInitError: !!lastInitError,
           nodeEnv: process.env.NODE_ENV,
           timestamp: Date.now(),
+          minimalMode: !!MINIMAL_MODE,
           resendKeyPresent: !!process.env.RESEND_API_KEY,
           supabaseUrlPresent: !!process.env.SUPABASE_URL,
           supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY
