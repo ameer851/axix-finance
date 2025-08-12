@@ -29,8 +29,9 @@ api/server.ts
 api/fallback.ts
 api/routes.ts.new
 
-# Keep only the main TS entry and its dependencies for a single bundled function
-!api/index.ts
+# Keep only necessary sources; use compiled JS for the main entry to avoid conflicts
+# IMPORTANT: Exclude api/index.ts so it doesn't conflict with the compiled api/index.js
+api/index.ts
 !api/routes.ts
 !api/supabase.ts
 !api/middleware/**
