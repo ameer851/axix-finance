@@ -37,8 +37,8 @@
     "preview": "vite preview",
     "deploy:check": "node scripts/pre-deployment-check.cjs",
     "deploy:prepare": "node prepare-vercel-deployment.js",
-  "build:api": "esbuild api/index.ts --bundle --platform=node --format=esm --outfile=api/index.js",
-  "deploy:vercel": "npm run build && npm run build:api && vercel",
+    "build:api": "esbuild api/index.ts --bundle --platform=node --format=esm --outfile=api/index.js",
+    "deploy:vercel": "npm run build && npm run build:api && vercel",
     "diagnose:prod": "node scripts/diagnose-production.mjs"
   },
   "dependencies": {

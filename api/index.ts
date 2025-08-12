@@ -1,8 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import cors from "cors";
-import express from "express";
-import { registerRoutes } from "./routes"; // Static import of registerRoutes
-// Defer loading routes until after preflight endpoints are registered
+// Defer loading heavy deps until needed to avoid import-time crashes
 
 // Force Node.js runtime for Vercel
 export const config = { runtime: "nodejs" };
@@ -22,10 +19,15 @@ console.log(
 );
 
 // Create Express app once; initialize lazily on first request
-const app = express();
+let app: any = null;
 let initialized = false;
 let initializing = false;
 let lastInitError: { message: string; stack?: string } | null = null;
+
+// Minimal mode lets us deploy preflight-only to diagnose crashes without loading routes
+const MINIMAL_MODE =
+  process.env.API_MINIMAL_MODE === "1" ||
+  process.env.API_DISABLE_ROUTES === "1";
 
 // CORS configuration
 const corsOptions = {
@@ -78,14 +80,37 @@ async function ensureInitialized() {
   if (initialized || initializing) return;
   initializing = true;
   console.log("[bootstrap] Initializing express app");
+  if (!app) {
+    const express = (await import("express")).default;
+    app = express();
+  }
   // Core middleware (idempotent – Express ignores duplicate .use order for identical stack we invoke only once)
+  const cors = (await import("cors")).default;
   app.use(cors(corsOptions));
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(
+    app.json
+      ? app.json({ limit: "10mb" })
+      : (await import("express")).default.json({ limit: "10mb" })
+  );
+  app.use(
+    app.urlencoded
+      ? app.urlencoded({ extended: true, limit: "10mb" })
+      : (await import("express")).default.urlencoded({
+          extended: true,
+          limit: "10mb",
+        })
+  );
 
   try {
-    console.log("[bootstrap] Loading routes lazily");
-  await registerRoutes(app);
+    if (MINIMAL_MODE) {
+      console.log(
+        "[bootstrap] MINIMAL_MODE enabled – skipping route registration"
+      );
+    } else {
+      console.log("[bootstrap] Loading routes lazily via dynamic import");
+      const { registerRoutes } = await import("./routes");
+      await registerRoutes(app);
+    }
     initialized = true;
     console.log("[bootstrap] Route registration complete");
   } catch (e: any) {
@@ -110,6 +135,33 @@ async function ensureInitialized() {
 // Export handler for Vercel with lazy init
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    // Serve ultra-minimal endpoints without Express when in MINIMAL_MODE
+    if (MINIMAL_MODE) {
+      const url = String(req.url || "");
+      if (url.startsWith("/api/preflight")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        return res.end(
+          JSON.stringify({
+            initialized: false,
+            initializing: false,
+            hasInitError: false,
+            nodeEnv: process.env.NODE_ENV,
+            timestamp: Date.now(),
+            resendKeyPresent: !!process.env.RESEND_API_KEY,
+            supabaseUrlPresent: !!process.env.SUPABASE_URL,
+            supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+            minimalMode: true,
+          })
+        );
+      }
+      if (url.startsWith("/api/ping")) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/plain");
+        return res.end("ok");
+      }
+    }
+
     await ensureInitialized();
     return app(req as any, res as any);
   } catch (err: any) {
