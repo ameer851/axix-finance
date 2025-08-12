@@ -90,6 +90,7 @@ async function ensureInitialized() {
         hasInitError: !!lastInitError,
         nodeEnv: process.env.NODE_ENV,
         timestamp: Date.now(),
+        minimalMode: !!MINIMAL_MODE,
         resendKeyPresent: !!process.env.RESEND_API_KEY,
         supabaseUrlPresent: !!process.env.SUPABASE_URL,
         supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -97,6 +98,39 @@ async function ensureInitialized() {
     });
     (app as any).get("/api/init-status", (_req: any, res: any) => {
       res.json({ initialized, initializing, error: lastInitError });
+    });
+
+    // Make basic health endpoints available even in MINIMAL_MODE
+    (app as any).get("/api/email-health", async (_req: any, res: any) => {
+      try {
+        const { emailHealth } = await import("./utils/email");
+        res.json(emailHealth());
+      } catch (e) {
+        res.json({ apiKeyPresent: !!process.env.RESEND_API_KEY, clientReady: false, error: "email util load failed" });
+      }
+    });
+    (app as any).get("/api/env-check", (_req: any, res: any) => {
+      res.json({
+        nodeEnv: process.env.NODE_ENV,
+        resendKeyPresent: !!process.env.RESEND_API_KEY,
+        emailFromPresent: !!process.env.EMAIL_FROM,
+        supabaseUrlPresent: !!process.env.SUPABASE_URL,
+        supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        minimalMode: !!MINIMAL_MODE,
+      });
+    });
+    (app as any).get("/api/db-health", async (_req: any, res: any) => {
+      try {
+        const supa: any = await import("./supabase");
+        if (!supa.isSupabaseConfigured || !supa.supabase) {
+          return res.json({ configured: false, reachable: false });
+        }
+        const { error } = await supa.supabase.from("users").select("id").limit(1);
+        if (error) return res.json({ configured: true, reachable: false });
+        return res.json({ configured: true, reachable: true });
+      } catch (e) {
+        return res.json({ configured: false, reachable: false });
+      }
     });
 
     if (MINIMAL_MODE) {
@@ -164,6 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           hasInitError: !!lastInitError,
           nodeEnv: process.env.NODE_ENV,
           timestamp: Date.now(),
+          minimalMode: !!MINIMAL_MODE,
           resendKeyPresent: !!process.env.RESEND_API_KEY,
           supabaseUrlPresent: !!process.env.SUPABASE_URL,
           supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
