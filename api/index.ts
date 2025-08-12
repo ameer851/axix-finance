@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-// Defer loading heavy deps until needed to avoid import-time crashes
+// Static import so bundler (esbuild) includes routes in single output; we still call it lazily
+import { registerRoutes } from "./routes";
 
 // Force Node.js runtime for Vercel
 export const config = { runtime: "nodejs" };
@@ -82,13 +83,29 @@ async function ensureInitialized() {
   );
 
   try {
+    // Register early diagnostics routes before attempting full route load
+    app.get("/api/preflight", (_req: any, res: any) => {
+      res.json({
+        initialized,
+        initializing,
+        hasInitError: !!lastInitError,
+        nodeEnv: process.env.NODE_ENV,
+        timestamp: Date.now(),
+        resendKeyPresent: !!process.env.RESEND_API_KEY,
+        supabaseUrlPresent: !!process.env.SUPABASE_URL,
+        supabaseServiceRolePresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      });
+    });
+    app.get("/api/init-status", (_req: any, res: any) => {
+      res.json({ initialized, initializing, error: lastInitError });
+    });
+
     if (MINIMAL_MODE) {
       console.log(
         "[bootstrap] MINIMAL_MODE enabled – skipping route registration"
       );
     } else {
-      console.log("[bootstrap] Loading routes lazily via dynamic import");
-      const { registerRoutes } = await import("./routes");
+      console.log("[bootstrap] Registering routes (bundled)");
       await registerRoutes(app);
     }
     initialized = true;

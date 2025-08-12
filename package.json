@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "vite build --outDir dist && node verify-dist.cjs",
+    "build": "vite build --outDir dist && node verify-dist.cjs && npm run build:api:all",
     "build:server": "esbuild server/index.ts --platform=node --external:@prisma/client --external:express --external:morgan --bundle --format=esm --outdir=dist/server",
     "build:frontend": "vite build --outDir dist",
     "start": "cross-env NODE_ENV=production node dist/server/index.js",
@@ -38,6 +38,7 @@
     "deploy:check": "node scripts/pre-deployment-check.cjs",
     "deploy:prepare": "node prepare-vercel-deployment.js",
     "build:api": "esbuild api/index.ts --bundle --platform=node --format=esm --outfile=api/index.js",
+    "build:api:all": "esbuild api/index.ts --bundle --platform=node --format=esm --outfile=api/index.js && esbuild api/routes.ts --bundle --platform=node --format=esm --outfile=api/routes.js",
     "deploy:vercel": "npm run build && npm run build:api && vercel",
     "diagnose:prod": "node scripts/diagnose-production.mjs"
   },
