@@ -5,7 +5,6 @@
 server/
 scripts/
 !scripts/verify-dist.cjs
-!scripts/build-api.cjs
 migrations/
 docs/
 logs/
