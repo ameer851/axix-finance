@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-// Static import so bundler (esbuild) includes routes in single output; we still call it lazily
-import { registerRoutes } from "./routes";
+// Defer routes loading to runtime to isolate import-time errors
 
 // Force Node.js runtime for Vercel
 export const config = { runtime: "nodejs" };
@@ -105,7 +104,19 @@ async function ensureInitialized() {
         "[bootstrap] MINIMAL_MODE enabled – skipping route registration"
       );
     } else {
-      console.log("[bootstrap] Registering routes (bundled)");
+      console.log(
+        "[bootstrap] Loading routes lazily via dynamic import (compiled)"
+      );
+      // Explicit .js extension ensures Node ESM resolver finds the compiled file on Vercel
+      const mod = await import("./routes.js").catch(async (e) => {
+        // Fallback to extensionless if bundler inlined path
+        try {
+          return await import("./routes");
+        } catch (e2) {
+          throw e;
+        }
+      });
+      const { registerRoutes } = mod as any;
       await registerRoutes(app);
     }
     initialized = true;
