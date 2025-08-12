@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 // Defer routes loading to runtime to isolate import-time errors
+import { registerRoutes } from "./routes";
 
 // Force Node.js runtime for Vercel
 export const config = { runtime: "nodejs" };
@@ -107,16 +108,7 @@ async function ensureInitialized() {
       console.log(
         "[bootstrap] Loading routes lazily via dynamic import (compiled)"
       );
-      // Explicit .js extension ensures Node ESM resolver finds the compiled file on Vercel
-      const mod = await import("./routes.js").catch(async (e) => {
-        // Fallback to extensionless if bundler inlined path
-        try {
-          return await import("./routes");
-        } catch (e2) {
-          throw e;
-        }
-      });
-      const { registerRoutes } = mod as any;
+      console.log("[bootstrap] Registering routes (bundled in index.js)");
       await registerRoutes(app);
     }
     initialized = true;
