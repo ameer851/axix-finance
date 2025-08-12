@@ -6,30 +6,7 @@
 const fs = require("fs");
 const path = require("path");
 
-function rmTsFilesRecursively(dir) {
-  if (!fs.existsSync(dir)) return;
-  for (const entry of fs.readdirSync(dir)) {
-    const full = path.join(dir, entry);
-    const stat = fs.lstatSync(full);
-    if (stat.isDirectory()) {
-      rmTsFilesRecursively(full);
-    } else if (stat.isFile()) {
-      if (full.endsWith(".ts") && !full.endsWith(".d.ts")) {
-        // Do not delete source maps or JS
-        try {
-          fs.unlinkSync(full);
-          console.log("[vercel-build-helper] removed TS source", full);
-        } catch (e) {
-          console.warn(
-            "[vercel-build-helper] failed to remove",
-            full,
-            e.message
-          );
-        }
-      }
-    }
-  }
-}
+// No-op: previously removed TS sources; we avoid that to not break Vercel's file scanning
 
 function main() {
   const apiDir = path.resolve(__dirname, "api");
@@ -41,10 +18,6 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(
-    "[vercel-build-helper] Ensuring Vercel uses JS for API functions"
-  );
-  rmTsFilesRecursively(apiDir);
+  console.log("[vercel-build-helper] api/index.js found (OK)");
 }
-
 main();
