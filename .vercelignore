@@ -32,10 +32,8 @@ api/routes.ts.new
 
 # Exclude TS entry to avoid conflict with compiled api/index.js during Vercel's pre-build scan
 api/index.ts
-!api/routes.ts
-!api/supabase.ts
-!api/middleware/**
-!api/utils/**
+api/**/*.ts
+api/**/*.tsx
 # Do not deploy standalone ping; route through api/index.js handler
 # !api/ping.ts
 

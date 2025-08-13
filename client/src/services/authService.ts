@@ -105,8 +105,31 @@ export async function login(
       email,
       password,
     });
-    if (error)
-      throw new Error(error.message || "Invalid username or password.");
+    if (error) {
+      // Try to diagnose for a better message
+      try {
+        const diag = await apiFetch("/api/auth/diagnose-login", {
+          method: "POST",
+          body: { identifier },
+        });
+        const code = diag?.code;
+        const map: Record<string, string> = {
+          username_not_found: "Username not found.",
+          profile_missing: "No user profile exists for this account.",
+          account_deactivated: "Account is deactivated.",
+          auth_unlinked: "Account setup incomplete. Please contact support.",
+          auth_user_missing: "No authentication account exists for this email.",
+        };
+        const friendly =
+          diag?.message ||
+          map[code] ||
+          error.message ||
+          "Invalid username or password.";
+        throw new Error(friendly);
+      } catch {
+        throw new Error(error.message || "Invalid username or password.");
+      }
+    }
     if (!data.user)
       throw new Error("No user data returned from authentication.");
 

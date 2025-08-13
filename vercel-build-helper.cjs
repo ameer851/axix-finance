@@ -20,42 +20,41 @@ function main() {
     return;
   }
   console.log("[vercel-build-helper] api/index.js found (OK)");
-  // Remove TS entry after build to avoid Vercel function path conflicts
-  if (fs.existsSync(indexTs)) {
-    try {
-      fs.unlinkSync(indexTs);
-      console.log(
-        "[vercel-build-helper] Removed api/index.ts to prevent deployment conflict"
-      );
-    } catch (e) {
-      console.warn(
-        "[vercel-build-helper] Could not remove api/index.ts:",
-        e?.message || e
-      );
-    }
-  }
-  // Clean up previously generated JS files that conflict with TS sources to avoid Vercel filename conflicts
+  // Remove all TS sources under api/ to prevent Vercel attempting to typecheck them
   const entries = fs.readdirSync(apiDir, { withFileTypes: true });
   for (const ent of entries) {
     const full = path.join(apiDir, ent.name);
     if (ent.isFile()) {
-      // remove top-level compiled JS except index.js
+      if (ent.name.endsWith(".ts") || ent.name.endsWith(".tsx")) {
+        try {
+          fs.unlinkSync(full);
+        } catch {}
+      }
+      // keep index.js, remove other top-level compiled JS that might conflict
       if (ent.name.endsWith(".js") && ent.name !== "index.js") {
         try {
           fs.unlinkSync(full);
         } catch {}
       }
     } else if (ent.isDirectory()) {
-      // in subfolders, remove compiled .js that have a sibling .ts
       const subEntries = fs.readdirSync(full, { withFileTypes: true });
       for (const s of subEntries) {
-        if (s.isFile() && s.name.endsWith(".js")) {
-          const tsName = s.name.replace(/\.js$/, ".ts");
-          const tsPath = path.join(full, tsName);
-          if (fs.existsSync(tsPath)) {
+        const subFull = path.join(full, s.name);
+        if (s.isFile()) {
+          if (s.name.endsWith(".ts") || s.name.endsWith(".tsx")) {
             try {
-              fs.unlinkSync(path.join(full, s.name));
+              fs.unlinkSync(subFull);
             } catch {}
+          }
+          // also remove compiled .js if there's a corresponding .ts in repo to avoid conflicts
+          if (s.name.endsWith(".js")) {
+            const tsName = s.name.replace(/\.js$/, ".ts");
+            const tsPath = path.join(full, tsName);
+            if (fs.existsSync(tsPath)) {
+              try {
+                fs.unlinkSync(subFull);
+              } catch {}
+            }
           }
         }
       }

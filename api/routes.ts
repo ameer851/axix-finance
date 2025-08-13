@@ -89,8 +89,7 @@ export async function registerRoutes(app: Express) {
       }
     });
 
-    // Resolve identifier to email for login (supports username or uid)
-    // Public endpoint but uses service role on server; returns only email if found
+    // Resolve identifier to email for login (supports username, email, or uid)
     app.post(
       "/api/auth/resolve-identifier",
       async (req: Request, res: Response) => {
@@ -99,38 +98,210 @@ export async function registerRoutes(app: Express) {
           if (!identifier || typeof identifier !== "string") {
             return res.status(400).json({ message: "identifier is required" });
           }
+          if (!supa.isSupabaseConfigured || !supa.supabase) {
+            return res.status(500).json({ message: "Database not configured" });
+          }
+          const id = identifier.trim();
+          const isEmail = id.includes("@");
+          const isUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              id
+            );
 
-          // If already an email, return as is
-          if (identifier.includes("@")) {
-            return res.json({ email: identifier });
+          // 1) Exact match paths
+          if (isEmail) {
+            const { data, error } = await supa.supabase
+              .from("users")
+              .select("email")
+              .eq("email", id)
+              .limit(1);
+            if (error)
+              console.warn("[resolve-identifier] exact email error", error);
+            if (data && data.length > 0)
+              return res.json({ email: data[0].email });
+          } else if (isUuid) {
+            const { data, error } = await supa.supabase
+              .from("users")
+              .select("email")
+              .or(`uid.eq.${id},username.eq.${id}`)
+              .limit(1);
+            if (error)
+              console.warn(
+                "[resolve-identifier] uid/username exact error",
+                error
+              );
+            if (data && data.length > 0)
+              return res.json({ email: data[0].email });
+          } else {
+            const { data, error } = await supa.supabase
+              .from("users")
+              .select("email")
+              .eq("username", id)
+              .limit(1);
+            if (error)
+              console.warn("[resolve-identifier] username exact error", error);
+            if (data && data.length > 0)
+              return res.json({ email: data[0].email });
+          }
+
+          // 2) Case-insensitive fallbacks
+          if (!isEmail) {
+            const { data, error } = await supa.supabase
+              .from("users")
+              .select("email")
+              .ilike("username", id);
+            if (error)
+              console.warn("[resolve-identifier] username ilike error", error);
+            if (data && data.length > 0)
+              return res.json({ email: data[0].email });
+          } else {
+            const { data, error } = await supa.supabase
+              .from("users")
+              .select("email")
+              .ilike("email", id);
+            if (error)
+              console.warn("[resolve-identifier] email ilike error", error);
+            if (data && data.length > 0)
+              return res.json({ email: data[0].email });
+          }
+
+          return res.status(404).json({ message: "User not found" });
+        } catch (e: any) {
+          console.error("/api/auth/resolve-identifier error", e);
+          res.status(500).json({ message: e?.message || "Internal error" });
+        }
+      }
+    );
+
+    // Diagnose login issues to produce precise error messages
+    app.post(
+      "/api/auth/diagnose-login",
+      async (req: Request, res: Response) => {
+        try {
+          const { identifier } = req.body || {};
+          if (!identifier || typeof identifier !== "string") {
+            return res.status(400).json({ message: "identifier is required" });
           }
 
           if (!supa.isSupabaseConfigured || !supa.supabase) {
             return res.status(500).json({ message: "Database not configured" });
           }
 
-          // Determine if looks like UUID (auth uid)
+          const id = String(identifier).trim();
+          let resolvedEmail: string | null = null;
+          const isEmail = id.includes("@");
           const isUuid =
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-              identifier
+              id
             );
-          let query = supa.supabase.from("users").select("email");
-          if (isUuid) {
-            query = query.or(`username.eq.${identifier},uid.eq.${identifier}`);
+
+          // Resolve to email (reuse similar logic as resolve-identifier)
+          if (isEmail) {
+            const { data } = await supa.supabase
+              .from("users")
+              .select("email")
+              .eq("email", id)
+              .limit(1);
+            if (data && data.length > 0) resolvedEmail = data[0].email;
+            else resolvedEmail = id; // trust email if direct
+          } else if (isUuid) {
+            const { data } = await supa.supabase
+              .from("users")
+              .select("email")
+              .or(`uid.eq.${id},username.eq.${id}`)
+              .limit(1);
+            if (data && data.length > 0) resolvedEmail = data[0].email;
           } else {
-            query = query.eq("username", identifier);
+            const { data } = await supa.supabase
+              .from("users")
+              .select("email")
+              .eq("username", id)
+              .limit(1);
+            if (data && data.length > 0) resolvedEmail = data[0].email;
+            if (!resolvedEmail) {
+              const { data: ilikeData } = await supa.supabase
+                .from("users")
+                .select("email")
+                .ilike("username", id)
+                .limit(1);
+              if (ilikeData && ilikeData.length > 0)
+                resolvedEmail = ilikeData[0].email;
+            }
           }
-          const { data, error } = await query.limit(1);
-          if (error) {
-            console.warn("/api/auth/resolve-identifier select error", error);
-            return res.status(404).json({ message: "User not found" });
+
+          if (!resolvedEmail) {
+            return res.status(404).json({
+              success: false,
+              code: "username_not_found",
+              message: "Username not found",
+            });
           }
-          if (!data || data.length === 0) {
-            return res.status(404).json({ message: "User not found" });
+
+          // Check profile in users table
+          const { data: profiles, error: profileErr } = await supa.supabase
+            .from("users")
+            .select("id, uid, is_active")
+            .eq("email", resolvedEmail)
+            .limit(1);
+          if (profileErr) {
+            console.warn("[diagnose-login] users select error", profileErr);
           }
-          return res.json({ email: data[0].email });
+          const profile = profiles?.[0] || null;
+          const profileExists = !!profile;
+          const accountDeactivated = profileExists
+            ? profile.is_active === false
+            : false;
+          const authLinked = profileExists ? Boolean(profile.uid) : false;
+
+          // Optionally check existence in Supabase Auth via Admin API
+          let authUserExists: boolean | null = null;
+          try {
+            const { data: list } = await supa.supabase.auth.admin.listUsers({
+              page: 1,
+              perPage: 1000,
+            } as any);
+            const usersArr: any[] = (list as any)?.users || [];
+            authUserExists = usersArr.some(
+              (u) =>
+                String(u.email || "").toLowerCase() ===
+                resolvedEmail.toLowerCase()
+            );
+          } catch (e) {
+            console.warn("[diagnose-login] listUsers failed (non-fatal)", e);
+            authUserExists = null;
+          }
+
+          // Decide best code/message
+          let code = "unknown";
+          let message = "Login failed";
+          if (!profileExists) {
+            code = "profile_missing";
+            message = "No user profile exists for this account";
+          } else if (accountDeactivated) {
+            code = "account_deactivated";
+            message = "Account is deactivated";
+          } else if (!authLinked) {
+            code = "auth_unlinked";
+            message = "Account setup incomplete (auth not linked)";
+          } else if (authUserExists === false) {
+            code = "auth_user_missing";
+            message = "No authentication account exists for this email";
+          }
+
+          return res.json({
+            success: true,
+            email: resolvedEmail,
+            flags: {
+              profileExists,
+              accountDeactivated,
+              authLinked,
+              authUserExists,
+            },
+            code,
+            message,
+          });
         } catch (e: any) {
-          console.error("/api/auth/resolve-identifier error", e);
+          console.error("/api/auth/diagnose-login error", e);
           res.status(500).json({ message: e?.message || "Internal error" });
         }
       }
