@@ -25,6 +25,7 @@ _.backup_
 
 api/auth.ts
 api/health.ts
+api/ping.ts
 api/server.ts
 api/fallback.ts
 api/routes.ts.new

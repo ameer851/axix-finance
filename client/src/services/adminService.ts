@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
   AdminDashboardStats,
@@ -39,76 +40,39 @@ export const adminService = {
     getAll: async (
       filters?: TransactionFilters
     ): Promise<PaginatedResponse<Transaction>> => {
-      try {
-        const page = filters?.page || 1;
-        const limit = filters?.limit || 10;
-        const offset = (page - 1) * limit;
-
-        let query = supabase
-          .from("transactions")
-          .select("*, users!inner(id, username, email)", { count: "exact" })
-          .eq("type", "deposit");
-
-        // Apply filters
-        if (filters?.status) query = query.eq("status", filters.status);
-        if (filters?.search)
-          query = query.ilike("description", `%${filters.search}%`);
-        if (filters?.dateFrom)
-          query = query.gte("created_at", filters.dateFrom);
-        if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
-        if (filters?.amountMin) query = query.gte("amount", filters.amountMin);
-        if (filters?.amountMax) query = query.lte("amount", filters.amountMax);
-
-        // Apply sorting and pagination
-        query = query
-          .order("created_at", { ascending: false })
-          .range(offset, offset + limit - 1);
-
-        const { data: transactions, error, count } = await query;
-
-        if (error) {
-          console.error("Error fetching deposits:", error);
-          throw new Error(error.message);
-        }
-
-        return {
-          data: transactions || [],
-          success: true,
-          pagination: {
-            page,
-            limit,
-            total: count || 0,
-            pages: Math.ceil((count || 0) / limit),
-          },
-        };
-      } catch (error) {
-        console.error("Error fetching deposits:", error);
-        throw new Error("Failed to fetch deposits");
-      }
+      // Delegate to backend admin API for consistent behavior
+      const params = new URLSearchParams();
+      if (filters?.status) params.set("status", String(filters.status));
+      if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
+      if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+      if (filters?.amountMin)
+        params.set("amountMin", String(filters.amountMin));
+      if (filters?.amountMax)
+        params.set("amountMax", String(filters.amountMax));
+      const url = `/api/admin/deposits${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await api.get<any>(url);
+      // Normalize to PaginatedResponse shape
+      const list = Array.isArray(res?.deposits)
+        ? res.deposits
+        : Array.isArray(res?.data)
+          ? res.data
+          : [];
+      return {
+        data: list,
+        success: true,
+        pagination: {
+          page: 1,
+          limit: list.length,
+          total: res?.totalDeposits ?? list.length,
+          pages: 1,
+        },
+      };
     },
     approve: async (depositId: string) => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .update({ status: "completed" })
-        .eq("id", depositId)
-        .eq("type", "deposit")
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-      return data;
+      return api.post(`/api/admin/deposits/${depositId}/approve`, {});
     },
     reject: async (depositId: string) => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .update({ status: "rejected" })
-        .eq("id", depositId)
-        .eq("type", "deposit")
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-      return data;
+      return api.post(`/api/admin/deposits/${depositId}/reject`, {});
     },
     delete: async (depositId: string) => {
       throw new Error("Delete operation not supported");
@@ -119,76 +83,37 @@ export const adminService = {
     getAll: async (
       filters?: TransactionFilters
     ): Promise<PaginatedResponse<Transaction>> => {
-      try {
-        const page = filters?.page || 1;
-        const limit = filters?.limit || 10;
-        const offset = (page - 1) * limit;
-
-        let query = supabase
-          .from("transactions")
-          .select("*, users!inner(id, username, email)", { count: "exact" })
-          .eq("type", "withdrawal");
-
-        // Apply filters
-        if (filters?.status) query = query.eq("status", filters.status);
-        if (filters?.search)
-          query = query.ilike("description", `%${filters.search}%`);
-        if (filters?.dateFrom)
-          query = query.gte("created_at", filters.dateFrom);
-        if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
-        if (filters?.amountMin) query = query.gte("amount", filters.amountMin);
-        if (filters?.amountMax) query = query.lte("amount", filters.amountMax);
-
-        // Apply sorting and pagination
-        query = query
-          .order("created_at", { ascending: false })
-          .range(offset, offset + limit - 1);
-
-        const { data: transactions, error, count } = await query;
-
-        if (error) {
-          console.error("Error fetching withdrawals:", error);
-          throw new Error(error.message);
-        }
-
-        return {
-          data: transactions || [],
-          success: true,
-          pagination: {
-            page,
-            limit,
-            total: count || 0,
-            pages: Math.ceil((count || 0) / limit),
-          },
-        };
-      } catch (error) {
-        console.error("Error fetching withdrawals:", error);
-        throw new Error("Failed to fetch withdrawals");
-      }
+      const params = new URLSearchParams();
+      if (filters?.status) params.set("status", String(filters.status));
+      if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
+      if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+      if (filters?.amountMin)
+        params.set("amountMin", String(filters.amountMin));
+      if (filters?.amountMax)
+        params.set("amountMax", String(filters.amountMax));
+      const url = `/api/admin/withdrawals${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await api.get<any>(url);
+      const list = Array.isArray(res?.withdrawals)
+        ? res.withdrawals
+        : Array.isArray(res?.data)
+          ? res.data
+          : [];
+      return {
+        data: list,
+        success: true,
+        pagination: {
+          page: 1,
+          limit: list.length,
+          total: res?.totalWithdrawals ?? list.length,
+          pages: 1,
+        },
+      };
     },
     approve: async (withdrawalId: string) => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .update({ status: "completed" })
-        .eq("id", withdrawalId)
-        .eq("type", "withdrawal")
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-      return data;
+      return api.post(`/api/admin/withdrawals/${withdrawalId}/approve`, {});
     },
     reject: async (withdrawalId: string) => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .update({ status: "rejected" })
-        .eq("id", withdrawalId)
-        .eq("type", "withdrawal")
-        .select()
-        .single();
-
-      if (error) throw new Error(error.message);
-      return data;
+      return api.post(`/api/admin/withdrawals/${withdrawalId}/reject`, {});
     },
     delete: async (withdrawalId: string) => {
       throw new Error("Delete operation not supported");

@@ -69,24 +69,36 @@ export async function login(
   try {
     let email = identifier;
     if (!identifier.includes("@")) {
-      // Only include uid comparison if the identifier looks like a UUID to avoid 400 errors
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          identifier
-        );
-      let userQuery = supabase.from("users").select("email, username");
-      if (isUuid) {
-        userQuery = userQuery.or(
-          `username.eq.${identifier},uid.eq.${identifier}`
-        );
-      } else {
-        userQuery = userQuery.eq("username", identifier);
+      // Resolve username/uid to email via backend to avoid RLS/env issues
+      try {
+        const resolved = await apiFetch("/api/auth/resolve-identifier", {
+          method: "POST",
+          body: { identifier },
+        });
+        if (!resolved?.email) {
+          throw new Error("Invalid username or password.");
+        }
+        email = resolved.email as string;
+      } catch (e) {
+        // Fallback to direct query as last resort
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            identifier
+          );
+        let userQuery = supabase.from("users").select("email, username");
+        if (isUuid) {
+          userQuery = userQuery.or(
+            `username.eq.${identifier},uid.eq.${identifier}`
+          );
+        } else {
+          userQuery = userQuery.eq("username", identifier);
+        }
+        const { data: users, error: usersError } = await userQuery.limit(1);
+        if (usersError || !users || users.length === 0) {
+          throw new Error("Invalid username or password.");
+        }
+        email = users[0].email;
       }
-      const { data: users, error: usersError } = await userQuery.limit(1);
-      if (usersError || !users || users.length === 0) {
-        throw new Error("Invalid username or password.");
-      }
-      email = users[0].email;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({

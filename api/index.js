@@ -67735,9 +67735,7 @@ async function getUserBalance(userId) {
       throw new Error("Failed to fetch user data");
     }
     const profile = Array.isArray(userData.profiles) ? userData.profiles[0] : userData.profiles;
-    if (!profile?.is_verified) {
-      throw new Error("User verification required");
-    }
+    const isVerified = !!profile?.is_verified;
     const { data: pendingTxns, error: pendingError } = await supabase.from("transactions").select("amount, type, status").eq("user_id", userId).eq("status", "pending");
     if (pendingError) {
       console.error("Error fetching pending transactions:", pendingError);
@@ -67752,11 +67750,19 @@ async function getUserBalance(userId) {
       availableBalance,
       pendingBalance,
       totalBalance,
-      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString(),
+      // Extra metadata for clients that care; ignored by others
+      requiresVerification: !isVerified
     };
   } catch (error) {
     console.error("Error in getUserBalance function:", error);
-    return null;
+    return {
+      availableBalance: 0,
+      pendingBalance: 0,
+      totalBalance: 0,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString(),
+      requiresVerification: true
+    };
   }
 }
 async function getAdminDeposits(filters) {
@@ -68701,7 +68707,7 @@ var app = null;
 var initialized = false;
 var initializing = false;
 var lastInitError = null;
-var MINIMAL_MODE = process.env.API_MINIMAL_MODE === "1" || process.env.API_DISABLE_ROUTES === "1";
+var MINIMAL_MODE = (process.env.API_MINIMAL_MODE === "1" || process.env.API_DISABLE_ROUTES === "1") && (process.env.NODE_ENV || "development") !== "production";
 var corsOptions = {
   origin: function(origin, callback) {
     const allowedOrigins = [

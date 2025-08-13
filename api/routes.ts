@@ -89,6 +89,53 @@ export async function registerRoutes(app: Express) {
       }
     });
 
+    // Resolve identifier to email for login (supports username or uid)
+    // Public endpoint but uses service role on server; returns only email if found
+    app.post(
+      "/api/auth/resolve-identifier",
+      async (req: Request, res: Response) => {
+        try {
+          const { identifier } = req.body || {};
+          if (!identifier || typeof identifier !== "string") {
+            return res.status(400).json({ message: "identifier is required" });
+          }
+
+          // If already an email, return as is
+          if (identifier.includes("@")) {
+            return res.json({ email: identifier });
+          }
+
+          if (!supa.isSupabaseConfigured || !supa.supabase) {
+            return res.status(500).json({ message: "Database not configured" });
+          }
+
+          // Determine if looks like UUID (auth uid)
+          const isUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              identifier
+            );
+          let query = supa.supabase.from("users").select("email");
+          if (isUuid) {
+            query = query.or(`username.eq.${identifier},uid.eq.${identifier}`);
+          } else {
+            query = query.eq("username", identifier);
+          }
+          const { data, error } = await query.limit(1);
+          if (error) {
+            console.warn("/api/auth/resolve-identifier select error", error);
+            return res.status(404).json({ message: "User not found" });
+          }
+          if (!data || data.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+          }
+          return res.json({ email: data[0].email });
+        } catch (e: any) {
+          console.error("/api/auth/resolve-identifier error", e);
+          res.status(500).json({ message: e?.message || "Internal error" });
+        }
+      }
+    );
+
     // Basic health check endpoint (no auth required)
     app.get("/api/health", (req, res) => {
       res.status(200).json({
@@ -249,6 +296,42 @@ export async function registerRoutes(app: Express) {
       }
     );
 
+    // Admin reject deposit endpoint
+    app.post(
+      "/api/admin/deposits/:id/reject",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
+
+          if (!supa.isSupabaseConfigured || !supa.supabase) {
+            return res.status(500).json({ message: "Database not configured" });
+          }
+
+          const { error } = await supa.supabase
+            .from("deposits")
+            .update({ status: "rejected" })
+            .eq("id", req.params.id);
+
+          if (error) {
+            console.error("Admin reject deposit error:", error);
+            return res
+              .status(500)
+              .json({ message: "Failed to reject deposit" });
+          }
+
+          return res
+            .status(200)
+            .json({ message: "Deposit rejected successfully" });
+        } catch (error) {
+          console.error("Admin reject deposit handler error:", error);
+          return res.status(500).json({ message: "Failed to reject deposit" });
+        }
+      }
+    );
+
     // Admin withdrawals endpoint
     app.get(
       "/api/admin/withdrawals",
@@ -311,6 +394,44 @@ export async function registerRoutes(app: Express) {
           return res
             .status(500)
             .json({ message: "Failed to approve withdrawal" });
+        }
+      }
+    );
+
+    // Admin reject withdrawal endpoint
+    app.post(
+      "/api/admin/withdrawals/:id/reject",
+      requireAuth,
+      async (req: AuthenticatedRequest, res: Response) => {
+        try {
+          if (req.authUser?.role !== "admin") {
+            return res.status(403).json({ message: "Admin access required" });
+          }
+
+          if (!supa.isSupabaseConfigured || !supa.supabase) {
+            return res.status(500).json({ message: "Database not configured" });
+          }
+
+          const { error } = await supa.supabase
+            .from("withdrawals")
+            .update({ status: "rejected" })
+            .eq("id", req.params.id);
+
+          if (error) {
+            console.error("Admin reject withdrawal error:", error);
+            return res
+              .status(500)
+              .json({ message: "Failed to reject withdrawal" });
+          }
+
+          return res
+            .status(200)
+            .json({ message: "Withdrawal rejected successfully" });
+        } catch (error) {
+          console.error("Admin reject withdrawal handler error:", error);
+          return res
+            .status(500)
+            .json({ message: "Failed to reject withdrawal" });
         }
       }
     );

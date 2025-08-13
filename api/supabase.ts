@@ -37,13 +37,11 @@ export async function getUserBalance(userId: string | number) {
       throw new Error("Failed to fetch user data");
     }
 
-    // Check if user is verified
+    // Determine verification status (do not block balance fetch if unverified)
     const profile = Array.isArray(userData.profiles)
       ? userData.profiles[0]
       : userData.profiles;
-    if (!profile?.is_verified) {
-      throw new Error("User verification required");
-    }
+    const isVerified = !!profile?.is_verified;
 
     // Get pending transactions to calculate pending balance
     const { data: pendingTxns, error: pendingError } = await supabase
@@ -73,10 +71,19 @@ export async function getUserBalance(userId: string | number) {
       pendingBalance,
       totalBalance,
       lastUpdated: new Date().toISOString(),
+      // Extra metadata for clients that care; ignored by others
+      requiresVerification: !isVerified,
     };
   } catch (error) {
     console.error("Error in getUserBalance function:", error);
-    return null;
+    // Do not hard fail balance fetch; return a safe default
+    return {
+      availableBalance: 0,
+      pendingBalance: 0,
+      totalBalance: 0,
+      lastUpdated: new Date().toISOString(),
+      requiresVerification: true,
+    } as any;
   }
 }
 
