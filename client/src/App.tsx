@@ -43,6 +43,11 @@ import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
 // Legacy Admin (will be deprecated) - guarded by feature flag
 const ENABLE_LEGACY_ADMIN = false;
 
+// AdminV2 components
+import DepositsPageV2 from "@/pages/AdminV2/deposits";
+import UsersPageV2 from "@/pages/AdminV2/users";
+import WithdrawalsPageV2 from "@/pages/AdminV2/withdrawals";
+
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
@@ -466,8 +471,7 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <DashboardLayout>
-              {/* minimal admin v2 users */}
-              {require("@/pages/AdminV2/users").default()}
+              <UsersPageV2 />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -476,7 +480,7 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <DashboardLayout>
-              {require("@/pages/AdminV2/deposits").default()}
+              <DepositsPageV2 />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -485,7 +489,7 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <DashboardLayout>
-              {require("@/pages/AdminV2/withdrawals").default()}
+              <WithdrawalsPageV2 />
             </DashboardLayout>
           </ProtectedRoute>
         )}
