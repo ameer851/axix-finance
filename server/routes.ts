@@ -32,7 +32,19 @@ router.use(async (req, _res, next) => {
     const token = authHeader.slice(7).trim();
     (req as any).bearerPresent = true;
     try {
-      const decoded: any = jwt.decode(token); // unsigned decode for mapping only
+      const secret =
+        process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_KEY;
+      let decoded: any = null;
+      if (secret) {
+        try {
+          decoded = jwt.verify(token, secret as any);
+        } catch (e) {
+          decoded = null;
+        }
+      }
+      if (!decoded && process.env.NODE_ENV !== "production") {
+        decoded = jwt.decode(token); // dev-only unsigned decode mapping
+      }
       // Supabase JWT: sub = auth user uuid
       const uid: string | undefined = decoded?.sub;
       let mappedUser: any = null;

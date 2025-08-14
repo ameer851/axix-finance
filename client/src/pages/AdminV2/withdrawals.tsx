@@ -35,6 +35,36 @@ export default function WithdrawalsPageV2() {
   useEffect(() => {
     load();
   }, [page]);
+
+  async function approve(id: number) {
+    try {
+      setLoading(true);
+      await fetchWithAuth(`/api/admin/withdrawals/${id}/approve`, {
+        method: "POST",
+      });
+      await load();
+    } catch (e: any) {
+      alert(e.message || "Failed to approve");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function rejectTx(id: number) {
+    const reason = prompt("Optional rejection reason:") || undefined;
+    try {
+      setLoading(true);
+      await fetchWithAuth(`/api/admin/withdrawals/${id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      await load();
+    } catch (e: any) {
+      alert(e.message || "Failed to reject");
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <AdminV2Layout>
       <div className="flex items-center justify-between mb-4">
@@ -57,12 +87,13 @@ export default function WithdrawalsPageV2() {
               <th className="p-2">Amount</th>
               <th className="p-2">Status</th>
               <th className="p-2">Type</th>
+              <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td className="p-4 text-center" colSpan={5}>
+                <td className="p-4 text-center" colSpan={6}>
                   Loading...
                 </td>
               </tr>
@@ -75,11 +106,27 @@ export default function WithdrawalsPageV2() {
                   <td className="p-2">{r.amount}</td>
                   <td className="p-2">{r.status}</td>
                   <td className="p-2">{r.type}</td>
+                  <td className="p-2 space-x-2">
+                    <button
+                      onClick={() => approve(r.id)}
+                      className="px-2 py-1 text-xs bg-green-600 text-white rounded disabled:opacity-50"
+                      disabled={loading}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => rejectTx(r.id)}
+                      className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50"
+                      disabled={loading}
+                    >
+                      Reject
+                    </button>
+                  </td>
                 </tr>
               ))}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500">
+                <td colSpan={6} className="p-4 text-center text-gray-500">
                   No withdrawals
                 </td>
               </tr>

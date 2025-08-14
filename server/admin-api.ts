@@ -1,7 +1,7 @@
 import { User as DrizzleUser } from "@shared/schema";
 import express, { Request, Response, Router } from "express";
 import jwt from "jsonwebtoken";
-import { requireAdminRole } from "./auth";
+// Note: We avoid importing requireAdminRole here to support token-only auth
 import {
   isConfigured as isEmailConfigured,
   sendDepositApprovedEmail,
@@ -66,7 +66,21 @@ export function createAdminApiRouter(app: express.Express): Router {
       if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         const token = authHeader.slice(7).trim();
         try {
-          const decoded: any = jwt.decode(token);
+          const secret =
+            process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_KEY;
+          let decoded: any = null;
+          if (secret) {
+            try {
+              decoded = jwt.verify(token, secret as any);
+            } catch (e) {
+              // If verification fails, do not trust claims; keep decoded null
+              decoded = null;
+            }
+          }
+          // As a last resort in development, allow unsigned decode to map uid -> user
+          if (!decoded && process.env.NODE_ENV !== "production") {
+            decoded = jwt.decode(token);
+          }
           const uid: string | undefined = decoded?.sub;
           let mappedUser: any = null;
           if (uid && typeof uid === "string" && uid.length >= 16) {
@@ -89,7 +103,16 @@ export function createAdminApiRouter(app: express.Express): Router {
     }
     next();
   });
-  router.use(requireAdminRole as any);
+  // Lightweight admin guard that works with session or bearer-mapped users
+  router.use((req, res, next) => {
+    const user: any = (req as any).user;
+    if (!user)
+      return res.status(401).json({ message: "You must be logged in" });
+    if (!(user.role === "admin" || user.is_admin === true)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  });
 
   const routes: RouteSpec[] = [
     {
@@ -103,6 +126,141 @@ export function createAdminApiRouter(app: express.Express): Router {
             time: new Date().toISOString(),
           });
         });
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/users/:id",
+      registrar: (r) => {
+        r.delete("/users/:id", async (req: Request, res: Response) => {
+          try {
+            const id = parseInt(req.params.id, 10);
+            if (Number.isNaN(id))
+              return res
+                .status(400)
+                .json({ success: false, message: "Invalid ID" });
+            const ok = await storage.deleteUser(id);
+            if (!ok)
+              return res
+                .status(400)
+                .json({ success: false, message: "Unable to delete user" });
+            res.json({ success: true, message: "User removed" });
+          } catch (error) {
+            console.error("Admin delete user error:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Failed to delete user" });
+          }
+        });
+      },
+    },
+    {
+      method: "GET",
+      path: "/transactions/:id",
+      registrar: (r) => {
+        r.get("/transactions/:id", async (req: Request, res: Response) => {
+          try {
+            const id = parseInt(req.params.id, 10);
+            if (Number.isNaN(id))
+              return res
+                .status(400)
+                .json({ success: false, message: "Invalid ID" });
+            const tx = await storage.getTransaction(id);
+            if (!tx)
+              return res
+                .status(404)
+                .json({ success: false, message: "Not found" });
+            res.json({ success: true, data: tx });
+          } catch (error) {
+            console.error("Admin get transaction error:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Failed to fetch transaction" });
+          }
+        });
+      },
+    },
+    {
+      method: "POST",
+      path: "/deposits/:id/reject",
+      registrar: (r) => {
+        r.post("/deposits/:id/reject", async (req: Request, res: Response) => {
+          try {
+            const id = parseInt(req.params.id, 10);
+            const reason = (req.body?.reason as string) || null;
+            if (Number.isNaN(id))
+              return res
+                .status(400)
+                .json({ success: false, message: "Invalid ID" });
+            const tx = await storage.getTransaction(id);
+            if (!tx)
+              return res
+                .status(404)
+                .json({ success: false, message: "Transaction not found" });
+            if (tx.type !== "deposit")
+              return res
+                .status(400)
+                .json({ success: false, message: "Not a deposit" });
+            const updated = await storage.updateTransactionStatus(
+              id,
+              "rejected",
+              reason || undefined
+            );
+            res.json({
+              success: true,
+              message: "Deposit rejected",
+              data: updated,
+            });
+          } catch (error) {
+            console.error("Error rejecting deposit:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Internal server error" });
+          }
+        });
+      },
+    },
+    {
+      method: "POST",
+      path: "/withdrawals/:id/reject",
+      registrar: (r) => {
+        r.post(
+          "/withdrawals/:id/reject",
+          async (req: Request, res: Response) => {
+            try {
+              const id = parseInt(req.params.id, 10);
+              const reason = (req.body?.reason as string) || null;
+              if (Number.isNaN(id))
+                return res
+                  .status(400)
+                  .json({ success: false, message: "Invalid ID" });
+              const tx = await storage.getTransaction(id);
+              if (!tx)
+                return res
+                  .status(404)
+                  .json({ success: false, message: "Transaction not found" });
+              if (tx.type !== "withdrawal")
+                return res
+                  .status(400)
+                  .json({ success: false, message: "Not a withdrawal" });
+              const updated = await storage.updateTransactionStatus(
+                id,
+                "rejected",
+                reason || undefined
+              );
+              res.json({
+                success: true,
+                message: "Withdrawal rejected",
+                data: updated,
+              });
+            } catch (error) {
+              console.error("Error rejecting withdrawal:", error);
+              res
+                .status(500)
+                .json({ success: false, message: "Internal server error" });
+            }
+          }
+        );
       },
     },
     {

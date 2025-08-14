@@ -36,6 +36,22 @@ export default function UsersPageV2() {
     load();
   }, [page]);
 
+  async function onDeleteUser(id: number) {
+    if (
+      !confirm("Delete this user? This may deactivate if linked records exist.")
+    )
+      return;
+    try {
+      setLoading(true);
+      await fetchWithAuth(`/api/admin/users/${id}`, { method: "DELETE" });
+      await load();
+    } catch (e: any) {
+      alert(e.message || "Failed to delete user");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <AdminV2Layout>
       <div className="flex items-center justify-between mb-4">
@@ -57,12 +73,13 @@ export default function UsersPageV2() {
               <th className="p-2">Email</th>
               <th className="p-2">Role</th>
               <th className="p-2">Username</th>
+              <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} className="p-4 text-center">
+                <td colSpan={5} className="p-4 text-center">
                   Loading...
                 </td>
               </tr>
@@ -74,11 +91,20 @@ export default function UsersPageV2() {
                   <td className="p-2">{u.email}</td>
                   <td className="p-2">{u.role || "user"}</td>
                   <td className="p-2">{u.username || "-"}</td>
+                  <td className="p-2">
+                    <button
+                      onClick={() => onDeleteUser(u.id)}
+                      className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50"
+                      disabled={loading}
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             {!loading && data.length === 0 && (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-gray-500">
+                <td colSpan={5} className="p-4 text-center text-gray-500">
                   No users
                 </td>
               </tr>
