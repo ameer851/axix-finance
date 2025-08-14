@@ -4,7 +4,14 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="h-14 shadow bg-white flex items-center px-4 justify-between">
-        <h1 className="font-semibold">Admin Panel v2</h1>
+        <div className="flex items-center gap-2">
+          <img
+            src="/assets/favicon.png"
+            alt="Axix logo"
+            className="h-8 w-8 rounded-full"
+          />
+          <h1 className="font-semibold">Admin Panel v2</h1>
+        </div>
         <nav className="flex gap-4 text-sm">
           <a href="/adminv2/users" className="hover:underline">
             Users

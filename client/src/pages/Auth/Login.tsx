@@ -190,14 +190,22 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-amber-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
       <div className="w-full max-w-md relative z-10 p-4">
-        <Card className="backdrop-blur-sm bg-white/90 dark:bg-neutral-900/90 shadow-xl">
+        <Card className="backdrop-blur-sm bg-white/90 dark:bg-neutral-900/90 shadow-xl border border-amber-100/60 dark:border-white/10">
           <CardHeader className="space-y-1">
             <div className="flex flex-col items-center">
+              <img
+                src="/assets/favicon.png"
+                alt="Axix Finance logo"
+                className="h-12 w-12 rounded-full shadow-sm mb-2"
+              />
               <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">
                 Axix Finance
               </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Secure investing made simple
+              </p>
             </div>
             <CardTitle className="text-2xl text-center mt-4">
               Welcome Back
@@ -238,7 +246,7 @@ const Login: React.FC = () => {
                           <Input
                             {...field}
                             disabled={isAuthenticating}
-                            className="pr-10"
+                            className="pr-10 focus-visible:ring-1 focus-visible:ring-primary/60"
                             placeholder="Enter your email or username"
                           />
                         </div>
@@ -259,7 +267,7 @@ const Login: React.FC = () => {
                             type={showPassword ? "text" : "password"}
                             {...field}
                             disabled={isAuthenticating}
-                            className="pr-10"
+                            className="pr-10 focus-visible:ring-1 focus-visible:ring-primary/60"
                             placeholder="Enter your password"
                           />
                           <button
@@ -309,7 +317,7 @@ const Login: React.FC = () => {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full relative overflow-hidden"
+                  className="w-full relative overflow-hidden bg-primary hover:bg-primary/90"
                   disabled={isAuthenticating}
                 >
                   {isAuthenticating ? (

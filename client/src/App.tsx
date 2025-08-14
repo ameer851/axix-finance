@@ -447,12 +447,7 @@ function Router() {
         <Route path="/admin">
           {() => (
             <ProtectedRoute requireAdmin>
-              {/* Redirect any legacy /admin hit to new panel */}
-              {(() => {
-                const [, setLoc] = useLocation();
-                setTimeout(() => setLoc("/adminv2/users"), 0);
-                return <LoadingSpinner />;
-              })()}
+              <AdminRedirect />
             </ProtectedRoute>
           )}
         </Route>

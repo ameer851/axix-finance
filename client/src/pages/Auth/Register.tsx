@@ -123,13 +123,21 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-900 px-4 py-12">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-amber-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 px-4 py-12">
+      <Card className="w-full max-w-md border border-amber-100/60 dark:border-white/10 shadow-xl">
         <CardHeader className="space-y-1">
           <div className="flex flex-col justify-center items-center mb-4">
+            <img
+              src="/assets/favicon.png"
+              alt="Axix Finance logo"
+              className="h-12 w-12 rounded-full shadow-sm mb-2"
+            />
             <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">
               Axix Finance
             </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Join in minutes
+            </p>
           </div>
           <CardTitle className="text-2xl font-bold text-center">
             Create an account
