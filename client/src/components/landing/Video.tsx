@@ -71,7 +71,7 @@ const VideoSection: React.FC = () => {
         <div className="relative rounded-xl overflow-hidden shadow-2xl mx-auto max-w-4xl">
           {!showVideo ? (
             <div
-              className="aspect-video flex items-center justify-center bg-gradient-to-br from-blue-600 to-purple-700 cursor-pointer"
+              className="aspect-video flex items-center justify-center bg-gradient-to-br from-primary to-amber-700 cursor-pointer"
               onClick={handlePlayVideo}
             >
               <div className="text-center text-white">
