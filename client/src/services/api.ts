@@ -38,7 +38,7 @@ const getAuthToken = async (): Promise<string | null> => {
 };
 
 // Generic API fetch function with authorization
-const fetchWithAuth = async (endpoint: string, options: any = {}) => {
+export const fetchWithAuth = async (endpoint: string, options: any = {}) => {
   const token = await getAuthToken();
   const headers = {
     "Content-Type": "application/json",

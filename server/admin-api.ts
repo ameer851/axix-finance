@@ -1,5 +1,6 @@
 import { User as DrizzleUser } from "@shared/schema";
 import express, { Request, Response, Router } from "express";
+import jwt from "jsonwebtoken";
 import { requireAdminRole } from "./auth";
 import {
   isConfigured as isEmailConfigured,
@@ -54,6 +55,37 @@ export function createAdminApiRouter(app: express.Express): Router {
         authHeader: req.headers.authorization?.split(" ")[0] || null,
         cookie: req.headers.cookie ? "present" : "none",
       });
+    }
+    next();
+  });
+  // Map Supabase bearer tokens to req.user (mirrors routes.ts behavior)
+  router.use(async (req, _res, next) => {
+    if (!req.user) {
+      const authHeader =
+        req.headers.authorization || (req.headers as any).Authorization;
+      if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.slice(7).trim();
+        try {
+          const decoded: any = jwt.decode(token);
+          const uid: string | undefined = decoded?.sub;
+          let mappedUser: any = null;
+          if (uid && typeof uid === "string" && uid.length >= 16) {
+            mappedUser = await (storage as any).getUserByUid?.(uid);
+          }
+          if (!mappedUser) {
+            const possibleId = decoded?.userId || decoded?.id;
+            if (possibleId && !Number.isNaN(Number(possibleId))) {
+              mappedUser = await storage.getUser(Number(possibleId));
+            }
+          }
+          if (!mappedUser && decoded?.email) {
+            mappedUser = await (storage as any).getUserByEmail?.(decoded.email);
+          }
+          if (mappedUser) (req as any).user = mappedUser;
+        } catch {
+          // ignore
+        }
+      }
     }
     next();
   });

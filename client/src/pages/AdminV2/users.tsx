@@ -1,3 +1,4 @@
+import { fetchWithAuth } from "@/services/api";
 import { useEffect, useState } from "react";
 import AdminV2Layout from "./layout";
 
@@ -19,13 +20,9 @@ export default function UsersPageV2() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/users?page=${page}&limit=20`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new Error(`${res.status}`);
-      }
-      const json = await res.json();
+      const json = await fetchWithAuth(
+        `/api/admin/users?page=${page}&limit=20`
+      );
       setData(json.data || []);
       setTotalPages(json.pagination?.totalPages || 1);
     } catch (e: any) {

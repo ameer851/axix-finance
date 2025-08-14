@@ -1,3 +1,4 @@
+import { fetchWithAuth } from "@/services/api";
 import { useEffect, useState } from "react";
 import AdminV2Layout from "./layout";
 
@@ -20,12 +21,9 @@ export default function WithdrawalsPageV2() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/admin/transactions?page=${page}&limit=20&type=withdrawal`,
-        { credentials: "include" }
+      const json = await fetchWithAuth(
+        `/api/admin/transactions?page=${page}&limit=20&type=withdrawal`
       );
-      if (!res.ok) throw new Error(String(res.status));
-      const json = await res.json();
       setRows(json.data || []);
       setTotalPages(json.pagination?.totalPages || 1);
     } catch (e: any) {

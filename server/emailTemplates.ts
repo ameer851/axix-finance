@@ -1,5 +1,7 @@
 ﻿// Email templates for AxixFinance
 import { User as DrizzleUser } from "@shared/schema";
+import fs from "fs";
+import path from "path";
 
 const BRAND_COLORS = {
   primary: "#4A2F1D", // Brand Brown
@@ -93,6 +95,50 @@ function generateWelcomeEmailHTML(
 ): string {
   const plainPassword =
     opts?.plainPassword || (user as any).initialPassword || null;
+  // Try a custom override template if present at server/custom-templates/welcome.html
+  try {
+    const templatePath = path.resolve(
+      __dirname,
+      "custom-templates",
+      "welcome.html"
+    );
+    if (fs.existsSync(templatePath)) {
+      let raw = fs.readFileSync(templatePath, "utf-8");
+      const name =
+        (user as any).full_name ||
+        (user as any).firstName ||
+        (user as any).username ||
+        user.email;
+      const username = (user as any).username || name;
+      const replacements: Record<string, string> = {
+        "{{NAME}}": String(name || "User"),
+        "{{name}}": String(name || "User"),
+        "{{USERNAME}}": String(username || ""),
+        "{{username}}": String(username || ""),
+        "{{EMAIL}}": String(user.email || ""),
+        "{{email}}": String(user.email || ""),
+        "{{PASSWORD}}": String(plainPassword || ""),
+        "{{password}}": String(plainPassword || ""),
+        // Convenience link placeholder if present in template
+        "{{DASHBOARD_URL}}": "https://axixfinance.com/login",
+        "{{YEAR}}": String(new Date().getFullYear()),
+      };
+      for (const [key, val] of Object.entries(replacements)) {
+        raw = raw.split(key).join(val);
+      }
+      // Support a conditional password block insertion
+      const passwordBlock = plainPassword
+        ? `<p style="margin:10px 0 0;"><strong>Password:</strong> <span style="font-family:monospace; background:#FFF4EA; padding:2px 6px; border-radius:4px; border:1px solid ${BRAND_COLORS.border};">${plainPassword}</span></p>`
+        : `<p style="margin:12px 0 0 0; font-size:12px; color:${BRAND_COLORS.lightText};"><em>Password not included for security. Use the one you created during signup.</em></p>`;
+      raw = raw.split("{{PASSWORD_BLOCK}}").join(passwordBlock);
+      return raw;
+    }
+  } catch (e) {
+    // Fall back to default template on any error
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[emailTemplates] Custom welcome template load failed:", e);
+    }
+  }
   return `
     <div style="${COMMON_STYLES.outerWrapper}">
       <div style="${COMMON_STYLES.container}">

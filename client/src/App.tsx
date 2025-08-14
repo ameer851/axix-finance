@@ -454,38 +454,30 @@ function Router() {
       )}
       <Route path="/adminv2">
         {() => (
-          <ProtectedRoute>
-            <DashboardLayout>
-              {/* Admin V2 Dashboard - Placeholder for actual content */}
-              <div className="p-4">Admin V2 Dashboard</div>
-            </DashboardLayout>
+          <ProtectedRoute requireAdmin>
+            {/* Admin V2 Dashboard - Placeholder for actual content */}
+            <div className="p-4">Admin V2 Dashboard</div>
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/adminv2/users">
         {() => (
-          <ProtectedRoute>
-            <DashboardLayout>
-              <UsersPageV2 />
-            </DashboardLayout>
+          <ProtectedRoute requireAdmin>
+            <UsersPageV2 />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/adminv2/deposits">
         {() => (
-          <ProtectedRoute>
-            <DashboardLayout>
-              <DepositsPageV2 />
-            </DashboardLayout>
+          <ProtectedRoute requireAdmin>
+            <DepositsPageV2 />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/adminv2/withdrawals">
         {() => (
-          <ProtectedRoute>
-            <DashboardLayout>
-              <WithdrawalsPageV2 />
-            </DashboardLayout>
+          <ProtectedRoute requireAdmin>
+            <WithdrawalsPageV2 />
           </ProtectedRoute>
         )}
       </Route>

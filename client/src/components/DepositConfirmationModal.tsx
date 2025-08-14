@@ -1,30 +1,29 @@
-import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  CheckCircle2, 
-  Copy, 
-  ExternalLink, 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
   AlertCircle,
-  Wallet,
-  Send,
+  CheckCircle2,
+  Copy,
+  FileImage,
   RefreshCw,
+  Send,
   Upload,
-  FileImage
-} from 'lucide-react';
+  Wallet,
+} from "lucide-react";
+import React, { useState } from "react";
 
 interface DepositConfirmationModalProps {
   isOpen: boolean;
@@ -38,89 +37,94 @@ interface DepositConfirmationModalProps {
   } | null;
 }
 
-// API function for submitting deposit confirmation
-const submitDepositConfirmation = async (userId: number, confirmationData: any) => {
-  const response = await fetch('/api/transactions/deposit/confirm', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({
-      userId,
-      ...confirmationData
-    })
-  });
+// API function for submitting deposit confirmation (uses shared API client with auth)
+import { api } from "@/lib/api";
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to submit deposit confirmation');
+const submitDepositConfirmation = async (
+  _userId: number,
+  confirmationData: {
+    amount: string;
+    selectedMethod: string;
+    planName: string;
+    transactionHash: string;
   }
-
-  return response.json();
+) => {
+  // Map to server-expected payload shape
+  const payload = {
+    amount: Number(confirmationData.amount),
+    method: confirmationData.selectedMethod,
+    planName: confirmationData.planName,
+    transactionHash: confirmationData.transactionHash,
+  };
+  const res = await api.post("/api/transactions/deposit-confirmation", payload);
+  return res as any;
 };
 
 const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
   isOpen,
   onClose,
-  depositData
+  depositData,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const [transactionHash, setTransactionHash] = useState('');
+
+  const [transactionHash, setTransactionHash] = useState("");
   const [proofOfPayment, setProofOfPayment] = useState<File | null>(null);
-  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState("");
 
   // Submit deposit confirmation mutation
   const confirmDepositMutation = useMutation({
-    mutationFn: (data: any) => submitDepositConfirmation(user?.id as number, data),
+    mutationFn: (data: any) =>
+      submitDepositConfirmation(user?.id as number, data),
     onSuccess: (response) => {
       toast({
-        title: 'Deposit Confirmed!',
-        description: 'Your deposit has been submitted for processing. You will receive an email confirmation shortly.',
+        title: "Deposit Submitted Successfully",
+        description:
+          "Your deposit confirmation has been submitted for admin review.",
       });
-      
+
       // Invalidate relevant queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['deposits'] });
-      queryClient.invalidateQueries({ queryKey: ['depositsHistory'] });
-      queryClient.invalidateQueries({ queryKey: ['balance'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      
+      queryClient.invalidateQueries({ queryKey: ["deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["depositsHistory"] });
+      queryClient.invalidateQueries({ queryKey: ["balance"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
       // Reset form and close modal
-      setTransactionHash('');
+      setTransactionHash("");
       setProofOfPayment(null);
-      setAdditionalNotes('');
+      setAdditionalNotes("");
       onClose();
     },
     onError: (error: any) => {
-      console.error('Deposit confirmation error:', error);
+      console.error("Deposit confirmation error:", error);
       toast({
-        title: 'Confirmation Failed',
-        description: error.message || 'Failed to confirm deposit. Please try again.',
-        variant: 'destructive'
+        title: "Submission Failed",
+        description:
+          error.message ||
+          "There was an error submitting your deposit confirmation.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!depositData) {
       toast({
-        title: 'Error',
-        description: 'Missing deposit information. Please try again.',
-        variant: 'destructive'
+        title: "Error",
+        description: "Missing deposit information. Please try again.",
+        variant: "destructive",
       });
       return;
     }
 
     if (!transactionHash.trim()) {
       toast({
-        title: 'Missing Information',
-        description: 'Please provide the transaction hash/ID.',
-        variant: 'destructive'
+        title: "Missing Information",
+        description: "Please provide the transaction hash/ID.",
+        variant: "destructive",
       });
       return;
     }
@@ -130,7 +134,7 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
       transactionHash: transactionHash.trim(),
       additionalNotes: additionalNotes.trim(),
       proofOfPayment: proofOfPayment?.name || null,
-      confirmedAt: new Date().toISOString()
+      confirmedAt: new Date().toISOString(),
     };
 
     confirmDepositMutation.mutate(confirmationData);
@@ -140,14 +144,14 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
     try {
       await navigator.clipboard.writeText(text);
       toast({
-        title: 'Copied!',
-        description: 'Wallet address copied to clipboard.',
+        title: "Copied!",
+        description: "Wallet address copied to clipboard.",
       });
     } catch (error) {
       toast({
-        title: 'Copy Failed',
-        description: 'Failed to copy to clipboard. Please copy manually.',
-        variant: 'destructive'
+        title: "Copy Failed",
+        description: "Failed to copy to clipboard. Please copy manually.",
+        variant: "destructive",
       });
     }
   };
@@ -156,30 +160,36 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type and size
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
+      const validTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "application/pdf",
+      ];
       const maxSize = 5 * 1024 * 1024; // 5MB
 
       if (!validTypes.includes(file.type)) {
         toast({
-          title: 'Invalid File Type',
-          description: 'Please upload an image (JPG, PNG, GIF) or PDF file.',
-          variant: 'destructive'
+          title: "Invalid File Type",
+          description: "Please upload an image (JPG, PNG, GIF) or PDF file.",
+          variant: "destructive",
         });
         return;
       }
 
       if (file.size > maxSize) {
         toast({
-          title: 'File Too Large',
-          description: 'Please upload a file smaller than 5MB.',
-          variant: 'destructive'
+          title: "File Too Large",
+          description: "Please upload a file smaller than 5MB.",
+          variant: "destructive",
         });
         return;
       }
 
       setProofOfPayment(file);
       toast({
-        title: 'File Selected',
+        title: "File Selected",
         description: `${file.name} has been selected for upload.`,
       });
     }
@@ -189,17 +199,19 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
 
   const getPlanBadge = (plan: string) => {
     const planColors = {
-      'starter': 'bg-green-100 text-green-800',
-      'premium': 'bg-blue-100 text-blue-800',
-      'delux': 'bg-purple-100 text-purple-800',
-      'luxury': 'bg-amber-100 text-amber-800'
+      starter: "bg-green-100 text-green-800",
+      premium: "bg-blue-100 text-blue-800",
+      delux: "bg-purple-100 text-purple-800",
+      luxury: "bg-amber-100 text-amber-800",
     };
-    
-    const colorClass = planColors[plan.toLowerCase() as keyof typeof planColors] || 'bg-gray-100 text-gray-800';
-    
+
+    const colorClass =
+      planColors[plan.toLowerCase() as keyof typeof planColors] ||
+      "bg-gray-100 text-gray-800";
+
     return (
       <Badge className={colorClass}>
-        {depositData.planName || plan.toUpperCase() + ' PLAN'}
+        {depositData.planName || plan.toUpperCase() + " PLAN"}
       </Badge>
     );
   };
@@ -213,7 +225,8 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
             Confirm Your Deposit
           </DialogTitle>
           <DialogDescription>
-            Please complete your payment and provide the transaction details below
+            Please complete your payment and provide the transaction details
+            below
           </DialogDescription>
         </DialogHeader>
 
@@ -226,20 +239,36 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Amount</Label>
-                  <p className="text-lg font-bold text-green-600">${depositData.amount}</p>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Amount
+                  </Label>
+                  <p className="text-lg font-bold text-green-600">
+                    ${depositData.amount}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Plan</Label>
-                  <div className="mt-1">{getPlanBadge(depositData.selectedPlan)}</div>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Plan
+                  </Label>
+                  <div className="mt-1">
+                    {getPlanBadge(depositData.selectedPlan)}
+                  </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Payment Method</Label>
-                  <p className="text-sm font-medium capitalize">{depositData.selectedMethod}</p>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Payment Method
+                  </Label>
+                  <p className="text-sm font-medium capitalize">
+                    {depositData.selectedMethod}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Status</Label>
-                  <Badge className="bg-yellow-100 text-yellow-800">Pending Confirmation</Badge>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Status
+                  </Label>
+                  <Badge className="bg-yellow-100 text-yellow-800">
+                    Pending Confirmation
+                  </Badge>
                 </div>
               </div>
             </CardContent>
@@ -255,9 +284,13 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-medium text-blue-900 mb-2">Send Payment To:</h4>
+                <h4 className="font-medium text-blue-900 mb-2">
+                  Send Payment To:
+                </h4>
                 <div className="flex items-center gap-2 p-3 bg-white rounded border">
-                  <code className="flex-1 text-sm font-mono break-all">{depositData.walletAddress}</code>
+                  <code className="flex-1 text-sm font-mono break-all">
+                    {depositData.walletAddress}
+                  </code>
                   <Button
                     type="button"
                     variant="outline"
@@ -275,8 +308,14 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
                   <div className="text-sm text-amber-800">
                     <p className="font-medium mb-1">Important:</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• Send exactly <strong>${depositData.amount}</strong> to the wallet address above</li>
-                      <li>• Make sure to use the correct network for your cryptocurrency</li>
+                      <li>
+                        • Send exactly <strong>${depositData.amount}</strong> to
+                        the wallet address above
+                      </li>
+                      <li>
+                        • Make sure to use the correct network for your
+                        cryptocurrency
+                      </li>
                       <li>• Keep your transaction hash/ID for confirmation</li>
                       <li>• Deposits typically process within 1-24 hours</li>
                     </ul>
@@ -313,7 +352,9 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="proofOfPayment">Proof of Payment (Optional)</Label>
+                  <Label htmlFor="proofOfPayment">
+                    Proof of Payment (Optional)
+                  </Label>
                   <div className="mt-1">
                     <input
                       id="proofOfPayment"
@@ -326,17 +367,23 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => document.getElementById('proofOfPayment')?.click()}
+                      onClick={() =>
+                        document.getElementById("proofOfPayment")?.click()
+                      }
                       className="w-full"
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      {proofOfPayment ? proofOfPayment.name : 'Upload Screenshot or Receipt'}
+                      {proofOfPayment
+                        ? proofOfPayment.name
+                        : "Upload Screenshot or Receipt"}
                     </Button>
                   </div>
                   {proofOfPayment && (
                     <div className="flex items-center gap-2 mt-2 p-2 bg-green-50 rounded">
                       <FileImage className="h-4 w-4 text-green-600" />
-                      <span className="text-sm text-green-800">{proofOfPayment.name}</span>
+                      <span className="text-sm text-green-800">
+                        {proofOfPayment.name}
+                      </span>
                       <Button
                         type="button"
                         variant="ghost"
@@ -350,7 +397,9 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="additionalNotes">Additional Notes (Optional)</Label>
+                  <Label htmlFor="additionalNotes">
+                    Additional Notes (Optional)
+                  </Label>
                   <textarea
                     id="additionalNotes"
                     value={additionalNotes}
@@ -374,7 +423,10 @@ const DepositConfirmationModal: React.FC<DepositConfirmationModalProps> = ({
                   <Button
                     type="submit"
                     className="flex-1"
-                    disabled={confirmDepositMutation.isPending || !transactionHash.trim()}
+                    disabled={
+                      confirmDepositMutation.isPending ||
+                      !transactionHash.trim()
+                    }
                   >
                     {confirmDepositMutation.isPending ? (
                       <>

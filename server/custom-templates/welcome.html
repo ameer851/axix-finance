@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to AxixFinance</title>
+    <style>
+      body {
+        background: #4a2f1d;
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+      .container {
+        max-width: 640px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        border: 1px solid #e5ded7;
+      }
+      .header {
+        background: linear-gradient(90deg, #4a2f1d, #2c1810);
+        padding: 28px 24px;
+        color: #fff;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 26px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .brand img {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        background: #fff;
+        object-fit: cover;
+      }
+      .body {
+        padding: 28px;
+        color: #1a1a1a;
+        line-height: 1.55;
+        font-size: 15px;
+      }
+      .hero {
+        text-align: center;
+        margin: 30px 0;
+      }
+      .hero img {
+        max-width: 480px;
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 1px solid #e5ded7;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      }
+      .infobox {
+        background: #f9f7f5;
+        padding: 16px 18px;
+        border-radius: 8px;
+        margin: 24px 0;
+        border: 1px solid #e5ded7;
+      }
+      .button {
+        background: #4a2f1d;
+        color: #fff;
+        padding: 14px 28px;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-block;
+        letter-spacing: 0.3px;
+      }
+      .footer {
+        padding: 28px 24px 32px;
+        text-align: center;
+        font-size: 12px;
+        color: #6b4c33;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="background: #4a2f1d; padding: 32px 0">
+      <div class="container">
+        <div class="header">
+          <h1 class="brand">
+            <img
+              src="https://res.cloudinary.com/dtgipp43e/image/upload/v1754455551/Minimalist_Bank_Icon_Design_eogehs.png"
+              alt="AxixFinance Icon"
+            />
+            AxixFinance
+          </h1>
+        </div>
+        <div class="body">
+          <h2>Welcome to AxixFinance!</h2>
+          <p>Hello {{NAME}},</p>
+          <p>
+            Thank you for joining AxixFinance. Your account is now ready to use.
+          </p>
+
+          <div class="hero">
+            <img
+              src="https://res.cloudinary.com/dtgipp43e/image/upload/v1753823823/ChatGPT_Image_Jul_23_2025_05_18_19_PM_sfaaml.png"
+              alt="AxixFinance Welcome"
+            />
+          </div>
+
+          <div class="infobox">
+            <h3 style="margin: 0 0 15px; color: #4a2f1d">Login Information</h3>
+            <p style="margin: 0 0 10px">
+              <strong>Username:</strong> {{USERNAME}}
+            </p>
+            <p style="margin: 0"><strong>Email:</strong> {{EMAIL}}</p>
+            <!-- Password block will be dynamically inserted here -->
+            {{PASSWORD_BLOCK}}
+            <p
+              style="
+                margin: 14px 0 0;
+                font-size: 11px;
+                color: #6b4c33;
+                line-height: 1.4;
+              "
+            >
+              For security, change this password after first login and never
+              share it. This email will not be shown again.
+            </p>
+          </div>
+
+          <p style="margin-top: 24px">
+            You now have full access to your investment dashboard. Fund your
+            account, track performance, and manage withdrawals in one secure
+            place.
+          </p>
+          <div style="text-align: center; margin: 32px 0">
+            <a href="{{DASHBOARD_URL}}" class="button">Access Your Dashboard</a>
+          </div>
+
+          <p>
+            <strong>Security Notice:</strong> For your security, please ensure
+            you're accessing AxixFinance only through our official website.
+          </p>
+          <p>If you need any assistance, our support team is ready to help!</p>
+          <p>Best regards,<br />The AxixFinance Team</p>
+        </div>
+        <div class="footer">
+          <p>© {{YEAR}} AxixFinance. All rights reserved.</p>
+          <p>This is an automated email, please do not reply.</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
