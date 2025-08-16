@@ -73,7 +73,12 @@ const fetchUserTransactions = async (userId: number) => {
       response && typeof response === "object" && "data" in response
         ? response.data
         : response;
-    return Array.isArray(data) ? data : [];
+    // Normalize to an array regardless of server shape
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray((data as any).transactions)) {
+      return (data as any).transactions;
+    }
+    return [];
   } catch (error) {
     console.error("Network error fetching transactions:", error);
     return [];

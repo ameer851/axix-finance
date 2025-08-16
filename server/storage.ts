@@ -100,6 +100,32 @@ interface GetAuditLogsOptions {
 
 // Single clean DatabaseStorage class using Supabase
 export class DatabaseStorage {
+  /**
+   * Adjust a user's available balance by a delta amount (can be negative).
+   * Returns the updated user or undefined on failure.
+   */
+  async adjustUserBalance(
+    userId: number,
+    delta: number | string
+  ): Promise<User | undefined> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user) return undefined;
+      const current = Number((user as any).balance || 0);
+      const change = Number(delta);
+      if (!Number.isFinite(change)) {
+        console.error("adjustUserBalance: invalid delta", delta);
+        return undefined;
+      }
+      const next = current + change;
+      const nextStr = next.toString();
+      const updated = await this.updateUser(userId, { balance: nextStr });
+      return updated;
+    } catch (error) {
+      console.error("Failed to adjust user balance:", error);
+      return undefined;
+    }
+  }
   async cleanupDeletedUsers(): Promise<{
     success: boolean;
     message: string;
@@ -207,7 +233,7 @@ export class DatabaseStorage {
     try {
       const updateData: any = {
         status,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       // Add rejection reason if status is rejected and reason is provided
@@ -252,8 +278,8 @@ export class DatabaseStorage {
 
       if (options.dateFrom && options.dateTo) {
         query = query
-          .gte("createdAt", options.dateFrom)
-          .lte("createdAt", options.dateTo);
+          .gte("created_at", options.dateFrom)
+          .lte("created_at", options.dateTo);
       }
 
       if (options.search) {
@@ -264,7 +290,7 @@ export class DatabaseStorage {
 
       const { data, error } = await query
         .range(options.offset, options.offset + options.limit - 1)
-        .order("createdAt", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to get transactions:", error);
@@ -302,8 +328,8 @@ export class DatabaseStorage {
 
       if (options.dateFrom && options.dateTo) {
         query = query
-          .gte("createdAt", options.dateFrom)
-          .lte("createdAt", options.dateTo);
+          .gte("created_at", options.dateFrom)
+          .lte("created_at", options.dateTo);
       }
 
       if (options.search) {
@@ -331,7 +357,7 @@ export class DatabaseStorage {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
-        .order("createdAt", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -357,7 +383,7 @@ export class DatabaseStorage {
         .eq("type", "deposit")
         .eq("status", "pending")
         .range(options.offset, options.offset + options.limit - 1)
-        .order("createdAt", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to get pending deposits:", error);
@@ -451,6 +477,106 @@ export class DatabaseStorage {
     }
   }
 
+  /**
+   * Get time-series totals for transactions by type and interval.
+   * Groups completed transactions into daily/weekly/monthly buckets for the last N days.
+   */
+  async getTimeSeriesSums(options: {
+    type: "deposit" | "withdrawal";
+    days?: number;
+    interval?: "daily" | "weekly" | "monthly";
+  }): Promise<Array<{ date: string; label: string; total: number }>> {
+    const days = options.days ?? 14;
+    const interval = options.interval ?? "daily";
+    try {
+      const now = new Date();
+      const start = new Date(now);
+      start.setDate(start.getDate() - days + 1);
+      // Fetch minimal fields and aggregate client-side for simplicity/portability
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount, created_at, type, status")
+        .eq("status", "completed")
+        .eq("type", options.type)
+        .gte("created_at", start.toISOString())
+        .lte("created_at", now.toISOString());
+
+      if (error) {
+        console.error("getTimeSeriesSums fetch failed:", error);
+        return [];
+      }
+
+      // Helper to format bucket label/date key
+      const toBucket = (d: Date): { key: string; label: string } => {
+        const yyyy = d.getUTCFullYear();
+        const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(d.getUTCDate()).padStart(2, "0");
+        if (interval === "monthly") {
+          return { key: `${yyyy}-${mm}`, label: `${yyyy}-${mm}` };
+        }
+        if (interval === "weekly") {
+          // ISO week number
+          const tmp = new Date(
+            Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+          );
+          // Thursday in current week decides the year.
+          tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+          const weekNo = Math.ceil(
+            ((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+          );
+          return {
+            key: `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`,
+            label: `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`,
+          };
+        }
+        // daily
+        return { key: `${yyyy}-${mm}-${dd}`, label: `${yyyy}-${mm}-${dd}` };
+      };
+
+      // Initialize all buckets in range with zeroes
+      const buckets = new Map<
+        string,
+        { date: string; label: string; total: number }
+      >();
+      const cursor = new Date(start);
+      while (cursor <= now) {
+        const { key, label } = toBucket(cursor);
+        if (!buckets.has(key)) {
+          // For monthly/weekly, the date field will be the first day of that bucket for ordering
+          let dateStr = label;
+          if (interval === "daily")
+            dateStr = `${cursor.toISOString().slice(0, 10)}`;
+          buckets.set(key, { date: dateStr, label, total: 0 });
+        }
+        // advance
+        if (interval === "monthly") {
+          cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
+        } else if (interval === "weekly") {
+          cursor.setUTCDate(cursor.getUTCDate() + 7);
+        } else {
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+      }
+
+      for (const row of data || []) {
+        const createdAt = new Date((row as any).created_at);
+        const { key } = toBucket(createdAt);
+        const amt = Number((row as any).amount || 0);
+        if (!Number.isFinite(amt)) continue;
+        const b = buckets.get(key);
+        if (b) b.total += amt;
+      }
+
+      return Array.from(buckets.values()).sort((a, b) =>
+        a.label < b.label ? -1 : 1
+      );
+    } catch (err) {
+      console.error("getTimeSeriesSums failed:", err);
+      return [];
+    }
+  }
+
   async searchUsers(query: string): Promise<User[]> {
     try {
       const { data, error } = await supabase
@@ -496,7 +622,7 @@ export class DatabaseStorage {
 
       const { data, error } = await query
         .range(options.offset, options.offset + options.limit - 1)
-        .order("createdAt", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to get users:", error);
@@ -510,11 +636,33 @@ export class DatabaseStorage {
     }
   }
 
-  async getUserCount(): Promise<number> {
+  async getUserCount(
+    options: { search?: string; status?: string } = {}
+  ): Promise<number> {
     try {
-      const { count, error } = await supabase
+      let query = supabase
         .from("users")
         .select("*", { count: "exact", head: true });
+
+      if (options.search) {
+        query = query.or(
+          `username.ilike.%${options.search}%,email.ilike.%${options.search}%,firstName.ilike.%${options.search}%,lastName.ilike.%${options.search}%`
+        );
+      }
+
+      if (options.status) {
+        if (options.status === "active") {
+          query = query.eq("isActive", true);
+        } else if (options.status === "inactive") {
+          query = query.eq("isActive", false);
+        } else if (options.status === "verified") {
+          query = query.eq("isVerified", true);
+        } else if (options.status === "unverified") {
+          query = query.eq("isVerified", false);
+        }
+      }
+
+      const { count, error } = await query;
 
       if (error) {
         console.error("Failed to get user count:", error);
@@ -552,7 +700,7 @@ export class DatabaseStorage {
       const { data, error } = await supabase
         .from("users")
         .select("*")
-        .order("createdAt", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -622,7 +770,7 @@ export class DatabaseStorage {
 
       const { data, error } = await query
         .range(options.offset, options.offset + options.limit - 1)
-        .order("createdAt", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to get audit logs:", error);
@@ -674,7 +822,7 @@ export class DatabaseStorage {
         .from("audit_logs")
         .select("*")
         .eq("action", "login")
-        .order("createdAt", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -695,8 +843,8 @@ export class DatabaseStorage {
       const { data, error } = await supabase
         .from("visitor_tracking")
         .select("*")
-        .gt("lastActivity", fiveMinutesAgo)
-        .order("lastActivity", { ascending: false });
+        .gt("last_activity", fiveMinutesAgo)
+        .order("last_activity", { ascending: false });
 
       if (error) {
         console.error("Failed to get active visitors:", error);
@@ -828,8 +976,8 @@ export class DatabaseStorage {
           verificationToken: userData.verificationToken,
           verificationTokenExpiry:
             userData.verificationTokenExpiry?.toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -867,7 +1015,7 @@ export class DatabaseStorage {
     try {
       const updateData = {
         ...updates,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       const { data, error } = await supabase
@@ -1245,8 +1393,8 @@ export class DatabaseStorage {
       const { data, error } = await supabase
         .from("visitor_tracking")
         .select("*")
-        .gt("lastActivity", fiveMinutesAgo)
-        .order("lastActivity", { ascending: false });
+        .gt("last_activity", fiveMinutesAgo)
+        .order("last_activity", { ascending: false });
 
       if (error) {
         console.error("Failed to get active visitors:", error);

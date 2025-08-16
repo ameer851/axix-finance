@@ -33,6 +33,26 @@ export function applyRoutePatches(app: Express) {
     app._router.handle(req, res);
   });
 
+  // Also support /admin/... -> /api/admin/... for other actions
+  app.post("/admin/withdrawals/:id/approve", (req, res) => {
+    req.url = `/api/admin/withdrawals/${req.params.id}/approve`;
+    app._router.handle(req, res);
+  });
+  app.post("/admin/deposits/:id/reject", (req, res) => {
+    req.url = `/api/admin/deposits/${req.params.id}/reject`;
+    app._router.handle(req, res);
+  });
+  app.post("/admin/withdrawals/:id/reject", (req, res) => {
+    req.url = `/api/admin/withdrawals/${req.params.id}/reject`;
+    app._router.handle(req, res);
+  });
+  app.get("/admin/transactions", (req, res) => {
+    // Preserve query string
+    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+    req.url = `/api/admin/transactions${qs}`;
+    app._router.handle(req, res);
+  });
+
   // Middleware to ensure routes only proceed if explicitly called
   function apiMiddleware(req: Request, res: Response, next: Function) {
     // Set a header to indicate this is a direct API response

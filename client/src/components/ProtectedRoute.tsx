@@ -44,14 +44,18 @@ export default function ProtectedRoute({
       }
 
       // Handle admin role requirements
-      if (requireAdmin && !(user?.is_admin || user?.role === "admin")) {
+      const isOwner = Boolean((user as any)?.isOwner);
+      if (
+        requireAdmin &&
+        !(user?.is_admin || user?.role === "admin" || isOwner)
+      ) {
         setIsRedirecting(true);
         toast({
           title: "Access denied",
           description: "Admin access required to view this page",
           variant: "destructive",
         });
-        setLocation("/dashboard");
+        setLocation("/login");
         return;
       }
     }
@@ -77,7 +81,8 @@ export default function ProtectedRoute({
   }
 
   // Block access for non-admin users trying to access admin routes
-  if (requireAdmin && !(user?.is_admin || user?.role === "admin")) {
+  const isOwner = Boolean((user as any)?.isOwner);
+  if (requireAdmin && !(user?.is_admin || user?.role === "admin" || isOwner)) {
     return <LoadingSpinner />;
   }
   return <>{children}</>;

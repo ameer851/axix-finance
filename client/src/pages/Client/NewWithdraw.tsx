@@ -64,7 +64,15 @@ const fetchWithdrawalHistory = async (userId: number) => {
   const response = await api.get(
     `/api/users/${userId}/transactions?type=withdrawal&limit=10`
   );
-  return response.data;
+  const data =
+    response && typeof response === "object" && "data" in response
+      ? (response as any).data
+      : response;
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray((data as any).transactions)) {
+    return (data as any).transactions;
+  }
+  return [];
 };
 
 // Withdrawal Methods

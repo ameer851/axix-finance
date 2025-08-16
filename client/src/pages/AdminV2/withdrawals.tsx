@@ -1,4 +1,6 @@
+import { useToast } from "@/hooks/use-toast";
 import { fetchWithAuth } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import AdminV2Layout from "./layout";
 
@@ -16,6 +18,8 @@ export default function WithdrawalsPageV2() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   async function load() {
     setLoading(true);
@@ -39,9 +43,34 @@ export default function WithdrawalsPageV2() {
   async function approve(id: number) {
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/withdrawals/${id}/approve`, {
+      const res = await fetchWithAuth(`/api/admin/withdrawals/${id}/approve`, {
         method: "POST",
       });
+      if (res && res.emailSent === false) {
+        console.warn(
+          "Withdrawal approved but email may not have been sent. Check email configuration."
+        );
+      }
+      // Attempt to update balance cache if API returns the affected user and new balance
+      const affectedUserId =
+        res?.data?.userId || res?.transaction?.userId || res?.userId;
+      const newBalance = res?.data?.newBalance ?? res?.newBalance;
+      if (affectedUserId && newBalance != null) {
+        queryClient.setQueryData(
+          ["userBalance", affectedUserId],
+          () =>
+            ({
+              availableBalance: newBalance,
+              totalBalance: newBalance,
+            }) as any
+        );
+        toast({
+          title: "Withdrawal approved",
+          description: `Balance updated to ${newBalance}`,
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["userBalance"] });
+      }
       await load();
     } catch (e: any) {
       alert(e.message || "Failed to approve");
@@ -107,20 +136,38 @@ export default function WithdrawalsPageV2() {
                   <td className="p-2">{r.status}</td>
                   <td className="p-2">{r.type}</td>
                   <td className="p-2 space-x-2">
-                    <button
-                      onClick={() => approve(r.id)}
-                      className="px-2 py-1 text-xs bg-green-600 text-white rounded disabled:opacity-50"
-                      disabled={loading}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => rejectTx(r.id)}
-                      className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50"
-                      disabled={loading}
-                    >
-                      Reject
-                    </button>
+                    {(() => {
+                      const s = (r.status || "").toLowerCase();
+                      const actionable = ![
+                        "completed",
+                        "approved",
+                        "rejected",
+                      ].includes(s);
+                      if (!actionable)
+                        return (
+                          <span className="text-gray-400 text-xs">
+                            No actions
+                          </span>
+                        );
+                      return (
+                        <>
+                          <button
+                            onClick={() => approve(r.id)}
+                            className="px-2 py-1 text-xs bg-green-600 text-white rounded disabled:opacity-50"
+                            disabled={loading}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => rejectTx(r.id)}
+                            className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50"
+                            disabled={loading}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}

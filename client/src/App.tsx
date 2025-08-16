@@ -44,6 +44,7 @@ import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
 const ENABLE_LEGACY_ADMIN = false;
 
 // AdminV2 components
+import AdminDashboardV2 from "@/pages/AdminV2/dashboard";
 import DepositsPageV2 from "@/pages/AdminV2/deposits";
 import UsersPageV2 from "@/pages/AdminV2/users";
 import WithdrawalsPageV2 from "@/pages/AdminV2/withdrawals";
@@ -455,8 +456,7 @@ function Router() {
       <Route path="/adminv2">
         {() => (
           <ProtectedRoute requireAdmin>
-            {/* Admin V2 Dashboard - Placeholder for actual content */}
-            <div className="p-4">Admin V2 Dashboard</div>
+            <AdminDashboardV2 />
           </ProtectedRoute>
         )}
       </Route>

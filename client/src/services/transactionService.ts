@@ -249,39 +249,18 @@ export async function getUserDeposits(
     throw new Error("User ID is required");
   }
   try {
-    // Use the dedicated deposits endpoint
-    const response = await fetch(`/api/users/${userId}/deposits`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      // Handle specific HTTP errors without triggering auth logout
-      if (response.status === 404) {
-        return []; // Return empty array if no deposits found
-      } else if (response.status === 403) {
-        throw new Error("Access denied to deposits data");
-      } else if (response.status >= 500) {
-        throw new Error("Server error while fetching deposits");
-      } else {
-        // Try to get error message from response
-        try {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message ||
-              `HTTP ${response.status}: Failed to fetch deposits`
-          );
-        } catch {
-          throw new Error(`HTTP ${response.status}: Failed to fetch deposits`);
-        }
-      }
-    }
-
-    const deposits = await response.json();
-    return Array.isArray(deposits) ? deposits : [];
+    // Use transactions endpoint filtered by type=deposit
+    const raw = await api.get(
+      `/api/users/${userId}/transactions?type=deposit&limit=100`
+    );
+    const data =
+      raw && typeof raw === "object" && "data" in raw ? (raw as any).data : raw;
+    const list = Array.isArray(data)
+      ? data
+      : Array.isArray((data as any)?.transactions)
+        ? (data as any).transactions
+        : [];
+    return list;
   } catch (error: any) {
     console.error("Error fetching user deposits:", error);
 

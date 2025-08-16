@@ -95,7 +95,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // First get the user profile with our enhanced API client
       try {
         // Use enhanced api client
-        const userData = await api.get("/api/profile");
+        const profileResp: any = await api.get("/api/profile");
+        const userData = (profileResp && profileResp.user) || profileResp;
+
+        // Use server-provided isOwner when available; fallback to VITE env
+        const ownerEmail = (import.meta as any).env?.VITE_OWNER_EMAIL as
+          | string
+          | undefined;
+        const ownerUid = (import.meta as any).env?.VITE_OWNER_UID as
+          | string
+          | undefined;
+        const ownerId = (import.meta as any).env?.VITE_OWNER_USER_ID as
+          | string
+          | undefined;
+        const isOwner =
+          (userData as any)?.isOwner === true
+            ? true
+            : Boolean(
+                (ownerEmail &&
+                  userData?.email &&
+                  String(userData.email).toLowerCase() ===
+                    String(ownerEmail).toLowerCase()) ||
+                  (ownerUid &&
+                    (userData?.uid || (userData as any)?.auth_uid) &&
+                    String(userData.uid || (userData as any).auth_uid) ===
+                      String(ownerUid)) ||
+                  (ownerId && String(userData?.id) === String(ownerId))
+              );
 
         // Then try to get the latest balance - important to have real-time balance
         try {
@@ -116,8 +142,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           // Continue with existing balance - don't fail the whole refresh
         }
 
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
+        const merged = { ...userData, isOwner };
+        setUser(merged);
+        localStorage.setItem("user", JSON.stringify(merged));
       } catch (error: any) {
         // Handle specific error codes
         if (error.status === 401) {
@@ -166,7 +193,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setError(null);
     try {
       const userData = await loginService(identifier, password);
-      setUser(userData);
+      // Prefer server-provided isOwner; fallback to VITE env
+      const ownerEmail = (import.meta as any).env?.VITE_OWNER_EMAIL as
+        | string
+        | undefined;
+      const ownerUid = (import.meta as any).env?.VITE_OWNER_UID as
+        | string
+        | undefined;
+      const ownerId = (import.meta as any).env?.VITE_OWNER_USER_ID as
+        | string
+        | undefined;
+      const isOwner =
+        (userData as any)?.isOwner === true
+          ? true
+          : Boolean(
+              (ownerEmail &&
+                userData?.email &&
+                String(userData.email).toLowerCase() ===
+                  String(ownerEmail).toLowerCase()) ||
+                (ownerUid &&
+                  (userData as any)?.uid &&
+                  String((userData as any).uid) === String(ownerUid)) ||
+                (ownerId && String((userData as any)?.id) === String(ownerId))
+            );
+      const merged = { ...(userData as any), isOwner } as any;
+      setUser(merged);
 
       toast({
         title: "Login successful",
@@ -174,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         variant: "default",
       });
 
-      return userData;
+      return merged as User;
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Failed to login");

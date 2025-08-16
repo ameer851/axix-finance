@@ -1,4 +1,6 @@
+import { useToast } from "@/hooks/use-toast";
 import { fetchWithAuth } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import AdminV2Layout from "./layout";
 
@@ -17,6 +19,8 @@ export default function DepositsPageV2() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   async function load() {
     setLoading(true);
@@ -40,9 +44,51 @@ export default function DepositsPageV2() {
   async function approve(id: number) {
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/deposits/${id}/approve`, {
+      const res = await fetchWithAuth(`/api/admin/deposits/${id}/approve`, {
         method: "POST",
       });
+      if (res && res.emailSent === false) {
+        console.warn(
+          "Deposit approved but email may not have been sent. Check email configuration."
+        );
+        toast({
+          title: "Email not sent",
+          description:
+            "Deposit approved, but the confirmation email couldn't be sent. Please check email settings.",
+          variant: "destructive" as any,
+        });
+      }
+      // If server returned the newBalance, update the userBalance cache for the affected user
+      const newBalance = res?.data?.newBalance ?? res?.newBalance ?? null;
+      const affectedUserId =
+        res?.data?.userId ||
+        res?.data?.user_id ||
+        (rows.find((r) => r.id === id)?.userId ?? null) ||
+        res?.transaction?.userId;
+      if (newBalance != null && affectedUserId) {
+        // write the new balance into the react-query cache for "userBalance"
+        queryClient.setQueryData(
+          ["userBalance", affectedUserId],
+          () =>
+            ({
+              availableBalance: newBalance,
+              totalBalance: newBalance,
+            }) as any
+        );
+        toast({
+          title: "Deposit approved",
+          description: `Balance updated to ${newBalance}`,
+        });
+      } else {
+        // fallback: reload list and invalidate user balance queries
+        if (affectedUserId) {
+          queryClient.invalidateQueries({
+            queryKey: ["userBalance", affectedUserId],
+          });
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["userBalance"] });
+        }
+      }
       await load();
     } catch (e: any) {
       alert(e.message || "Failed to approve");
@@ -62,6 +108,21 @@ export default function DepositsPageV2() {
       await load();
     } catch (e: any) {
       alert(e.message || "Failed to reject");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteTx(id: number) {
+    if (!confirm("Delete this completed deposit? This cannot be undone.")) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await fetchWithAuth(`/api/admin/deposits/${id}`, { method: "DELETE" });
+      await load();
+    } catch (e: any) {
+      alert(e.message || "Failed to delete deposit");
     } finally {
       setLoading(false);
     }
@@ -108,20 +169,46 @@ export default function DepositsPageV2() {
                   <td className="p-2">{r.status}</td>
                   <td className="p-2">{r.type}</td>
                   <td className="p-2 space-x-2">
-                    <button
-                      onClick={() => approve(r.id)}
-                      className="px-2 py-1 text-xs bg-green-600 text-white rounded disabled:opacity-50"
-                      disabled={loading}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => rejectTx(r.id)}
-                      className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50"
-                      disabled={loading}
-                    >
-                      Reject
-                    </button>
+                    {(() => {
+                      const s = (r.status || "").toLowerCase();
+                      if (["completed", "approved"].includes(s)) {
+                        return (
+                          <button
+                            onClick={() => deleteTx(r.id)}
+                            className="px-2 py-1 text-xs bg-gray-700 text-white rounded disabled:opacity-50"
+                            disabled={loading}
+                            title="Delete deposit"
+                          >
+                            🗑️ Delete
+                          </button>
+                        );
+                      }
+                      if (["rejected"].includes(s)) {
+                        return (
+                          <span className="text-gray-400 text-xs">
+                            No actions
+                          </span>
+                        );
+                      }
+                      return (
+                        <>
+                          <button
+                            onClick={() => approve(r.id)}
+                            className="px-2 py-1 text-xs bg-green-600 text-white rounded disabled:opacity-50"
+                            disabled={loading}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => rejectTx(r.id)}
+                            className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50"
+                            disabled={loading}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}

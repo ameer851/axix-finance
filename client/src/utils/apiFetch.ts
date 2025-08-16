@@ -19,11 +19,19 @@ export async function apiFetch(
   const method = options.method || "GET";
   const headers = {
     "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
     ...(options.headers || {}),
   };
   const body = options.body ? JSON.stringify(options.body) : undefined;
   try {
-    const response = await fetch(url, { ...options, method, headers, body });
+    const response = await fetch(url, {
+      cache: "no-store",
+      ...options,
+      method,
+      headers,
+      body,
+    });
     const text = await response.text();
     let data;
     try {

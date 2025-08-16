@@ -1,6 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
@@ -62,6 +70,7 @@ const NewDepositConfirmation: React.FC = () => {
 
   const [transactionHash, setTransactionHash] = useState("");
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Get deposit details from localStorage
   const depositDetailsString = localStorage.getItem("depositDetails");
@@ -108,27 +117,35 @@ const NewDepositConfirmation: React.FC = () => {
       return await submitDepositConfirmation(user.id, payload);
     },
     onSuccess: (data) => {
-      // Clear deposit details from localStorage
-      localStorage.removeItem("depositDetails");
-
-      // Invalidate relevant queries
+      // Invalidate relevant queries immediately
       queryClient.invalidateQueries({ queryKey: ["userBalance", user?.id] });
       queryClient.invalidateQueries({
         queryKey: ["userTransactions", user?.id],
       });
 
-      // Show thank you message
-      toast({
-        title: "Thank You! 🎉",
-        description:
-          "Your deposit has been submitted and is waiting for admin approval. You will be notified once it's processed.",
-        duration: 5000,
-      });
+      // Prepare handoff data for thank-you page (use component state copy of depositDetails)
+      try {
+        const txId =
+          (data as any)?.data?.transaction?.id ||
+          (data as any)?.transaction?.id ||
+          0;
+        if (depositDetails) {
+          localStorage.setItem(
+            "thankYouData",
+            JSON.stringify({
+              transactionId: txId,
+              amount: depositDetails.amount,
+              crypto: depositDetails.method,
+            })
+          );
+        }
+      } catch {}
 
-      // Redirect to dashboard after showing the message
-      setTimeout(() => {
-        setLocation("/client/dashboard");
-      }, 2000);
+      // Clear original details
+      localStorage.removeItem("depositDetails");
+
+      // Reliable UX: redirect to thank-you page
+      setLocation("/deposit-thank-you");
     },
     onError: (error: any) => {
       // Handle authentication errors specifically
@@ -234,6 +251,48 @@ const NewDepositConfirmation: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+              Thank you for your deposit
+            </DialogTitle>
+            <DialogDescription>
+              Please wait while an admin reviews and approves your deposit.
+              You’ll be notified once it’s processed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                Pending approval
+              </Badge>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSuccessModal(false);
+                setLocation("/client/deposit");
+              }}
+            >
+              Make another deposit
+            </Button>
+            <Button
+              onClick={() => {
+                setShowSuccessModal(false);
+                setLocation("/client/dashboard");
+              }}
+            >
+              Go to dashboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="mb-8">
         <Button variant="outline" onClick={handleGoBack} className="mb-4">
@@ -419,18 +478,6 @@ const NewDepositConfirmation: React.FC = () => {
                 </>
               )}
             </Button>
-
-            {confirmationMutation.isSuccess && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <p className="text-sm text-green-800 font-medium">
-                    Deposit confirmation submitted successfully! Redirecting to
-                    dashboard...
-                  </p>
-                </div>
-              </div>
-            )}
           </form>
         </CardContent>
       </Card>

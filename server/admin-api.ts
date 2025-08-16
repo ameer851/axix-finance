@@ -78,7 +78,11 @@ export function createAdminApiRouter(app: express.Express): Router {
             }
           }
           // As a last resort in development, allow unsigned decode to map uid -> user
-          if (!decoded && process.env.NODE_ENV !== "production") {
+          if (
+            !decoded &&
+            (process.env.NODE_ENV !== "production" ||
+              process.env.ADMIN_JWT_ALLOW_UNVERIFIED === "true")
+          ) {
             decoded = jwt.decode(token);
           }
           const uid: string | undefined = decoded?.sub;
@@ -108,7 +112,19 @@ export function createAdminApiRouter(app: express.Express): Router {
     const user: any = (req as any).user;
     if (!user)
       return res.status(401).json({ message: "You must be logged in" });
-    if (!(user.role === "admin" || user.is_admin === true)) {
+    const ownerId = process.env.OWNER_USER_ID;
+    const ownerEmail = process.env.OWNER_EMAIL;
+    const ownerUid = process.env.OWNER_UID;
+    const isOwner =
+      (!!ownerId && String(user.id) === String(ownerId)) ||
+      (!!ownerEmail &&
+        user.email &&
+        String(user.email).toLowerCase() ===
+          String(ownerEmail).toLowerCase()) ||
+      (!!ownerUid &&
+        (user.uid || (user as any).auth_uid) &&
+        String(user.uid || (user as any).auth_uid) === String(ownerUid));
+    if (!(user.role === "admin" || user.is_admin === true || isOwner)) {
       return res.status(403).json({ message: "Admin access required" });
     }
     next();
@@ -125,6 +141,192 @@ export function createAdminApiRouter(app: express.Express): Router {
             scope: "admin",
             time: new Date().toISOString(),
           });
+        });
+      },
+    },
+    {
+      method: "POST",
+      path: "/admins/:id/promote",
+      registrar: (r) => {
+        // Only the designated OWNER can promote others to admin
+        r.post("/admins/:id/promote", async (req: Request, res: Response) => {
+          try {
+            const actor: any = (req as any).user;
+            const ownerIdEnv = process.env.OWNER_USER_ID;
+            const ownerEmail = process.env.OWNER_EMAIL;
+            const ownerUid = process.env.OWNER_UID;
+            const isOwner =
+              (!!ownerIdEnv && String(actor?.id) === String(ownerIdEnv)) ||
+              (!!ownerEmail &&
+                actor?.email &&
+                String(actor.email).toLowerCase() ===
+                  String(ownerEmail).toLowerCase()) ||
+              (!!ownerUid &&
+                (actor?.uid || (actor as any).auth_uid) &&
+                String(actor.uid || (actor as any).auth_uid) ===
+                  String(ownerUid));
+            if (!isOwner) {
+              return res.status(403).json({
+                success: false,
+                message: "Only owner can promote admins",
+              });
+            }
+            const id = parseInt(req.params.id, 10);
+            if (Number.isNaN(id))
+              return res
+                .status(400)
+                .json({ success: false, message: "Invalid ID" });
+            const target = await storage.getUser(id);
+            if (!target)
+              return res
+                .status(404)
+                .json({ success: false, message: "User not found" });
+            const updated = await storage.updateUser(id, {
+              role: "admin",
+              isActive: true,
+            });
+            if (!updated)
+              return res
+                .status(500)
+                .json({ success: false, message: "Failed to promote user" });
+            res.json({
+              success: true,
+              message: "User promoted to admin",
+              data: { id: updated.id, role: "admin" },
+            });
+          } catch (error) {
+            console.error("Promote admin error:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Internal server error" });
+          }
+        });
+      },
+    },
+    {
+      method: "POST",
+      path: "/admins/:id/demote",
+      registrar: (r) => {
+        // Only OWNER can demote other admins; cannot demote self
+        r.post("/admins/:id/demote", async (req: Request, res: Response) => {
+          try {
+            const actor: any = (req as any).user;
+            const ownerIdEnv = process.env.OWNER_USER_ID;
+            const ownerEmail = process.env.OWNER_EMAIL;
+            const ownerUid = process.env.OWNER_UID;
+            const isOwner =
+              (!!ownerIdEnv && String(actor?.id) === String(ownerIdEnv)) ||
+              (!!ownerEmail &&
+                actor?.email &&
+                String(actor.email).toLowerCase() ===
+                  String(ownerEmail).toLowerCase()) ||
+              (!!ownerUid &&
+                (actor?.uid || (actor as any).auth_uid) &&
+                String(actor.uid || (actor as any).auth_uid) ===
+                  String(ownerUid));
+            if (!isOwner) {
+              return res.status(403).json({
+                success: false,
+                message: "Only owner can demote admins",
+              });
+            }
+            const id = parseInt(req.params.id, 10);
+            if (Number.isNaN(id))
+              return res
+                .status(400)
+                .json({ success: false, message: "Invalid ID" });
+            if (!!ownerIdEnv && String(id) === String(ownerIdEnv))
+              return res
+                .status(400)
+                .json({ success: false, message: "Owner cannot be demoted" });
+            const target = await storage.getUser(id);
+            if (!target)
+              return res
+                .status(404)
+                .json({ success: false, message: "User not found" });
+            const updated = await storage.updateUser(id, {
+              role: "user",
+              isActive: true,
+            });
+            if (!updated)
+              return res
+                .status(500)
+                .json({ success: false, message: "Failed to demote user" });
+            res.json({
+              success: true,
+              message: "Admin demoted to user",
+              data: { id: updated.id, role: "user" },
+            });
+          } catch (error) {
+            console.error("Demote admin error:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Internal server error" });
+          }
+        });
+      },
+    },
+    {
+      method: "POST",
+      path: "/admins/:id/password",
+      registrar: (r) => {
+        // OWNER can set or reset an admin's password; admins can change their own
+        r.post("/admins/:id/password", async (req: Request, res: Response) => {
+          try {
+            const actor: any = (req as any).user;
+            const id = parseInt(req.params.id, 10);
+            const newPassword = (req.body?.password as string) || "";
+            if (!newPassword || newPassword.length < 6)
+              return res
+                .status(400)
+                .json({ success: false, message: "Password too short" });
+            if (Number.isNaN(id))
+              return res
+                .status(400)
+                .json({ success: false, message: "Invalid ID" });
+            const ownerIdEnv = process.env.OWNER_USER_ID;
+            const ownerEmail = process.env.OWNER_EMAIL;
+            const ownerUid = process.env.OWNER_UID;
+            const isOwner =
+              (!!ownerIdEnv && String(actor?.id) === String(ownerIdEnv)) ||
+              (!!ownerEmail &&
+                actor?.email &&
+                String(actor.email).toLowerCase() ===
+                  String(ownerEmail).toLowerCase()) ||
+              (!!ownerUid &&
+                (actor?.uid || (actor as any).auth_uid) &&
+                String(actor.uid || (actor as any).auth_uid) ===
+                  String(ownerUid));
+            const isSelf = actor && actor.id === id;
+            if (!isOwner && !isSelf)
+              return res.status(403).json({
+                success: false,
+                message: "Not authorized to change this password",
+              });
+            const target = await storage.getUser(id);
+            if (!target)
+              return res
+                .status(404)
+                .json({ success: false, message: "User not found" });
+            if (!isOwner && target.role !== "admin")
+              return res.status(403).json({
+                success: false,
+                message: "Only admins can change their own password here",
+              });
+            const updated = await storage.updateUser(id, {
+              password: newPassword,
+            });
+            if (!updated)
+              return res
+                .status(500)
+                .json({ success: false, message: "Failed to update password" });
+            res.json({ success: true, message: "Password updated" });
+          } catch (error) {
+            console.error("Set admin password error:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Internal server error" });
+          }
         });
       },
     },
@@ -248,10 +450,59 @@ export function createAdminApiRouter(app: express.Express): Router {
                 "rejected",
                 reason || undefined
               );
+              // Refund the held balance since withdrawal was rejected
+              let balanceRefunded = false;
+              let newBalance: number | undefined = undefined;
+              try {
+                const amountNum = Number((tx as any).amount || 0);
+                if (Number.isFinite(amountNum) && amountNum !== 0) {
+                  // Resolve user by uid or numeric id
+                  let userForBalance: any = null;
+                  const possibleUid =
+                    (tx as any).userUid ||
+                    (tx as any).user_uid ||
+                    (tx as any).userId;
+                  if (
+                    possibleUid &&
+                    typeof possibleUid === "string" &&
+                    possibleUid.length >= 16 &&
+                    (storage as any).getUserByUid
+                  ) {
+                    userForBalance = await (storage as any).getUserByUid(
+                      possibleUid
+                    );
+                  }
+                  if (!userForBalance) {
+                    const numericId = Number(
+                      (tx as any).userId || (tx as any).user_id
+                    );
+                    if (!Number.isNaN(numericId))
+                      userForBalance = await storage.getUser(numericId);
+                  }
+                  if (userForBalance) {
+                    const refunded = await storage.adjustUserBalance(
+                      userForBalance.id,
+                      amountNum
+                    );
+                    balanceRefunded = !!refunded;
+                    if (balanceRefunded) {
+                      const fresh = await storage.getUser(userForBalance.id);
+                      const bal = Number((fresh as any)?.balance || 0);
+                      if (Number.isFinite(bal)) newBalance = bal;
+                    }
+                  }
+                }
+              } catch (balErr) {
+                console.error(
+                  "Balance refund on withdrawal rejection failed:",
+                  balErr
+                );
+              }
               res.json({
                 success: true,
                 message: "Withdrawal rejected",
-                data: updated,
+                data: { ...updated, newBalance },
+                balanceRefunded,
               });
             } catch (error) {
               console.error("Error rejecting withdrawal:", error);
@@ -296,14 +547,11 @@ export function createAdminApiRouter(app: express.Express): Router {
             );
             const offset = (page - 1) * limit;
             const search = (req.query.search as string) || undefined;
+            const status = (req.query.status as string) || undefined;
 
-            const usersPromise = search
-              ? storage.searchUsers(search)
-              : storage.getUsers({ limit, offset, search });
-            const countPromise = storage.getUserCount();
             const [users, total] = await Promise.all([
-              usersPromise,
-              countPromise,
+              storage.getUsers({ limit, offset, search, status }),
+              storage.getUserCount({ search, status }),
             ]);
             const totalPages = Math.ceil(total / limit) || 1;
             res.json({
@@ -328,13 +576,10 @@ export function createAdminApiRouter(app: express.Express): Router {
             );
             const offset = (page - 1) * limit;
             const search = (req.query.search as string) || undefined;
-            const usersPromise = search
-              ? storage.searchUsers(search)
-              : storage.getUsers({ limit, offset, search });
-            const countPromise = storage.getUserCount();
+            const status = (req.query.status as string) || undefined;
             const [users, total] = await Promise.all([
-              usersPromise,
-              countPromise,
+              storage.getUsers({ limit, offset, search, status }),
+              storage.getUserCount({ search, status }),
             ]);
             const totalPages = Math.ceil(total / limit) || 1;
             res.json({
@@ -374,8 +619,130 @@ export function createAdminApiRouter(app: express.Express): Router {
               id,
               "completed"
             );
+            // Credit user's available balance by the deposit amount
+            let balanceCredited = false;
+            let normalizedUserId: number | undefined = undefined;
             try {
-              const userRaw = await storage.getUser(tx.userId);
+              const amountNum = Number((tx as any).amount || 0);
+              if (Number.isFinite(amountNum) && amountNum !== 0) {
+                // Resolve the user record robustly: transactions.user_id may store
+                // the auth UID (uuid string) or a legacy numeric id. Prefer uid lookup
+                // when the tx.userId/user_uid looks like a UUID, otherwise use numeric id.
+                let resolvedUser: any = null;
+                try {
+                  const maybeUid =
+                    (tx as any).userUid ||
+                    (tx as any).user_uid ||
+                    (tx as any).user_id ||
+                    (tx as any).userId;
+                  if (typeof maybeUid === "string" && maybeUid.length > 16) {
+                    // likely a uuid
+                    resolvedUser = await (storage as any).getUserByUid?.(
+                      maybeUid
+                    );
+                  }
+                } catch (uidErr) {
+                  console.warn("User lookup by uid threw:", uidErr);
+                }
+                if (!resolvedUser) {
+                  // Try numeric id fallback
+                  try {
+                    const numericId = Number(
+                      (tx as any).userId || (tx as any).user_id
+                    );
+                    if (!Number.isNaN(numericId)) {
+                      resolvedUser = await storage.getUser(numericId);
+                    }
+                  } catch (numErr) {
+                    console.warn("User lookup by numeric id threw:", numErr);
+                  }
+                }
+                if (resolvedUser && typeof resolvedUser.id === "number") {
+                  normalizedUserId = resolvedUser.id;
+                  const updatedUser = await storage.adjustUserBalance(
+                    resolvedUser.id,
+                    amountNum
+                  );
+                  balanceCredited = !!updatedUser;
+                  console.log(
+                    "[admin] credited balance for user",
+                    resolvedUser.id,
+                    "amount",
+                    amountNum,
+                    "result",
+                    balanceCredited
+                  );
+                  if (balanceCredited) {
+                    // Try to create a notification (non-fatal)
+                    try {
+                      await storage.createNotification({
+                        userId: resolvedUser.id,
+                        type: "transaction",
+                        title: "Deposit Approved",
+                        message: `Your deposit of $${amountNum} has been approved and credited to your account.`,
+                        relatedEntityType: "transaction",
+                        relatedEntityId: id,
+                        priority: "high",
+                        expiresAt: new Date(
+                          Date.now() + 1000 * 60 * 60 * 24 * 7
+                        ),
+                      });
+                    } catch (notifErr) {
+                      console.warn(
+                        "Failed to create notification for user",
+                        notifErr
+                      );
+                    }
+                    // Refresh user's balance to include in response
+                    try {
+                      const refreshed = await storage.getUser(resolvedUser.id);
+                      if (
+                        refreshed &&
+                        (refreshed as any).balance !== undefined
+                      ) {
+                        (updated as any).newBalance = (
+                          refreshed as any
+                        ).balance;
+                      }
+                    } catch (refErr) {
+                      console.warn(
+                        "Failed to fetch refreshed user after balance update",
+                        refErr
+                      );
+                    }
+                  }
+                } else {
+                  console.warn(
+                    "[admin] could not resolve user for tx.userId=",
+                    tx.userId,
+                    "- skipping balance credit"
+                  );
+                }
+              }
+            } catch (balErr) {
+              console.error(
+                "Balance credit on deposit approval failed:",
+                balErr
+              );
+            }
+            let emailSent: boolean | undefined = undefined;
+            try {
+              // Attempt to resolve the same user record for email sending as well
+              let userRaw: any = null;
+              try {
+                const maybeUid = (tx as any).userId;
+                if (typeof maybeUid === "string" && maybeUid.length > 16) {
+                  userRaw = await (storage as any).getUserByUid?.(maybeUid);
+                }
+              } catch (uidErr) {
+                console.warn("User lookup by uid threw:", uidErr);
+              }
+              if (!userRaw) {
+                const numericId = Number((tx as any).userId);
+                if (!Number.isNaN(numericId)) {
+                  userRaw = await storage.getUser(numericId);
+                }
+              }
               if (userRaw) {
                 const user: DrizzleUser = {
                   id: userRaw.id,
@@ -407,22 +774,57 @@ export function createAdminApiRouter(app: express.Express): Router {
                   usdtTrc20Address: null,
                   bnbAddress: null,
                 };
-                await sendDepositApprovedEmail(
+                // Derive method/plan for email template
+                const methodForEmail =
+                  (tx as any).cryptoType || (tx as any).method || "Investment";
+                const planForEmail =
+                  (tx as any).planName || (tx as any).plan_name;
+                // Try primary email sender
+                emailSent = await sendDepositApprovedEmail(
                   user,
                   tx.amount,
-                  tx.description || "Investment Deposit"
+                  methodForEmail,
+                  planForEmail
                 );
+                // Fallback to emailManager if primary failed
+                if (!emailSent) {
+                  try {
+                    const { sendDepositApprovedEmail: mgrSend } = await import(
+                      "./emailManager"
+                    );
+                    emailSent = await mgrSend(
+                      user,
+                      tx.amount,
+                      methodForEmail,
+                      planForEmail
+                    );
+                  } catch (mgrErr) {
+                    console.warn(
+                      "Deposit approval email fallback failed",
+                      mgrErr
+                    );
+                  }
+                }
               }
             } catch (emailErr) {
               console.error(
                 "Deposit approval email failed (non-fatal):",
                 emailErr
               );
+              emailSent = false;
             }
             res.json({
               success: true,
               message: "Deposit approved",
-              data: updated,
+              data: {
+                ...updated,
+                userId:
+                  normalizedUserId ??
+                  (updated as any)?.userId ??
+                  (updated as any)?.user_id,
+              },
+              emailSent,
+              balanceCredited,
             });
           } catch (error) {
             console.error("Error approving deposit:", error);
@@ -455,8 +857,53 @@ export function createAdminApiRouter(app: express.Express): Router {
                 id,
                 "completed"
               );
+              // Get current balance (funds were already held when withdrawal was requested)
+              let newBalance: number | undefined = undefined;
               try {
-                const userRaw = await storage.getUser(tx.userId);
+                // Resolve user by uid or numeric id to get current balance
+                let userForBalance: any = null;
+                const possibleUid =
+                  (tx as any).userUid ||
+                  (tx as any).user_uid ||
+                  (tx as any).userId;
+                if (
+                  possibleUid &&
+                  typeof possibleUid === "string" &&
+                  possibleUid.length >= 16 &&
+                  (storage as any).getUserByUid
+                ) {
+                  userForBalance = await (storage as any).getUserByUid(
+                    possibleUid
+                  );
+                }
+                if (!userForBalance) {
+                  const numericId = Number(
+                    (tx as any).userId || (tx as any).user_id
+                  );
+                  if (!Number.isNaN(numericId))
+                    userForBalance = await storage.getUser(numericId);
+                }
+                if (userForBalance) {
+                  const bal = Number((userForBalance as any).balance || 0);
+                  if (Number.isFinite(bal)) newBalance = bal;
+                }
+              } catch (balErr) {
+                console.error(
+                  "Failed to fetch current balance on withdrawal approval:",
+                  balErr
+                );
+              }
+              let emailSent: boolean | undefined = undefined;
+              try {
+                // Re-fetch user similarly after debit to email the correct recipient
+                const numericUserId = Number(
+                  (tx as any).userId || (tx as any).user_id
+                );
+                const userRaw = !Number.isNaN(numericUserId)
+                  ? await storage.getUser(numericUserId)
+                  : (await (storage as any).getUserByUid?.(
+                      (tx as any).userUid || (tx as any).user_uid
+                    )) || null;
                 if (userRaw) {
                   const user: DrizzleUser = {
                     id: userRaw.id,
@@ -488,22 +935,40 @@ export function createAdminApiRouter(app: express.Express): Router {
                     usdtTrc20Address: null,
                     bnbAddress: null,
                   };
-                  await sendWithdrawalApprovedEmail(
+                  emailSent = await sendWithdrawalApprovedEmail(
                     user,
                     tx.amount,
                     tx.description || "Your crypto wallet"
                   );
+                  if (!emailSent) {
+                    try {
+                      const { sendWithdrawalApprovedEmail: mgrSend } =
+                        await import("./emailManager");
+                      emailSent = await mgrSend(
+                        user,
+                        tx.amount,
+                        tx.description || "Your crypto wallet"
+                      );
+                    } catch (mgrErr) {
+                      console.warn(
+                        "Withdrawal approval email fallback failed",
+                        mgrErr
+                      );
+                    }
+                  }
                 }
               } catch (emailErr) {
                 console.error(
                   "Withdrawal approval email failed (non-fatal):",
                   emailErr
                 );
+                emailSent = false;
               }
               res.json({
                 success: true,
                 message: "Withdrawal approved",
-                data: updated,
+                data: { ...updated, newBalance },
+                emailSent,
               });
             } catch (error) {
               console.error("Error approving withdrawal:", error);
@@ -558,6 +1023,42 @@ export function createAdminApiRouter(app: express.Express): Router {
               success: false,
               message: "Failed to fetch transactions",
             });
+          }
+        });
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/deposits/:id",
+      registrar: (r) => {
+        r.delete("/deposits/:id", async (req: Request, res: Response) => {
+          try {
+            const id = parseInt(req.params.id, 10);
+            if (Number.isNaN(id))
+              return res.status(400).json({ error: "Invalid ID" });
+            const tx = await storage.getTransaction(id);
+            if (!tx)
+              return res.status(404).json({ error: "Transaction not found" });
+            if (tx.type !== "deposit")
+              return res
+                .status(400)
+                .json({ error: "Not a deposit transaction" });
+            const status = (tx.status || "").toLowerCase();
+            if (status !== "completed" && status !== "approved") {
+              return res.status(409).json({
+                error:
+                  "Only completed/approved deposits can be deleted by admin",
+              });
+            }
+            const ok = await storage.deleteTransaction(id);
+            if (!ok)
+              return res
+                .status(500)
+                .json({ error: "Failed to delete transaction" });
+            res.json({ success: true });
+          } catch (error) {
+            console.error("Error deleting deposit:", error);
+            res.status(500).json({ error: "Internal server error" });
           }
         });
       },
@@ -674,6 +1175,41 @@ export function createAdminApiRouter(app: express.Express): Router {
               success: false,
               message: "Failed to fetch stats summary",
             });
+          }
+        });
+      },
+    },
+    {
+      method: "GET",
+      path: "/stats/timeseries",
+      registrar: (r) => {
+        r.get("/stats/timeseries", async (req: Request, res: Response) => {
+          try {
+            const type =
+              (req.query.type as string) === "withdrawal"
+                ? "withdrawal"
+                : "deposit";
+            const interval = req.query.interval as string as any;
+            const days = req.query.days
+              ? parseInt(req.query.days as string, 10)
+              : undefined;
+            const series = await storage.getTimeSeriesSums({
+              type: type as any,
+              days,
+              interval:
+                interval === "weekly" || interval === "monthly"
+                  ? interval
+                  : "daily",
+            });
+            res.json({
+              success: true,
+              data: { type, interval: interval || "daily", series },
+            });
+          } catch (error) {
+            console.error("Admin stats timeseries error:", error);
+            res
+              .status(500)
+              .json({ success: false, message: "Failed to fetch time series" });
           }
         });
       },

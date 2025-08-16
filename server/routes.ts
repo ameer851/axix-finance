@@ -14,6 +14,8 @@ import { handleEmailChange } from "./emailChangeService";
 import {
   initializeEmailTransporter,
   sendWithdrawalRequestEmail,
+  sendDepositRequestEmail,
+  sendDepositSuccessEmail,
 } from "./emailService";
 import { DatabaseStorage } from "./storage";
 
@@ -142,6 +144,88 @@ router.post("/verify-email", async (req: Request, res: Response) => {
   }
 });
 
+// --- Auth helpers for client login flow ---
+// Resolve arbitrary identifier (email | username | auth uid) to an email
+router.post("/auth/resolve-identifier", async (req: Request, res: Response) => {
+  try {
+    const { identifier } = (req.body as any) || {};
+    if (!identifier || typeof identifier !== "string") {
+      return res.status(400).json({ message: "identifier required" });
+    }
+
+    // If it's already an email, accept it
+    if (identifier.includes("@")) {
+      return res.json({ email: identifier });
+    }
+
+    // If it's a UUID (supabase auth uid), try map by uid first
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(identifier)) {
+      const byUid = await (storage as any).getUserByUid?.(identifier);
+      if (byUid?.email) return res.json({ email: byUid.email });
+    }
+
+    // Otherwise, treat as username
+    const user = await (storage as any).getUserByUsername?.(identifier);
+    if (user?.email) return res.json({ email: user.email });
+
+    return res.status(404).json({ message: "User not found" });
+  } catch (e) {
+    console.error("/auth/resolve-identifier error", e);
+    res.status(500).json({ message: "Internal error" });
+  }
+});
+
+// Provide a lightweight diagnostic for failed logins (best-effort)
+router.post("/auth/diagnose-login", async (req: Request, res: Response) => {
+  try {
+    const { identifier } = (req.body as any) || {};
+    if (!identifier || typeof identifier !== "string") {
+      return res
+        .status(400)
+        .json({ code: "bad_request", message: "identifier required" });
+    }
+
+    let user: any | null = null;
+    if (identifier.includes("@")) {
+      user = await (storage as any).getUserByEmail?.(identifier);
+    } else {
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(identifier)) {
+        user = await (storage as any).getUserByUid?.(identifier);
+      } else {
+        user = await (storage as any).getUserByUsername?.(identifier);
+      }
+    }
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ code: "username_not_found", message: "Username not found." });
+    }
+
+    // Normalize active flag from either is_active or isActive
+    const isActive =
+      (user as any).is_active === undefined
+        ? (user as any).isActive
+        : (user as any).is_active;
+    if (isActive === false) {
+      return res.status(403).json({
+        code: "account_deactivated",
+        message: "Account is deactivated.",
+      });
+    }
+
+    // If user exists and active, return generic message; password validation happens via Supabase
+    return res.json({ code: "ok", message: "User exists" });
+  } catch (e) {
+    console.error("/auth/diagnose-login error", e);
+    res.status(500).json({ code: "server_error", message: "Internal error" });
+  }
+});
+
 router.post(
   "/resend-verification",
   requireAuth,
@@ -226,6 +310,7 @@ async function buildBalanceResponse(userId: number) {
     pendingWithdrawals: pendingWithdrawalTxs.length,
     pendingWithdrawalAmount,
     pendingDepositAmount: pendingBalance,
+    lastUpdated: new Date().toISOString(),
     // Legacy fields for older client code
     balance: String(availableBalance),
   };
@@ -277,8 +362,32 @@ router.get(
         100,
         parseInt((req.query.limit as string) || "20", 10) || 20
       );
-      const txs = await storage.getUserTransactions(id);
-      res.json({ transactions: txs.slice(0, limit) });
+      const typeFilter = (req.query.type as string) || undefined;
+      const statusFilter = (req.query.status as string) || undefined;
+      const raw = await storage.getUserTransactions(id);
+      const filtered = raw.filter((t: any) => {
+        const typeOk = typeFilter ? t.type === typeFilter : true;
+        const statusOk = statusFilter ? t.status === statusFilter : true;
+        return typeOk && statusOk;
+      });
+      const normalize = (t: any) => ({
+        id: t.id,
+        userId: t.userId ?? t.user_id,
+        type: t.type,
+        amount: t.amount,
+        status: t.status,
+        description: t.description,
+        createdAt: t.createdAt || t.created_at,
+        updatedAt: t.updatedAt || t.updated_at,
+        cryptoType: t.cryptoType ?? t.crypto_type,
+        walletAddress: t.walletAddress ?? t.wallet_address,
+        transactionHash: t.transactionHash ?? t.transaction_hash,
+        planName: t.planName ?? t.plan_name,
+        planDuration: t.planDuration ?? t.plan_duration,
+        dailyProfit: t.dailyProfit ?? t.daily_profit,
+        totalReturn: t.totalReturn ?? t.total_return,
+      });
+      res.json({ transactions: filtered.slice(0, limit).map(normalize) });
     } catch (e) {
       console.error("transactions list error", e);
       res.status(500).json({ message: "Failed to get transactions" });
@@ -317,9 +426,27 @@ router.post(
         transactionHash: transactionHash || null,
       });
       if (tx) {
-        // Per updated requirement: do NOT send an email on deposit request submission.
-        // Only admin approval will trigger a deposit approval email elsewhere.
-        return res.status(201).json({ success: true, transaction: tx });
+        // Send deposit request/received email (primary with silent failure)
+        try {
+          const user = await storage.getUser(req.user!.id);
+          if (user) {
+            await sendDepositRequestEmail(
+              user as any,
+              String(numericAmount),
+              method || "USD",
+              planName
+            );
+          }
+        } catch (emailErr) {
+          console.warn("[deposit-confirmation] request email failed", emailErr);
+        }
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[deposit-confirmation] created tx:", tx);
+        }
+        // Return a stable JSON shape the client expects
+        return res
+          .status(201)
+          .json({ success: true, data: { transaction: tx } });
       }
       return res.status(500).json({
         message: "Failed to create deposit",
@@ -346,8 +473,22 @@ router.post(
       if (!numericAmount || numericAmount <= 0) {
         return res.status(400).json({ message: "Invalid amount" });
       }
-      const tx = await storage.createTransaction({
+      // Deduct funds immediately to hold the balance
+      const user = await storage.getUser(req.user!.id);
+      const available = Number((user as any)?.balance || 0);
+      if (numericAmount > available) {
+        return res.status(409).json({ message: "Insufficient funds" });
+      }
+      const debited = await storage.adjustUserBalance(
+        req.user!.id,
+        -numericAmount
+      );
+      if (!debited) {
+        return res.status(500).json({ message: "Failed to hold funds" });
+      }
+      let tx = await storage.createTransaction({
         userId: req.user!.id,
+        userUid: (req.user as any).uid,
         type: "withdrawal",
         amount: String(numericAmount),
         status: "pending",
@@ -355,13 +496,17 @@ router.post(
           ? `Withdrawal to ${destination}`
           : "Withdrawal request",
       });
+      if (!tx) {
+        // Rollback the debit if we couldn't create the transaction
+        await storage.adjustUserBalance(req.user!.id, numericAmount);
+      }
       if (tx) {
         let emailOutcome = "skipped";
         try {
-          const user = await storage.getUser(req.user!.id);
-          if (user) {
+          const freshUser = await storage.getUser(req.user!.id);
+          if (freshUser) {
             const primary = await sendWithdrawalRequestEmail(
-              user as any,
+              freshUser as any,
               String(numericAmount)
             );
             emailOutcome = primary ? "primary-success" : "primary-failed";
@@ -371,7 +516,7 @@ router.post(
                   "./emailManager"
                 );
                 const fallbackOk = await mgrFn(
-                  user as any,
+                  freshUser as any,
                   String(numericAmount),
                   undefined
                 );
@@ -392,6 +537,7 @@ router.post(
         return res.status(201).json({
           success: true,
           transaction: tx,
+          newBalance: Number((debited as any)?.balance || 0),
           email:
             process.env.NODE_ENV !== "production" ? emailOutcome : undefined,
         });
@@ -400,6 +546,72 @@ router.post(
     } catch (e) {
       console.error("withdraw request error", e);
       res.status(500).json({ message: "Failed to submit withdrawal" });
+    }
+  }
+);
+
+// Balance deposit (instant, no admin approval): deduct from available balance and create a completed deposit
+router.post(
+  "/transactions/deposit",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { amount, method, planName } = req.body || {};
+      const numericAmount = Number(amount);
+      if (!numericAmount || numericAmount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+      if ((method || "").toLowerCase() !== "balance") {
+        return res.status(400).json({ message: "Unsupported method" });
+      }
+      const user = await storage.getUser(req.user!.id);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const available = Number((user as any).balance || 0);
+      if (numericAmount > available) {
+        return res.status(409).json({ message: "Insufficient funds" });
+      }
+      const debited = await storage.adjustUserBalance(
+        req.user!.id,
+        -numericAmount
+      );
+      if (!debited) {
+        return res.status(500).json({ message: "Failed to debit balance" });
+      }
+      let tx = await storage.createTransaction({
+        userId: req.user!.id,
+        userUid: (req.user as any).uid,
+        type: "deposit",
+        amount: String(numericAmount),
+        status: "completed",
+        description: planName
+          ? `Balance deposit - ${planName}`
+          : "Balance deposit",
+      });
+      if (!tx) {
+        // rollback the debit if we couldn't record the tx
+        await storage.adjustUserBalance(req.user!.id, numericAmount);
+        return res.status(500).json({ message: "Failed to record deposit" });
+      }
+      // Send deposit confirmation email for instant balance deposit
+      try {
+        await sendDepositSuccessEmail(
+          user as any,
+          String(numericAmount),
+          planName
+        );
+      } catch (emailErr) {
+        console.warn("Balance deposit success email failed", emailErr);
+      }
+      return res.status(201).json({
+        success: true,
+        data: {
+          transaction: tx,
+          newBalance: Number((debited as any)?.balance || 0),
+        },
+      });
+    } catch (e) {
+      console.error("balance deposit error", e);
+      res.status(500).json({ message: "Failed to process deposit" });
     }
   }
 );
@@ -474,6 +686,18 @@ router.delete("/visitors/session", (_req, res) => {
 // User mapping function
 function mapUser(u: any) {
   if (!u) return null;
+  // Compute owner flag on the server so clients don't need public VITE_* envs
+  const ownerId = process.env.OWNER_USER_ID;
+  const ownerEmail = process.env.OWNER_EMAIL;
+  const ownerUid = process.env.OWNER_UID;
+  const isOwner =
+    (!!ownerId && String(u.id) === String(ownerId)) ||
+    (!!ownerEmail &&
+      u.email &&
+      String(u.email).toLowerCase() === String(ownerEmail).toLowerCase()) ||
+    (!!ownerUid &&
+      (u.uid || (u as any).auth_uid) &&
+      String(u.uid || (u as any).auth_uid) === String(ownerUid));
   return {
     id: u.id,
     email: u.email,
@@ -481,6 +705,7 @@ function mapUser(u: any) {
     username: (u as any).username ?? null,
     firstName: (u as any).firstName ?? null,
     lastName: (u as any).lastName ?? null,
+    isOwner,
   };
 }
 

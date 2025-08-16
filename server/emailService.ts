@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { z } from "zod";
 import { sendDevModeEmail, setupDevEmailTransport } from "./emailFallback";
 import {
+  BRAND,
   generateDepositApprovalEmailHTML,
   generateDepositConfirmationEmailHTML,
   generateWelcomeEmailHTML,
@@ -192,7 +193,7 @@ export async function sendWelcomeEmail(user: DrizzleUser): Promise<boolean> {
       console.log("[email] Dev mode welcome email ->", user.email);
       sendDevModeEmail({
         to: user.email,
-        subject: "Welcome to Axix Finance",
+        subject: `Welcome to ${BRAND.name}`,
         html: generateWelcomeEmailHTML(user),
         text: undefined,
       });
@@ -201,7 +202,7 @@ export async function sendWelcomeEmail(user: DrizzleUser): Promise<boolean> {
     const mailOptions = {
       from: getFromEmail(),
       to: user.email,
-      subject: "Welcome to Axix Finance",
+      subject: `Welcome to ${BRAND.name}`,
       html: generateWelcomeEmailHTML(user),
     };
     console.log("[email] Sending welcome email via transporter", {
@@ -313,7 +314,7 @@ export async function sendDepositApprovedEmail(
   const mailOptions = {
     from: getFromEmail(),
     to: user.email,
-    subject: "Axix Finance - Deposit Approved & Confirmed",
+    subject: `${BRAND.name} - Deposit Approved & Confirmed`,
     html: generateDepositApprovalEmailHTML(
       user,
       parseFloat(amount),
@@ -352,7 +353,7 @@ export async function sendWithdrawalRequestEmail(
     const mailOptions = {
       from: getFromEmail(),
       to: user.email,
-      subject: "Axix Finance - Withdrawal Request Received",
+      subject: `${BRAND.name} - Withdrawal Request Received`,
       html: generateWithdrawalRequestEmailHTML(
         user,
         parseFloat(amount),
@@ -387,7 +388,7 @@ export async function sendWithdrawalApprovedEmail(
   const mailOptions = {
     from: getFromEmail(),
     to: user.email,
-    subject: "Axix Finance - Withdrawal Successfully Processed",
+    subject: `${BRAND.name} - Withdrawal Successfully Processed`,
     html: generateWithdrawalConfirmationEmailHTML(
       user,
       parseFloat(amount),
@@ -426,7 +427,7 @@ export async function sendDepositSuccessEmail(
     const mailOptions = {
       from: getFromEmail(),
       to: user.email,
-      subject: "Axix Finance - Deposit Confirmation",
+      subject: `${BRAND.name} - Deposit Confirmation`,
       html: generateDepositConfirmationEmailHTML(
         user,
         parseFloat(amount),

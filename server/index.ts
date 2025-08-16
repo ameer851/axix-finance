@@ -176,6 +176,10 @@ const adminLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+// Mount visitor tracking endpoints before general API limiter so frequent pings
+// from widgets or third-party scripts don't quickly hit rate limits in development.
+app.use("/api/visitors", visitorRouter);
+
 app.use("/api/", apiLimiter);
 app.use("/api/admin/", adminLimiter);
 
