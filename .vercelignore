@@ -2,9 +2,12 @@
 .env.vercel
 # Server and development files
 
-server/
+server/custom-templates/
 scripts/
 !scripts/verify-dist.cjs
+!server/emailTemplates.ts
+!scripts/prune-if-exists.cjs
+!scripts/prune-api.cjs
 migrations/
 docs/
 logs/
