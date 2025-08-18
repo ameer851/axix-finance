@@ -6607,6 +6607,9 @@ var supabaseAdmin = SUPABASE_URL && SERVICE_ROLE_KEY ? (0, import_supabase_js.cr
 app.post("/api/auth/create-profile", async (req, res) => {
   try {
     if (!supabaseAdmin) {
+      console.error(
+        "[create-profile] Supabase admin not configured. Check SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL env vars."
+      );
       return res.status(500).json({ error: "Supabase admin not configured" });
     }
     const { uid, email, username, firstName, lastName } = req.body || {};
@@ -6674,15 +6677,35 @@ app.get("/api/admin/users", async (req, res) => {
     });
   }
 });
+app.get("/api/debug/status", (req, res) => {
+  try {
+    return res.json({
+      supabaseAdminConfigured: !!supabaseAdmin,
+      supabaseUrlPresent: !!SUPABASE_URL,
+      serviceRoleKeyPresent: !!SERVICE_ROLE_KEY,
+      nodeEnv: process.env.NODE_ENV || null
+    });
+  } catch (e) {
+    return res.status(500).json({ error: String(e) });
+  }
+});
 app.use("/api", (req, res) => {
   return res.status(404).json({
     error: "Not Found",
     message: `No handler for ${req.method} ${req.path}`
   });
 });
+app.get("/api", (req, res) => {
+  return res.json({ status: "ok", message: "API root" });
+});
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send("Something broke!");
+  try {
+    console.error("[server-error]", err && err.stack ? err.stack : err);
+  } catch (e) {
+    console.error("[server-error] unable to stringify error", e);
+  }
+  const message = err && err.message ? err.message : "Internal server error";
+  res.status(500).json({ error: message });
 });
 var port = process.env.PORT || 3e3;
 if (process.env.NODE_ENV !== "test") {
