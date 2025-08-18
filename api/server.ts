@@ -9,11 +9,9 @@ if (!process.env.VERCEL) {
   WebSocketServer = require("ws").WebSocketServer;
 }
 
-
 // Log Vercel env for diagnostics
 console.log("[server] Starting API server. VERCEL:", process.env.VERCEL);
 config();
-
 
 const app = express();
 let server: any = null;
@@ -86,16 +84,68 @@ if (!process.env.VERCEL) {
 // No static serving here; Vercel serves client/dist. This function handles only /api/*.
 
 // API routes
+
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+  try {
+    // Diagnostics for all critical env vars and objects
+    const diagnostics = {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== 'undefined',
+      SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
+      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
+      PORT: process.env.PORT,
+      SITE_URL: process.env.SITE_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      CLIENT_URL: process.env.CLIENT_URL,
+    };
+    res.json({ status: "ok", diagnostics });
+  } catch (err: any) {
+    console.error("[health-error]", err);
+    res
+      .status(500)
+      .json({
+        error: "health endpoint crash",
+        details: err && err.message ? err.message : String(err),
+      });
+  }
 });
 
 app.get("/api/ping", (req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-  });
+  try {
+    // Diagnostics for all critical env vars and objects
+    const diagnostics = {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== 'undefined',
+      SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
+      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
+      PORT: process.env.PORT,
+      SITE_URL: process.env.SITE_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      CLIENT_URL: process.env.CLIENT_URL,
+    };
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      diagnostics,
+    });
+  } catch (err: any) {
+    console.error("[ping-error]", err);
+    res
+      .status(500)
+      .json({
+        error: "ping endpoint crash",
+        details: err && err.message ? err.message : String(err),
+      });
+  }
 });
 
 // Minimal visitor tracking endpoints to avoid client retries and ensure JSON responses
@@ -272,7 +322,6 @@ app.use((err: any, req: any, res: any, next: Function) => {
   const message = err && err.message ? err.message : "Internal server error";
   res.status(500).json({ error: message });
 });
-
 
 const port = process.env.PORT || 3000;
 if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {

@@ -6592,14 +6592,59 @@ if (!process.env.VERCEL) {
   app.use(sessionMiddleware);
 }
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+  try {
+    const diagnostics = {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== "undefined",
+      SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
+      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
+      PORT: process.env.PORT,
+      SITE_URL: process.env.SITE_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      CLIENT_URL: process.env.CLIENT_URL
+    };
+    res.json({ status: "ok", diagnostics });
+  } catch (err) {
+    console.error("[health-error]", err);
+    res.status(500).json({
+      error: "health endpoint crash",
+      details: err && err.message ? err.message : String(err)
+    });
+  }
 });
 app.get("/api/ping", (req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    environment: process.env.NODE_ENV
-  });
+  try {
+    const diagnostics = {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== "undefined",
+      SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
+      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
+      PORT: process.env.PORT,
+      SITE_URL: process.env.SITE_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      CLIENT_URL: process.env.CLIENT_URL
+    };
+    res.json({
+      status: "ok",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      environment: process.env.NODE_ENV,
+      diagnostics
+    });
+  } catch (err) {
+    console.error("[ping-error]", err);
+    res.status(500).json({
+      error: "ping endpoint crash",
+      details: err && err.message ? err.message : String(err)
+    });
+  }
 });
 app.post("/api/visitors/session", (req, res) => {
   res.json({ success: true });
