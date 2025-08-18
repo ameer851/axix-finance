@@ -6591,21 +6591,26 @@ if (!process.env.VERCEL) {
   });
   app.use(sessionMiddleware);
 }
+var SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+var SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+var supabaseAdmin = SUPABASE_URL && SERVICE_ROLE_KEY ? (0, import_supabase_js.createClient)(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false }
+}) : null;
 app.get("/api/health", (req, res) => {
   try {
     const diagnostics = {
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL: process.env.VERCEL,
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
-      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== "undefined",
+      NODE_ENV: process.env.NODE_ENV || null,
+      VERCEL: process.env.VERCEL || null,
+      SUPABASE_URL: process.env.SUPABASE_URL || null,
+      SUPABASE_SERVICE_ROLE_KEY_PRESENT: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+      SERVICE_ROLE_KEY_PRESENT: !!SERVICE_ROLE_KEY,
       SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
-      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
-      PORT: process.env.PORT,
-      SITE_URL: process.env.SITE_URL,
-      FRONTEND_URL: process.env.FRONTEND_URL,
-      CLIENT_URL: process.env.CLIENT_URL
+      SESSION_SECRET_PRESENT: !!process.env.SESSION_SECRET,
+      PORT: process.env.PORT || null,
+      SITE_URL: process.env.SITE_URL || null,
+      FRONTEND_URL: process.env.FRONTEND_URL || null,
+      CLIENT_URL: process.env.CLIENT_URL || null
     };
     res.json({ status: "ok", diagnostics });
   } catch (err) {
@@ -6619,23 +6624,23 @@ app.get("/api/health", (req, res) => {
 app.get("/api/ping", (req, res) => {
   try {
     const diagnostics = {
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL: process.env.VERCEL,
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
-      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== "undefined",
+      NODE_ENV: process.env.NODE_ENV || null,
+      VERCEL: process.env.VERCEL || null,
+      SUPABASE_URL: process.env.SUPABASE_URL || null,
+      SUPABASE_SERVICE_ROLE_KEY_PRESENT: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+      SERVICE_ROLE_KEY_PRESENT: !!SERVICE_ROLE_KEY,
       SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
-      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
-      PORT: process.env.PORT,
-      SITE_URL: process.env.SITE_URL,
-      FRONTEND_URL: process.env.FRONTEND_URL,
-      CLIENT_URL: process.env.CLIENT_URL
+      SESSION_SECRET_PRESENT: !!process.env.SESSION_SECRET,
+      PORT: process.env.PORT || null,
+      SITE_URL: process.env.SITE_URL || null,
+      FRONTEND_URL: process.env.FRONTEND_URL || null,
+      CLIENT_URL: process.env.CLIENT_URL || null
     };
     res.json({
       status: "ok",
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      environment: process.env.NODE_ENV,
+      environment: process.env.NODE_ENV || null,
       diagnostics
     });
   } catch (err) {
@@ -6661,11 +6666,6 @@ app.put("/api/visitors/activity", (req, res) => {
 app.post("/api/send-welcome-email", (req, res) => {
   res.json({ success: true });
 });
-var SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-var SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-var supabaseAdmin = SUPABASE_URL && SERVICE_ROLE_KEY ? (0, import_supabase_js.createClient)(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-}) : null;
 app.post("/api/auth/create-profile", async (req, res) => {
   try {
     if (!supabaseAdmin) {

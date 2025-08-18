@@ -81,6 +81,18 @@ if (!process.env.VERCEL) {
   app.use(sessionMiddleware);
 }
 
+// Admin users endpoint consolidated here to avoid extra serverless function
+// Place Supabase config BEFORE any routes to avoid TDZ errors in diagnostics
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdmin =
+  SUPABASE_URL && SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
+
 // No static serving here; Vercel serves client/dist. This function handles only /api/*.
 
 // API routes
@@ -88,63 +100,61 @@ if (!process.env.VERCEL) {
 app.get("/api/health", (req, res) => {
   try {
     // Diagnostics for all critical env vars and objects
-    const diagnostics = {
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL: process.env.VERCEL,
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
-      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== 'undefined',
+    const diagnostics: any = {
+      NODE_ENV: process.env.NODE_ENV || null,
+      VERCEL: process.env.VERCEL || null,
+      SUPABASE_URL: process.env.SUPABASE_URL || null,
+      SUPABASE_SERVICE_ROLE_KEY_PRESENT:
+        !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+      SERVICE_ROLE_KEY_PRESENT: !!SERVICE_ROLE_KEY,
       SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
-      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
-      PORT: process.env.PORT,
-      SITE_URL: process.env.SITE_URL,
-      FRONTEND_URL: process.env.FRONTEND_URL,
-      CLIENT_URL: process.env.CLIENT_URL,
-    };
+      SESSION_SECRET_PRESENT: !!process.env.SESSION_SECRET,
+      PORT: process.env.PORT || null,
+      SITE_URL: process.env.SITE_URL || null,
+      FRONTEND_URL: process.env.FRONTEND_URL || null,
+      CLIENT_URL: process.env.CLIENT_URL || null,
+    } as const;
     res.json({ status: "ok", diagnostics });
   } catch (err: any) {
     console.error("[health-error]", err);
-    res
-      .status(500)
-      .json({
-        error: "health endpoint crash",
-        details: err && err.message ? err.message : String(err),
-      });
+    res.status(500).json({
+      error: "health endpoint crash",
+      details: err && err.message ? err.message : String(err),
+    });
   }
 });
 
 app.get("/api/ping", (req, res) => {
   try {
     // Diagnostics for all critical env vars and objects
-    const diagnostics = {
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL: process.env.VERCEL,
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? true : false,
-      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      SERVICE_ROLE_KEY: typeof SERVICE_ROLE_KEY !== 'undefined',
+    const diagnostics: any = {
+      NODE_ENV: process.env.NODE_ENV || null,
+      VERCEL: process.env.VERCEL || null,
+      SUPABASE_URL: process.env.SUPABASE_URL || null,
+      SUPABASE_SERVICE_ROLE_KEY_PRESENT:
+        !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+      SERVICE_ROLE_KEY_PRESENT: !!SERVICE_ROLE_KEY,
       SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
-      SESSION_SECRET: process.env.SESSION_SECRET ? true : false,
-      PORT: process.env.PORT,
-      SITE_URL: process.env.SITE_URL,
-      FRONTEND_URL: process.env.FRONTEND_URL,
-      CLIENT_URL: process.env.CLIENT_URL,
-    };
+      SESSION_SECRET_PRESENT: !!process.env.SESSION_SECRET,
+      PORT: process.env.PORT || null,
+      SITE_URL: process.env.SITE_URL || null,
+      FRONTEND_URL: process.env.FRONTEND_URL || null,
+      CLIENT_URL: process.env.CLIENT_URL || null,
+    } as const;
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
+      environment: process.env.NODE_ENV || null,
       diagnostics,
     });
   } catch (err: any) {
     console.error("[ping-error]", err);
-    res
-      .status(500)
-      .json({
-        error: "ping endpoint crash",
-        details: err && err.message ? err.message : String(err),
-      });
+    res.status(500).json({
+      error: "ping endpoint crash",
+      details: err && err.message ? err.message : String(err),
+    });
   }
 });
 
@@ -171,15 +181,6 @@ app.post("/api/send-welcome-email", (req, res) => {
 });
 
 // Admin users endpoint consolidated here to avoid extra serverless function
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAdmin =
-  SUPABASE_URL && SERVICE_ROLE_KEY
-    ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
-    : null;
 
 // Create user profile after Supabase auth signup
 app.post("/api/auth/create-profile", async (req, res) => {
