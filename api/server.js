@@ -3645,7 +3645,7 @@ var require_receiver = __commonJS({
     var GET_DATA = 4;
     var INFLATING = 5;
     var DEFER_EVENT = 6;
-    var Receiver2 = class extends Writable {
+    var Receiver = class extends Writable {
       /**
        * Creates a Receiver instance.
        *
@@ -4211,7 +4211,7 @@ var require_receiver = __commonJS({
         return err;
       }
     };
-    module2.exports = Receiver2;
+    module2.exports = Receiver;
   }
 });
 
@@ -4233,7 +4233,7 @@ var require_sender = __commonJS({
     var DEFAULT = 0;
     var DEFLATING = 1;
     var GET_BLOB_DATA = 2;
-    var Sender2 = class _Sender {
+    var Sender = class _Sender {
       /**
        * Creates a Sender instance.
        *
@@ -4687,7 +4687,7 @@ var require_sender = __commonJS({
         }
       }
     };
-    module2.exports = Sender2;
+    module2.exports = Sender;
     function callCallbacks(sender, err, cb) {
       if (typeof cb === "function") cb(err);
       for (let i = 0; i < sender._queue.length; i++) {
@@ -5098,8 +5098,8 @@ var require_websocket = __commonJS({
     var { Duplex, Readable } = require("stream");
     var { URL: URL2 } = require("url");
     var PerMessageDeflate = require_permessage_deflate();
-    var Receiver2 = require_receiver();
-    var Sender2 = require_sender();
+    var Receiver = require_receiver();
+    var Sender = require_sender();
     var { isBlob } = require_validation();
     var {
       BINARY_TYPES,
@@ -5121,7 +5121,7 @@ var require_websocket = __commonJS({
     var protocolVersions = [8, 13];
     var readyStates = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"];
     var subprotocolRegex = /^[!#$%&'*+\-.0-9A-Z^_`|a-z~]+$/;
-    var WebSocket2 = class _WebSocket extends EventEmitter {
+    var WebSocket = class _WebSocket extends EventEmitter {
       /**
        * Create a new `WebSocket`.
        *
@@ -5261,7 +5261,7 @@ var require_websocket = __commonJS({
        * @private
        */
       setSocket(socket, head, options) {
-        const receiver = new Receiver2({
+        const receiver = new Receiver({
           allowSynchronousEvents: options.allowSynchronousEvents,
           binaryType: this.binaryType,
           extensions: this._extensions,
@@ -5269,7 +5269,7 @@ var require_websocket = __commonJS({
           maxPayload: options.maxPayload,
           skipUTF8Validation: options.skipUTF8Validation
         });
-        const sender = new Sender2(socket, this._extensions, options.generateMask);
+        const sender = new Sender(socket, this._extensions, options.generateMask);
         this._receiver = receiver;
         this._sender = sender;
         this._socket = socket;
@@ -5490,35 +5490,35 @@ var require_websocket = __commonJS({
         }
       }
     };
-    Object.defineProperty(WebSocket2, "CONNECTING", {
+    Object.defineProperty(WebSocket, "CONNECTING", {
       enumerable: true,
       value: readyStates.indexOf("CONNECTING")
     });
-    Object.defineProperty(WebSocket2.prototype, "CONNECTING", {
+    Object.defineProperty(WebSocket.prototype, "CONNECTING", {
       enumerable: true,
       value: readyStates.indexOf("CONNECTING")
     });
-    Object.defineProperty(WebSocket2, "OPEN", {
+    Object.defineProperty(WebSocket, "OPEN", {
       enumerable: true,
       value: readyStates.indexOf("OPEN")
     });
-    Object.defineProperty(WebSocket2.prototype, "OPEN", {
+    Object.defineProperty(WebSocket.prototype, "OPEN", {
       enumerable: true,
       value: readyStates.indexOf("OPEN")
     });
-    Object.defineProperty(WebSocket2, "CLOSING", {
+    Object.defineProperty(WebSocket, "CLOSING", {
       enumerable: true,
       value: readyStates.indexOf("CLOSING")
     });
-    Object.defineProperty(WebSocket2.prototype, "CLOSING", {
+    Object.defineProperty(WebSocket.prototype, "CLOSING", {
       enumerable: true,
       value: readyStates.indexOf("CLOSING")
     });
-    Object.defineProperty(WebSocket2, "CLOSED", {
+    Object.defineProperty(WebSocket, "CLOSED", {
       enumerable: true,
       value: readyStates.indexOf("CLOSED")
     });
-    Object.defineProperty(WebSocket2.prototype, "CLOSED", {
+    Object.defineProperty(WebSocket.prototype, "CLOSED", {
       enumerable: true,
       value: readyStates.indexOf("CLOSED")
     });
@@ -5531,10 +5531,10 @@ var require_websocket = __commonJS({
       "readyState",
       "url"
     ].forEach((property) => {
-      Object.defineProperty(WebSocket2.prototype, property, { enumerable: true });
+      Object.defineProperty(WebSocket.prototype, property, { enumerable: true });
     });
     ["open", "error", "close", "message"].forEach((method) => {
-      Object.defineProperty(WebSocket2.prototype, `on${method}`, {
+      Object.defineProperty(WebSocket.prototype, `on${method}`, {
         enumerable: true,
         get() {
           for (const listener of this.listeners(method)) {
@@ -5556,9 +5556,9 @@ var require_websocket = __commonJS({
         }
       });
     });
-    WebSocket2.prototype.addEventListener = addEventListener;
-    WebSocket2.prototype.removeEventListener = removeEventListener;
-    module2.exports = WebSocket2;
+    WebSocket.prototype.addEventListener = addEventListener;
+    WebSocket.prototype.removeEventListener = removeEventListener;
+    module2.exports = WebSocket;
     function initAsClient(websocket, address, protocols, options) {
       const opts = {
         allowSynchronousEvents: true,
@@ -5744,7 +5744,7 @@ var require_websocket = __commonJS({
       });
       req.on("upgrade", (res, socket, head) => {
         websocket.emit("upgrade", res);
-        if (websocket.readyState !== WebSocket2.CONNECTING) return;
+        if (websocket.readyState !== WebSocket.CONNECTING) return;
         req = websocket._req = null;
         const upgrade = res.headers.upgrade;
         if (upgrade === void 0 || upgrade.toLowerCase() !== "websocket") {
@@ -5816,7 +5816,7 @@ var require_websocket = __commonJS({
       }
     }
     function emitErrorAndClose(websocket, err) {
-      websocket._readyState = WebSocket2.CLOSING;
+      websocket._readyState = WebSocket.CLOSING;
       websocket._errorEmitted = true;
       websocket.emit("error", err);
       websocket.emitClose();
@@ -5833,7 +5833,7 @@ var require_websocket = __commonJS({
       return tls.connect(options);
     }
     function abortHandshake(websocket, stream, message) {
-      websocket._readyState = WebSocket2.CLOSING;
+      websocket._readyState = WebSocket.CLOSING;
       const err = new Error(message);
       Error.captureStackTrace(err, abortHandshake);
       if (stream.setHeader) {
@@ -5908,9 +5908,9 @@ var require_websocket = __commonJS({
     }
     function senderOnError(err) {
       const websocket = this[kWebSocket];
-      if (websocket.readyState === WebSocket2.CLOSED) return;
-      if (websocket.readyState === WebSocket2.OPEN) {
-        websocket._readyState = WebSocket2.CLOSING;
+      if (websocket.readyState === WebSocket.CLOSED) return;
+      if (websocket.readyState === WebSocket.OPEN) {
+        websocket._readyState = WebSocket.CLOSING;
         setCloseTimer(websocket);
       }
       this._socket.end();
@@ -5930,7 +5930,7 @@ var require_websocket = __commonJS({
       this.removeListener("close", socketOnClose);
       this.removeListener("data", socketOnData);
       this.removeListener("end", socketOnEnd);
-      websocket._readyState = WebSocket2.CLOSING;
+      websocket._readyState = WebSocket.CLOSING;
       let chunk;
       if (!this._readableState.endEmitted && !websocket._closeFrameReceived && !websocket._receiver._writableState.errorEmitted && (chunk = websocket._socket.read()) !== null) {
         websocket._receiver.write(chunk);
@@ -5952,7 +5952,7 @@ var require_websocket = __commonJS({
     }
     function socketOnEnd() {
       const websocket = this[kWebSocket];
-      websocket._readyState = WebSocket2.CLOSING;
+      websocket._readyState = WebSocket.CLOSING;
       websocket._receiver.end();
       this.end();
     }
@@ -5961,7 +5961,7 @@ var require_websocket = __commonJS({
       this.removeListener("error", socketOnError);
       this.on("error", NOOP);
       if (websocket) {
-        websocket._readyState = WebSocket2.CLOSING;
+        websocket._readyState = WebSocket.CLOSING;
         this.destroy();
       }
     }
@@ -5972,7 +5972,7 @@ var require_websocket = __commonJS({
 var require_stream = __commonJS({
   "node_modules/ws/lib/stream.js"(exports2, module2) {
     "use strict";
-    var WebSocket2 = require_websocket();
+    var WebSocket = require_websocket();
     var { Duplex } = require("stream");
     function emitClose(stream) {
       stream.emit("close");
@@ -5989,7 +5989,7 @@ var require_stream = __commonJS({
         this.emit("error", err);
       }
     }
-    function createWebSocketStream2(ws, options) {
+    function createWebSocketStream(ws, options) {
       let terminateOnDestroy = true;
       const duplex = new Duplex({
         ...options,
@@ -6062,7 +6062,7 @@ var require_stream = __commonJS({
       duplex.on("error", duplexOnError);
       return duplex;
     }
-    module2.exports = createWebSocketStream2;
+    module2.exports = createWebSocketStream;
   }
 });
 
@@ -6122,7 +6122,7 @@ var require_websocket_server = __commonJS({
     var extension = require_extension();
     var PerMessageDeflate = require_permessage_deflate();
     var subprotocol = require_subprotocol();
-    var WebSocket2 = require_websocket();
+    var WebSocket = require_websocket();
     var { GUID, kWebSocket } = require_constants();
     var keyRegex = /^[+/0-9A-Za-z]{22}==$/;
     var RUNNING = 0;
@@ -6178,7 +6178,7 @@ var require_websocket_server = __commonJS({
           host: null,
           path: null,
           port: null,
-          WebSocket: WebSocket2,
+          WebSocket,
           ...options
         };
         if (options.port == null && !options.server && !options.noServer || options.port != null && (options.server || options.noServer) || options.server && options.noServer) {
@@ -6500,6 +6500,21 @@ var require_websocket_server = __commonJS({
   }
 });
 
+// node_modules/ws/index.js
+var require_ws = __commonJS({
+  "node_modules/ws/index.js"(exports2, module2) {
+    "use strict";
+    var WebSocket = require_websocket();
+    WebSocket.createWebSocketStream = require_stream();
+    WebSocket.Server = require_websocket_server();
+    WebSocket.Receiver = require_receiver();
+    WebSocket.Sender = require_sender();
+    WebSocket.WebSocket = WebSocket;
+    WebSocket.WebSocketServer = WebSocket.Server;
+    module2.exports = WebSocket;
+  }
+});
+
 // api/server.ts
 var server_exports = {};
 __export(server_exports, {
@@ -6507,34 +6522,34 @@ __export(server_exports, {
 });
 module.exports = __toCommonJS(server_exports);
 var import_supabase_js = require("@supabase/supabase-js");
-var import_cors = __toESM(require_lib());
-var import_dotenv = __toESM(require_main());
-var import_express = __toESM(require("express"));
-var import_express_session = __toESM(require_express_session());
-var import_http = require("http");
-
-// node_modules/ws/wrapper.mjs
-var import_stream = __toESM(require_stream(), 1);
-var import_receiver = __toESM(require_receiver(), 1);
-var import_sender = __toESM(require_sender(), 1);
-var import_websocket = __toESM(require_websocket(), 1);
-var import_websocket_server = __toESM(require_websocket_server(), 1);
-
-// api/server.ts
+var import_cors = __toESM(require_lib(), 1);
+var import_dotenv = __toESM(require_main(), 1);
+var import_express = __toESM(require("express"), 1);
+var import_express_session = __toESM(require_express_session(), 1);
+var createServer;
+var WebSocketServer;
+if (!process.env.VERCEL) {
+  createServer = require("http").createServer;
+  WebSocketServer = require_ws().WebSocketServer;
+}
+console.log("[server] Starting API server. VERCEL:", process.env.VERCEL);
 (0, import_dotenv.config)();
 var app = (0, import_express.default)();
-var server = (0, import_http.createServer)(app);
-var wss = new import_websocket_server.default({ server });
-wss.on("connection", (ws) => {
-  console.log("New WebSocket connection");
-  ws.on("message", (message) => {
-    console.log("Received:", message);
-    ws.send(`Server received: ${message}`);
+var server = null;
+if (!process.env.VERCEL) {
+  server = createServer(app);
+  const wss = new WebSocketServer({ server });
+  wss.on("connection", (ws) => {
+    console.log("New WebSocket connection");
+    ws.on("message", (message) => {
+      console.log("Received:", message);
+      ws.send(`Server received: ${message}`);
+    });
+    ws.on("close", () => {
+      console.log("Client disconnected");
+    });
   });
-  ws.on("close", () => {
-    console.log("Client disconnected");
-  });
-});
+}
 var allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:4000",
@@ -6563,17 +6578,19 @@ app.use(
 );
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: true }));
-var sessionMiddleware = (0, import_express_session.default)({
-  secret: process.env.SESSION_SECRET || "your-secret-key",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 1e3 * 60 * 60 * 24
-    // 24 hours
-  }
-});
-app.use(sessionMiddleware);
+if (!process.env.VERCEL) {
+  const sessionMiddleware = (0, import_express_session.default)({
+    secret: process.env.SESSION_SECRET || "your-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1e3 * 60 * 60 * 24
+      // 24 hours
+    }
+  });
+  app.use(sessionMiddleware);
+}
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
@@ -6708,7 +6725,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: message });
 });
 var port = process.env.PORT || 3e3;
-if (process.env.NODE_ENV !== "test") {
+if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
   server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });

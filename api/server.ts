@@ -3,29 +3,35 @@ import cors from "cors";
 import { config } from "dotenv";
 import express from "express";
 import session from "express-session";
-import { createServer } from "http";
-import { WebSocketServer } from "ws";
+let createServer: any, WebSocketServer: any;
+if (!process.env.VERCEL) {
+  createServer = require("http").createServer;
+  WebSocketServer = require("ws").WebSocketServer;
+}
 
+
+// Log Vercel env for diagnostics
+console.log("[server] Starting API server. VERCEL:", process.env.VERCEL);
 config();
 
+
 const app = express();
-const server = createServer(app);
-
-// WebSocket server setup
-const wss = new WebSocketServer({ server });
-
-wss.on("connection", (ws) => {
-  console.log("New WebSocket connection");
-
-  ws.on("message", (message) => {
-    console.log("Received:", message);
-    ws.send(`Server received: ${message}`);
+let server: any = null;
+if (!process.env.VERCEL) {
+  server = createServer(app);
+  // WebSocket server setup (local/dev only)
+  const wss = new WebSocketServer({ server });
+  wss.on("connection", (ws: any) => {
+    console.log("New WebSocket connection");
+    ws.on("message", (message: any) => {
+      console.log("Received:", message);
+      ws.send(`Server received: ${message}`);
+    });
+    ws.on("close", () => {
+      console.log("Client disconnected");
+    });
   });
-
-  ws.on("close", () => {
-    console.log("Client disconnected");
-  });
-});
+}
 
 // Middleware
 const allowedOrigins = [
@@ -63,18 +69,19 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session configuration
-const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || "your-secret-key",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 24, // 24 hours
-  },
-});
-
-app.use(sessionMiddleware);
+// Session configuration (disable on Vercel)
+if (!process.env.VERCEL) {
+  const sessionMiddleware = session({
+    secret: process.env.SESSION_SECRET || "your-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    },
+  });
+  app.use(sessionMiddleware);
+}
 
 // No static serving here; Vercel serves client/dist. This function handles only /api/*.
 
@@ -266,9 +273,9 @@ app.use((err: any, req: any, res: any, next: Function) => {
   res.status(500).json({ error: message });
 });
 
-const port = process.env.PORT || 3000;
 
-if (process.env.NODE_ENV !== "test") {
+const port = process.env.PORT || 3000;
+if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
   server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });
