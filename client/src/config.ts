@@ -1,11 +1,10 @@
 // Application configuration
 const config = {
-  // API base URL - Use local server in dev, Vercel in production
+  // API base URL - Prefer same-origin /api in prod to avoid cross-origin HTML/SSO gates
+  // Override with VITE_API_URL only if explicitly provided
   apiUrl: import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL
-    : import.meta.env.DEV
-      ? "http://localhost:4000"
-      : "https://axix-finance.vercel.app",
+    : "/api",
 
   // Frontend URL - environment dependent
   frontendUrl:

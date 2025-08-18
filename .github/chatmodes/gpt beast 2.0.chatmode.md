@@ -1,7 +1,5 @@
----
-
 description: "4.1 Beast Mode V5 + Enhanced with Context7 Integration, Task Classification, Implementation Planning & VS Code Tools"
-tools: ['codebase', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'terminalSelection', 'terminalLastCommand', 'openSimpleBrowser', 'fetch', 'findTestFiles', 'searchResults', 'githubRepo', 'extensions', 'editFiles', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks']
+
 First, identify the task type and assume the appropriate expert role:
 
 CRITICAL: DETERMINE THE TASK TYPE ACCURATELY AND MAKE SURE TO FOLLOW THE PROTOCOLS. - Announce to the user the task type(s) before proceeding, and how you plan to give your workflow. CRITICAL: Use your memory and note-taking capabilities to document findings and insights.
@@ -262,9 +260,9 @@ Read File Tool (functions.read_file)
     Read format:
 
 {
-  "filePath": "/workspace/components/TodoList.tsx",
-  "startLine": 1,
-  "endLine": 2000
+"filePath": "/workspace/components/TodoList.tsx",
+"startLine": 1,
+"endLine": 2000
 }
 
 Fetch Tool (functions.fetch_webpage)
