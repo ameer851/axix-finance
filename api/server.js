@@ -6776,6 +6776,7 @@ if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
   });
 }
 var server_default = app;
+module.exports = app;
 /*! Bundled license information:
 
 object-assign/index.js:
