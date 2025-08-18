@@ -5,30 +5,44 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
+var __commonJS = (cb, mod) =>
+  function __require() {
+    return (
+      mod ||
+        (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod),
+      mod.exports
+    );
+  };
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === "object") || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule
+      ? __defProp(target, "default", { value: mod, enumerable: true })
+      : target,
+    mod
+  )
+);
+var __toCommonJS = (mod) =>
+  __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/object-assign/index.js
 var require_object_assign = __commonJS({
@@ -39,7 +53,9 @@ var require_object_assign = __commonJS({
     var propIsEnumerable = Object.prototype.propertyIsEnumerable;
     function toObject(val) {
       if (val === null || val === void 0) {
-        throw new TypeError("Object.assign cannot be called with null or undefined");
+        throw new TypeError(
+          "Object.assign cannot be called with null or undefined"
+        );
       }
       return Object(val);
     }
@@ -57,17 +73,20 @@ var require_object_assign = __commonJS({
         for (var i = 0; i < 10; i++) {
           test2["_" + String.fromCharCode(i)] = i;
         }
-        var order2 = Object.getOwnPropertyNames(test2).map(function(n) {
+        var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
           return test2[n];
         });
         if (order2.join("") !== "0123456789") {
           return false;
         }
         var test3 = {};
-        "abcdefghijklmnopqrst".split("").forEach(function(letter) {
+        "abcdefghijklmnopqrst".split("").forEach(function (letter) {
           test3[letter] = letter;
         });
-        if (Object.keys(Object.assign({}, test3)).join("") !== "abcdefghijklmnopqrst") {
+        if (
+          Object.keys(Object.assign({}, test3)).join("") !==
+          "abcdefghijklmnopqrst"
+        ) {
           return false;
         }
         return true;
@@ -75,29 +94,31 @@ var require_object_assign = __commonJS({
         return false;
       }
     }
-    module2.exports = shouldUseNative() ? Object.assign : function(target, source) {
-      var from;
-      var to = toObject(target);
-      var symbols;
-      for (var s = 1; s < arguments.length; s++) {
-        from = Object(arguments[s]);
-        for (var key in from) {
-          if (hasOwnProperty.call(from, key)) {
-            to[key] = from[key];
-          }
-        }
-        if (getOwnPropertySymbols) {
-          symbols = getOwnPropertySymbols(from);
-          for (var i = 0; i < symbols.length; i++) {
-            if (propIsEnumerable.call(from, symbols[i])) {
-              to[symbols[i]] = from[symbols[i]];
+    module2.exports = shouldUseNative()
+      ? Object.assign
+      : function (target, source) {
+          var from;
+          var to = toObject(target);
+          var symbols;
+          for (var s = 1; s < arguments.length; s++) {
+            from = Object(arguments[s]);
+            for (var key in from) {
+              if (hasOwnProperty.call(from, key)) {
+                to[key] = from[key];
+              }
+            }
+            if (getOwnPropertySymbols) {
+              symbols = getOwnPropertySymbols(from);
+              for (var i = 0; i < symbols.length; i++) {
+                if (propIsEnumerable.call(from, symbols[i])) {
+                  to[symbols[i]] = from[symbols[i]];
+                }
+              }
             }
           }
-        }
-      }
-      return to;
-    };
-  }
+          return to;
+        };
+  },
 });
 
 // node_modules/vary/index.js
@@ -166,17 +187,17 @@ var require_vary = __commonJS({
       }
       var val = res.getHeader("Vary") || "";
       var header = Array.isArray(val) ? val.join(", ") : String(val);
-      if (val = append(header, field)) {
+      if ((val = append(header, field))) {
         res.setHeader("Vary", val);
       }
     }
-  }
+  },
 });
 
 // node_modules/cors/lib/index.js
 var require_lib = __commonJS({
   "node_modules/cors/lib/index.js"(exports2, module2) {
-    (function() {
+    (function () {
       "use strict";
       var assign = require_object_assign();
       var vary = require_vary();
@@ -184,7 +205,7 @@ var require_lib = __commonJS({
         origin: "*",
         methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
         preflightContinue: false,
-        optionsSuccessStatus: 204
+        optionsSuccessStatus: 204,
       };
       function isString(s) {
         return typeof s === "string" || s instanceof String;
@@ -206,31 +227,43 @@ var require_lib = __commonJS({
         }
       }
       function configureOrigin(options, req) {
-        var requestOrigin = req.headers.origin, headers = [], isAllowed;
+        var requestOrigin = req.headers.origin,
+          headers = [],
+          isAllowed;
         if (!options.origin || options.origin === "*") {
-          headers.push([{
-            key: "Access-Control-Allow-Origin",
-            value: "*"
-          }]);
+          headers.push([
+            {
+              key: "Access-Control-Allow-Origin",
+              value: "*",
+            },
+          ]);
         } else if (isString(options.origin)) {
-          headers.push([{
-            key: "Access-Control-Allow-Origin",
-            value: options.origin
-          }]);
-          headers.push([{
-            key: "Vary",
-            value: "Origin"
-          }]);
+          headers.push([
+            {
+              key: "Access-Control-Allow-Origin",
+              value: options.origin,
+            },
+          ]);
+          headers.push([
+            {
+              key: "Vary",
+              value: "Origin",
+            },
+          ]);
         } else {
           isAllowed = isOriginAllowed(requestOrigin, options.origin);
-          headers.push([{
-            key: "Access-Control-Allow-Origin",
-            value: isAllowed ? requestOrigin : false
-          }]);
-          headers.push([{
-            key: "Vary",
-            value: "Origin"
-          }]);
+          headers.push([
+            {
+              key: "Access-Control-Allow-Origin",
+              value: isAllowed ? requestOrigin : false,
+            },
+          ]);
+          headers.push([
+            {
+              key: "Vary",
+              value: "Origin",
+            },
+          ]);
         }
         return headers;
       }
@@ -241,14 +274,14 @@ var require_lib = __commonJS({
         }
         return {
           key: "Access-Control-Allow-Methods",
-          value: methods
+          value: methods,
         };
       }
       function configureCredentials(options) {
         if (options.credentials === true) {
           return {
             key: "Access-Control-Allow-Credentials",
-            value: "true"
+            value: "true",
           };
         }
         return null;
@@ -258,18 +291,22 @@ var require_lib = __commonJS({
         var headers = [];
         if (!allowedHeaders) {
           allowedHeaders = req.headers["access-control-request-headers"];
-          headers.push([{
-            key: "Vary",
-            value: "Access-Control-Request-Headers"
-          }]);
+          headers.push([
+            {
+              key: "Vary",
+              value: "Access-Control-Request-Headers",
+            },
+          ]);
         } else if (allowedHeaders.join) {
           allowedHeaders = allowedHeaders.join(",");
         }
         if (allowedHeaders && allowedHeaders.length) {
-          headers.push([{
-            key: "Access-Control-Allow-Headers",
-            value: allowedHeaders
-          }]);
+          headers.push([
+            {
+              key: "Access-Control-Allow-Headers",
+              value: allowedHeaders,
+            },
+          ]);
         }
         return headers;
       }
@@ -283,17 +320,19 @@ var require_lib = __commonJS({
         if (headers && headers.length) {
           return {
             key: "Access-Control-Expose-Headers",
-            value: headers
+            value: headers,
           };
         }
         return null;
       }
       function configureMaxAge(options) {
-        var maxAge = (typeof options.maxAge === "number" || options.maxAge) && options.maxAge.toString();
+        var maxAge =
+          (typeof options.maxAge === "number" || options.maxAge) &&
+          options.maxAge.toString();
         if (maxAge && maxAge.length) {
           return {
             key: "Access-Control-Max-Age",
-            value: maxAge
+            value: maxAge,
           };
         }
         return null;
@@ -313,7 +352,9 @@ var require_lib = __commonJS({
         }
       }
       function cors2(options, req, res, next) {
-        var headers = [], method = req.method && req.method.toUpperCase && req.method.toUpperCase();
+        var headers = [],
+          method =
+            req.method && req.method.toUpperCase && req.method.toUpperCase();
         if (method === "OPTIONS") {
           headers.push(configureOrigin(options, req));
           headers.push(configureCredentials(options, req));
@@ -342,26 +383,29 @@ var require_lib = __commonJS({
         if (typeof o === "function") {
           optionsCallback = o;
         } else {
-          optionsCallback = function(req, cb) {
+          optionsCallback = function (req, cb) {
             cb(null, o);
           };
         }
         return function corsMiddleware(req, res, next) {
-          optionsCallback(req, function(err, options) {
+          optionsCallback(req, function (err, options) {
             if (err) {
               next(err);
             } else {
               var corsOptions = assign({}, defaults, options);
               var originCallback = null;
-              if (corsOptions.origin && typeof corsOptions.origin === "function") {
+              if (
+                corsOptions.origin &&
+                typeof corsOptions.origin === "function"
+              ) {
                 originCallback = corsOptions.origin;
               } else if (corsOptions.origin) {
-                originCallback = function(origin, cb) {
+                originCallback = function (origin, cb) {
                   cb(null, corsOptions.origin);
                 };
               }
               if (originCallback) {
-                originCallback(req.headers.origin, function(err2, origin) {
+                originCallback(req.headers.origin, function (err2, origin) {
                   if (err2 || !origin) {
                     next(err2);
                   } else {
@@ -378,7 +422,7 @@ var require_lib = __commonJS({
       }
       module2.exports = middlewareWrapper;
     })();
-  }
+  },
 });
 
 // node_modules/dotenv/package.json
@@ -394,7 +438,7 @@ var require_package = __commonJS({
         ".": {
           types: "./lib/main.d.ts",
           require: "./lib/main.js",
-          default: "./lib/main.js"
+          default: "./lib/main.js",
         },
         "./config": "./config.js",
         "./config.js": "./config.js",
@@ -402,20 +446,21 @@ var require_package = __commonJS({
         "./lib/env-options.js": "./lib/env-options.js",
         "./lib/cli-options": "./lib/cli-options.js",
         "./lib/cli-options.js": "./lib/cli-options.js",
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
       },
       scripts: {
         "dts-check": "tsc --project tests/types/tsconfig.json",
         lint: "standard",
         pretest: "npm run lint && npm run dts-check",
         test: "tap run --allow-empty-coverage --disable-coverage --timeout=60000",
-        "test:coverage": "tap run --show-full-coverage --timeout=60000 --coverage-report=text --coverage-report=lcov",
+        "test:coverage":
+          "tap run --show-full-coverage --timeout=60000 --coverage-report=text --coverage-report=lcov",
         prerelease: "npm test",
-        release: "standard-version"
+        release: "standard-version",
       },
       repository: {
         type: "git",
-        url: "git://github.com/motdotla/dotenv.git"
+        url: "git://github.com/motdotla/dotenv.git",
       },
       homepage: "https://github.com/motdotla/dotenv#readme",
       funding: "https://dotenvx.com",
@@ -426,7 +471,7 @@ var require_package = __commonJS({
         "environment",
         "variables",
         "config",
-        "settings"
+        "settings",
       ],
       readmeFilename: "README.md",
       license: "BSD-2-Clause",
@@ -437,16 +482,16 @@ var require_package = __commonJS({
         standard: "^17.0.0",
         "standard-version": "^9.5.0",
         tap: "^19.2.0",
-        typescript: "^4.8.4"
+        typescript: "^4.8.4",
       },
       engines: {
-        node: ">=12"
+        node: ">=12",
       },
       browser: {
-        fs: false
-      }
+        fs: false,
+      },
     };
-  }
+  },
 });
 
 // node_modules/dotenv/lib/main.js
@@ -458,18 +503,19 @@ var require_main = __commonJS({
     var crypto = require("crypto");
     var packageJson = require_package();
     var version = packageJson.version;
-    var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
+    var LINE =
+      /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/gm;
     function parse(src) {
       const obj = {};
       let lines = src.toString();
-      lines = lines.replace(/\r\n?/mg, "\n");
+      lines = lines.replace(/\r\n?/gm, "\n");
       let match;
       while ((match = LINE.exec(lines)) != null) {
         const key = match[1];
         let value = match[2] || "";
         value = value.trim();
         const maybeQuote = value[0];
-        value = value.replace(/^(['"`])([\s\S]*)\1$/mg, "$2");
+        value = value.replace(/^(['"`])([\s\S]*)\1$/gm, "$2");
         if (maybeQuote === '"') {
           value = value.replace(/\\n/g, "\n");
           value = value.replace(/\\r/g, "\r");
@@ -484,7 +530,9 @@ var require_main = __commonJS({
       options.path = vaultPath;
       const result = DotenvModule.configDotenv(options);
       if (!result.parsed) {
-        const err = new Error(`MISSING_DATA: Cannot parse ${vaultPath} for an unknown reason`);
+        const err = new Error(
+          `MISSING_DATA: Cannot parse ${vaultPath} for an unknown reason`
+        );
         err.code = "MISSING_DATA";
         throw err;
       }
@@ -529,7 +577,9 @@ var require_main = __commonJS({
         uri = new URL(dotenvKey);
       } catch (error) {
         if (error.code === "ERR_INVALID_URL") {
-          const err = new Error("INVALID_DOTENV_KEY: Wrong format. Must be in valid uri format like dotenv://:key_1234@dotenvx.com/vault/.env.vault?environment=development");
+          const err = new Error(
+            "INVALID_DOTENV_KEY: Wrong format. Must be in valid uri format like dotenv://:key_1234@dotenvx.com/vault/.env.vault?environment=development"
+          );
           err.code = "INVALID_DOTENV_KEY";
           throw err;
         }
@@ -550,7 +600,9 @@ var require_main = __commonJS({
       const environmentKey = `DOTENV_VAULT_${environment.toUpperCase()}`;
       const ciphertext = result.parsed[environmentKey];
       if (!ciphertext) {
-        const err = new Error(`NOT_FOUND_DOTENV_ENVIRONMENT: Cannot locate environment ${environmentKey} in your .env.vault file.`);
+        const err = new Error(
+          `NOT_FOUND_DOTENV_ENVIRONMENT: Cannot locate environment ${environmentKey} in your .env.vault file.`
+        );
         err.code = "NOT_FOUND_DOTENV_ENVIRONMENT";
         throw err;
       }
@@ -562,11 +614,15 @@ var require_main = __commonJS({
         if (Array.isArray(options.path)) {
           for (const filepath of options.path) {
             if (fs.existsSync(filepath)) {
-              possibleVaultPath = filepath.endsWith(".vault") ? filepath : `${filepath}.vault`;
+              possibleVaultPath = filepath.endsWith(".vault")
+                ? filepath
+                : `${filepath}.vault`;
             }
           }
         } else {
-          possibleVaultPath = options.path.endsWith(".vault") ? options.path : `${options.path}.vault`;
+          possibleVaultPath = options.path.endsWith(".vault")
+            ? options.path
+            : `${options.path}.vault`;
         }
       } else {
         possibleVaultPath = path.resolve(process.cwd(), ".env.vault");
@@ -577,7 +633,9 @@ var require_main = __commonJS({
       return null;
     }
     function _resolveHome(envPath) {
-      return envPath[0] === "~" ? path.join(os.homedir(), envPath.slice(1)) : envPath;
+      return envPath[0] === "~"
+        ? path.join(os.homedir(), envPath.slice(1))
+        : envPath;
     }
     function _configVault(options) {
       const debug = Boolean(options && options.debug);
@@ -620,7 +678,9 @@ var require_main = __commonJS({
       const parsedAll = {};
       for (const path2 of optionPaths) {
         try {
-          const parsed = DotenvModule.parse(fs.readFileSync(path2, { encoding }));
+          const parsed = DotenvModule.parse(
+            fs.readFileSync(path2, { encoding })
+          );
           DotenvModule.populate(parsedAll, parsed, options);
         } catch (e) {
           if (debug) {
@@ -662,7 +722,9 @@ var require_main = __commonJS({
       }
       const vaultPath = _vaultPath(options);
       if (!vaultPath) {
-        _warn(`You set DOTENV_KEY but you are missing a .env.vault file at ${vaultPath}. Did you forget to build it?`);
+        _warn(
+          `You set DOTENV_KEY but you are missing a .env.vault file at ${vaultPath}. Did you forget to build it?`
+        );
         return DotenvModule.configDotenv(options);
       }
       return DotenvModule._configVault(options);
@@ -680,13 +742,18 @@ var require_main = __commonJS({
       } catch (error) {
         const isRange = error instanceof RangeError;
         const invalidKeyLength = error.message === "Invalid key length";
-        const decryptionFailed = error.message === "Unsupported state or unable to authenticate data";
+        const decryptionFailed =
+          error.message === "Unsupported state or unable to authenticate data";
         if (isRange || invalidKeyLength) {
-          const err = new Error("INVALID_DOTENV_KEY: It must be 64 characters long (or more)");
+          const err = new Error(
+            "INVALID_DOTENV_KEY: It must be 64 characters long (or more)"
+          );
           err.code = "INVALID_DOTENV_KEY";
           throw err;
         } else if (decryptionFailed) {
-          const err = new Error("DECRYPTION_FAILED: Please check your DOTENV_KEY");
+          const err = new Error(
+            "DECRYPTION_FAILED: Please check your DOTENV_KEY"
+          );
           err.code = "DECRYPTION_FAILED";
           throw err;
         } else {
@@ -698,7 +765,9 @@ var require_main = __commonJS({
       const debug = Boolean(options && options.debug);
       const override = Boolean(options && options.override);
       if (typeof parsed !== "object") {
-        const err = new Error("OBJECT_REQUIRED: Please check the processEnv argument being passed to populate");
+        const err = new Error(
+          "OBJECT_REQUIRED: Please check the processEnv argument being passed to populate"
+        );
         err.code = "OBJECT_REQUIRED";
         throw err;
       }
@@ -726,7 +795,7 @@ var require_main = __commonJS({
       config: config2,
       decrypt,
       parse,
-      populate
+      populate,
     };
     module2.exports.configDotenv = DotenvModule.configDotenv;
     module2.exports._configVault = DotenvModule._configVault;
@@ -736,7 +805,7 @@ var require_main = __commonJS({
     module2.exports.parse = DotenvModule.parse;
     module2.exports.populate = DotenvModule.populate;
     module2.exports = DotenvModule;
-  }
+  },
 });
 
 // node_modules/safe-buffer/index.js
@@ -749,7 +818,12 @@ var require_safe_buffer = __commonJS({
         dst[key] = src[key];
       }
     }
-    if (Buffer2.from && Buffer2.alloc && Buffer2.allocUnsafe && Buffer2.allocUnsafeSlow) {
+    if (
+      Buffer2.from &&
+      Buffer2.alloc &&
+      Buffer2.allocUnsafe &&
+      Buffer2.allocUnsafeSlow
+    ) {
       module2.exports = buffer;
     } else {
       copyProps(buffer, exports2);
@@ -760,13 +834,13 @@ var require_safe_buffer = __commonJS({
     }
     SafeBuffer.prototype = Object.create(Buffer2.prototype);
     copyProps(Buffer2, SafeBuffer);
-    SafeBuffer.from = function(arg, encodingOrOffset, length) {
+    SafeBuffer.from = function (arg, encodingOrOffset, length) {
       if (typeof arg === "number") {
         throw new TypeError("Argument must not be a number");
       }
       return Buffer2(arg, encodingOrOffset, length);
     };
-    SafeBuffer.alloc = function(size, fill, encoding) {
+    SafeBuffer.alloc = function (size, fill, encoding) {
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
@@ -782,19 +856,19 @@ var require_safe_buffer = __commonJS({
       }
       return buf;
     };
-    SafeBuffer.allocUnsafe = function(size) {
+    SafeBuffer.allocUnsafe = function (size) {
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
       return Buffer2(size);
     };
-    SafeBuffer.allocUnsafeSlow = function(size) {
+    SafeBuffer.allocUnsafeSlow = function (size) {
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
       return buffer.SlowBuffer(size);
     };
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/cookie/index.js
@@ -806,8 +880,10 @@ var require_cookie = __commonJS({
     var __toString = Object.prototype.toString;
     var __hasOwnProperty = Object.prototype.hasOwnProperty;
     var cookieNameRegExp = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
-    var cookieValueRegExp = /^("?)[\u0021\u0023-\u002B\u002D-\u003A\u003C-\u005B\u005D-\u007E]*\1$/;
-    var domainValueRegExp = /^([.]?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)([.][a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+    var cookieValueRegExp =
+      /^("?)[\u0021\u0023-\u002B\u002D-\u003A\u003C-\u005B\u005D-\u007E]*\1$/;
+    var domainValueRegExp =
+      /^([.]?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)([.][a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
     var pathValueRegExp = /^[\u0020-\u003A\u003D-\u007E]*$/;
     function parse(str, opt) {
       if (typeof str !== "string") {
@@ -816,7 +892,7 @@ var require_cookie = __commonJS({
       var obj = {};
       var len = str.length;
       if (len < 2) return obj;
-      var dec = opt && opt.decode || decode;
+      var dec = (opt && opt.decode) || decode;
       var index = 0;
       var eqIdx = 0;
       var endIdx = 0;
@@ -836,7 +912,10 @@ var require_cookie = __commonJS({
         if (!__hasOwnProperty.call(obj, key)) {
           var valStartIdx = startIndex(str, eqIdx + 1, endIdx);
           var valEndIdx = endIndex(str, endIdx, valStartIdx);
-          if (str.charCodeAt(valStartIdx) === 34 && str.charCodeAt(valEndIdx - 1) === 34) {
+          if (
+            str.charCodeAt(valStartIdx) === 34 &&
+            str.charCodeAt(valEndIdx - 1) === 34
+          ) {
             valStartIdx++;
             valEndIdx--;
           }
@@ -862,7 +941,7 @@ var require_cookie = __commonJS({
       return min;
     }
     function serialize(name, val, opt) {
-      var enc = opt && opt.encode || encodeURIComponent;
+      var enc = (opt && opt.encode) || encodeURIComponent;
       if (typeof enc !== "function") {
         throw new TypeError("option encode is invalid");
       }
@@ -911,7 +990,10 @@ var require_cookie = __commonJS({
         str += "; Partitioned";
       }
       if (opt.priority) {
-        var priority = typeof opt.priority === "string" ? opt.priority.toLowerCase() : opt.priority;
+        var priority =
+          typeof opt.priority === "string"
+            ? opt.priority.toLowerCase()
+            : opt.priority;
         switch (priority) {
           case "low":
             str += "; Priority=Low";
@@ -927,7 +1009,10 @@ var require_cookie = __commonJS({
         }
       }
       if (opt.sameSite) {
-        var sameSite = typeof opt.sameSite === "string" ? opt.sameSite.toLowerCase() : opt.sameSite;
+        var sameSite =
+          typeof opt.sameSite === "string"
+            ? opt.sameSite.toLowerCase()
+            : opt.sameSite;
         switch (sameSite) {
           case true:
             str += "; SameSite=Strict";
@@ -960,7 +1045,7 @@ var require_cookie = __commonJS({
         return str;
       }
     }
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/ms/index.js
@@ -971,7 +1056,7 @@ var require_ms = __commonJS({
     var h = m * 60;
     var d = h * 24;
     var y = d * 365.25;
-    module2.exports = function(val, options) {
+    module2.exports = function (val, options) {
       options = options || {};
       var type = typeof val;
       if (type === "string" && val.length > 0) {
@@ -980,7 +1065,8 @@ var require_ms = __commonJS({
         return options.long ? fmtLong(val) : fmtShort(val);
       }
       throw new Error(
-        "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
+        "val is not a non-empty string or a valid number. val=" +
+          JSON.stringify(val)
       );
     };
     function parse(str) {
@@ -988,9 +1074,10 @@ var require_ms = __commonJS({
       if (str.length > 100) {
         return;
       }
-      var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(
-        str
-      );
+      var match =
+        /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(
+          str
+        );
       if (!match) {
         return;
       }
@@ -1051,7 +1138,13 @@ var require_ms = __commonJS({
       return ms + "ms";
     }
     function fmtLong(ms) {
-      return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
+      return (
+        plural(ms, d, "day") ||
+        plural(ms, h, "hour") ||
+        plural(ms, m, "minute") ||
+        plural(ms, s, "second") ||
+        ms + " ms"
+      );
     }
     function plural(ms, n, name) {
       if (ms < n) {
@@ -1062,13 +1155,20 @@ var require_ms = __commonJS({
       }
       return Math.ceil(ms / n) + " " + name + "s";
     }
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/debug/src/debug.js
 var require_debug = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/debug.js"(exports2, module2) {
-    exports2 = module2.exports = createDebug.debug = createDebug["default"] = createDebug;
+  "node_modules/express-session/node_modules/debug/src/debug.js"(
+    exports2,
+    module2
+  ) {
+    exports2 =
+      module2.exports =
+      createDebug.debug =
+      createDebug["default"] =
+        createDebug;
     exports2.coerce = coerce;
     exports2.disable = disable;
     exports2.enable = enable;
@@ -1079,7 +1179,8 @@ var require_debug = __commonJS({
     exports2.formatters = {};
     var prevTime;
     function selectColor(namespace) {
-      var hash = 0, i;
+      var hash = 0,
+        i;
       for (i in namespace) {
         hash = (hash << 5) - hash + namespace.charCodeAt(i);
         hash |= 0;
@@ -1090,7 +1191,7 @@ var require_debug = __commonJS({
       function debug() {
         if (!debug.enabled) return;
         var self = debug;
-        var curr = +/* @__PURE__ */ new Date();
+        var curr = +(/* @__PURE__ */ new Date());
         var ms = curr - (prevTime || curr);
         self.diff = ms;
         self.prev = prevTime;
@@ -1105,7 +1206,7 @@ var require_debug = __commonJS({
           args.unshift("%O");
         }
         var index = 0;
-        args[0] = args[0].replace(/%([a-zA-Z%])/g, function(match, format) {
+        args[0] = args[0].replace(/%([a-zA-Z%])/g, function (match, format) {
           if (match === "%%") return match;
           index++;
           var formatter = exports2.formatters[format];
@@ -1134,7 +1235,9 @@ var require_debug = __commonJS({
       exports2.save(namespaces);
       exports2.names = [];
       exports2.skips = [];
-      var split = (typeof namespaces === "string" ? namespaces : "").split(/[\s,]+/);
+      var split = (typeof namespaces === "string" ? namespaces : "").split(
+        /[\s,]+/
+      );
       var len = split.length;
       for (var i = 0; i < len; i++) {
         if (!split[i]) continue;
@@ -1167,38 +1270,61 @@ var require_debug = __commonJS({
       if (val instanceof Error) return val.stack || val.message;
       return val;
     }
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/debug/src/browser.js
 var require_browser = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/browser.js"(exports2, module2) {
+  "node_modules/express-session/node_modules/debug/src/browser.js"(
+    exports2,
+    module2
+  ) {
     exports2 = module2.exports = require_debug();
     exports2.log = log;
     exports2.formatArgs = formatArgs;
     exports2.save = save;
     exports2.load = load;
     exports2.useColors = useColors;
-    exports2.storage = "undefined" != typeof chrome && "undefined" != typeof chrome.storage ? chrome.storage.local : localstorage();
+    exports2.storage =
+      "undefined" != typeof chrome && "undefined" != typeof chrome.storage
+        ? chrome.storage.local
+        : localstorage();
     exports2.colors = [
       "lightseagreen",
       "forestgreen",
       "goldenrod",
       "dodgerblue",
       "darkorchid",
-      "crimson"
+      "crimson",
     ];
     function useColors() {
-      if (typeof window !== "undefined" && window.process && window.process.type === "renderer") {
+      if (
+        typeof window !== "undefined" &&
+        window.process &&
+        window.process.type === "renderer"
+      ) {
         return true;
       }
-      return typeof document !== "undefined" && document.documentElement && document.documentElement.style && document.documentElement.style.WebkitAppearance || // is firebug? http://stackoverflow.com/a/398120/376773
-      typeof window !== "undefined" && window.console && (window.console.firebug || window.console.exception && window.console.table) || // is firefox >= v31?
-      // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
-      typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31 || // double check webkit in userAgent just in case we are in a worker
-      typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/);
+      return (
+        (typeof document !== "undefined" &&
+          document.documentElement &&
+          document.documentElement.style &&
+          document.documentElement.style.WebkitAppearance) || // is firebug? http://stackoverflow.com/a/398120/376773
+        (typeof window !== "undefined" &&
+          window.console &&
+          (window.console.firebug ||
+            (window.console.exception && window.console.table))) || // is firefox >= v31?
+        // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
+        (typeof navigator !== "undefined" &&
+          navigator.userAgent &&
+          navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) &&
+          parseInt(RegExp.$1, 10) >= 31) || // double check webkit in userAgent just in case we are in a worker
+        (typeof navigator !== "undefined" &&
+          navigator.userAgent &&
+          navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/))
+      );
     }
-    exports2.formatters.j = function(v) {
+    exports2.formatters.j = function (v) {
       try {
         return JSON.stringify(v);
       } catch (err) {
@@ -1207,13 +1333,20 @@ var require_browser = __commonJS({
     };
     function formatArgs(args) {
       var useColors2 = this.useColors;
-      args[0] = (useColors2 ? "%c" : "") + this.namespace + (useColors2 ? " %c" : " ") + args[0] + (useColors2 ? "%c " : " ") + "+" + exports2.humanize(this.diff);
+      args[0] =
+        (useColors2 ? "%c" : "") +
+        this.namespace +
+        (useColors2 ? " %c" : " ") +
+        args[0] +
+        (useColors2 ? "%c " : " ") +
+        "+" +
+        exports2.humanize(this.diff);
       if (!useColors2) return;
       var c = "color: " + this.color;
       args.splice(1, 0, c, "color: inherit");
       var index = 0;
       var lastC = 0;
-      args[0].replace(/%[a-zA-Z%]/g, function(match) {
+      args[0].replace(/%[a-zA-Z%]/g, function (match) {
         if ("%%" === match) return;
         index++;
         if ("%c" === match) {
@@ -1223,7 +1356,11 @@ var require_browser = __commonJS({
       args.splice(lastC, 0, c);
     }
     function log() {
-      return "object" === typeof console && console.log && Function.prototype.apply.call(console.log, console, arguments);
+      return (
+        "object" === typeof console &&
+        console.log &&
+        Function.prototype.apply.call(console.log, console, arguments)
+      );
     }
     function save(namespaces) {
       try {
@@ -1232,15 +1369,13 @@ var require_browser = __commonJS({
         } else {
           exports2.storage.debug = namespaces;
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
     function load() {
       var r;
       try {
         r = exports2.storage.debug;
-      } catch (e) {
-      }
+      } catch (e) {}
       if (!r && typeof process !== "undefined" && "env" in process) {
         r = process.env.DEBUG;
       }
@@ -1250,15 +1385,17 @@ var require_browser = __commonJS({
     function localstorage() {
       try {
         return window.localStorage;
-      } catch (e) {
-      }
+      } catch (e) {}
     }
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/debug/src/node.js
 var require_node = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/node.js"(exports2, module2) {
+  "node_modules/express-session/node_modules/debug/src/node.js"(
+    exports2,
+    module2
+  ) {
     var tty = require("tty");
     var util = require("util");
     exports2 = module2.exports = require_debug();
@@ -1269,36 +1406,54 @@ var require_node = __commonJS({
     exports2.load = load;
     exports2.useColors = useColors;
     exports2.colors = [6, 2, 3, 4, 5, 1];
-    exports2.inspectOpts = Object.keys(process.env).filter(function(key) {
-      return /^debug_/i.test(key);
-    }).reduce(function(obj, key) {
-      var prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, function(_, k) {
-        return k.toUpperCase();
-      });
-      var val = process.env[key];
-      if (/^(yes|on|true|enabled)$/i.test(val)) val = true;
-      else if (/^(no|off|false|disabled)$/i.test(val)) val = false;
-      else if (val === "null") val = null;
-      else val = Number(val);
-      obj[prop] = val;
-      return obj;
-    }, {});
+    exports2.inspectOpts = Object.keys(process.env)
+      .filter(function (key) {
+        return /^debug_/i.test(key);
+      })
+      .reduce(function (obj, key) {
+        var prop = key
+          .substring(6)
+          .toLowerCase()
+          .replace(/_([a-z])/g, function (_, k) {
+            return k.toUpperCase();
+          });
+        var val = process.env[key];
+        if (/^(yes|on|true|enabled)$/i.test(val)) val = true;
+        else if (/^(no|off|false|disabled)$/i.test(val)) val = false;
+        else if (val === "null") val = null;
+        else val = Number(val);
+        obj[prop] = val;
+        return obj;
+      }, {});
     var fd = parseInt(process.env.DEBUG_FD, 10) || 2;
     if (1 !== fd && 2 !== fd) {
-      util.deprecate(function() {
-      }, "except for stderr(2) and stdout(1), any other usage of DEBUG_FD is deprecated. Override debug.log if you want to use a different log function (https://git.io/debug_fd)")();
+      util.deprecate(
+        function () {},
+        "except for stderr(2) and stdout(1), any other usage of DEBUG_FD is deprecated. Override debug.log if you want to use a different log function (https://git.io/debug_fd)"
+      )();
     }
-    var stream = 1 === fd ? process.stdout : 2 === fd ? process.stderr : createWritableStdioStream(fd);
+    var stream =
+      1 === fd
+        ? process.stdout
+        : 2 === fd
+          ? process.stderr
+          : createWritableStdioStream(fd);
     function useColors() {
-      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty.isatty(fd);
+      return "colors" in exports2.inspectOpts
+        ? Boolean(exports2.inspectOpts.colors)
+        : tty.isatty(fd);
     }
-    exports2.formatters.o = function(v) {
+    exports2.formatters.o = function (v) {
       this.inspectOpts.colors = this.useColors;
-      return util.inspect(v, this.inspectOpts).split("\n").map(function(str) {
-        return str.trim();
-      }).join(" ");
+      return util
+        .inspect(v, this.inspectOpts)
+        .split("\n")
+        .map(function (str) {
+          return str.trim();
+        })
+        .join(" ");
     };
-    exports2.formatters.O = function(v) {
+    exports2.formatters.O = function (v) {
       this.inspectOpts.colors = this.useColors;
       return util.inspect(v, this.inspectOpts);
     };
@@ -1309,9 +1464,12 @@ var require_node = __commonJS({
         var c = this.color;
         var prefix = "  \x1B[3" + c + ";1m" + name + " \x1B[0m";
         args[0] = prefix + args[0].split("\n").join("\n" + prefix);
-        args.push("\x1B[3" + c + "m+" + exports2.humanize(this.diff) + "\x1B[0m");
+        args.push(
+          "\x1B[3" + c + "m+" + exports2.humanize(this.diff) + "\x1B[0m"
+        );
       } else {
-        args[0] = (/* @__PURE__ */ new Date()).toUTCString() + " " + name + " " + args[0];
+        args[0] =
+          /* @__PURE__ */ new Date().toUTCString() + " " + name + " " + args[0];
       }
     }
     function log() {
@@ -1349,7 +1507,7 @@ var require_node = __commonJS({
           stream2 = new net.Socket({
             fd: fd2,
             readable: false,
-            writable: true
+            writable: true,
           });
           stream2.readable = false;
           stream2.read = null;
@@ -1373,18 +1531,21 @@ var require_node = __commonJS({
       }
     }
     exports2.enable(load());
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/debug/src/index.js
 var require_src = __commonJS({
-  "node_modules/express-session/node_modules/debug/src/index.js"(exports2, module2) {
+  "node_modules/express-session/node_modules/debug/src/index.js"(
+    exports2,
+    module2
+  ) {
     if (typeof process !== "undefined" && process.type === "renderer") {
       module2.exports = require_browser();
     } else {
       module2.exports = require_node();
     }
-  }
+  },
 });
 
 // node_modules/depd/index.js
@@ -1412,7 +1573,7 @@ var require_depd = __commonJS({
       };
       if (descriptor.writable) {
         descriptor.set = function setter(val) {
-          return value = val;
+          return (value = val);
         };
       }
       delete descriptor.value;
@@ -1457,7 +1618,10 @@ var require_depd = __commonJS({
       return deprecate;
     }
     function eehaslisteners(emitter, type) {
-      var count = typeof emitter.listenerCount !== "function" ? emitter.listeners(type).length : emitter.listenerCount(type);
+      var count =
+        typeof emitter.listenerCount !== "function"
+          ? emitter.listeners(type).length
+          : emitter.listenerCount(type);
       return count > 0;
     }
     function isignored(namespace) {
@@ -1515,7 +1679,10 @@ var require_depd = __commonJS({
       this._warned[key] = true;
       var msg = message;
       if (!msg) {
-        msg = callSite === depSite || !callSite.name ? defaultMessage(depSite) : defaultMessage(callSite);
+        msg =
+          callSite === depSite || !callSite.name
+            ? defaultMessage(depSite)
+            : defaultMessage(callSite);
       }
       if (haslisteners) {
         var err = DeprecationError(this._namespace, msg, stack.slice(i));
@@ -1552,10 +1719,12 @@ var require_depd = __commonJS({
       if (typeName === "Function") {
         typeName = context.name || typeName;
       }
-      return typeName && callSite.getMethodName() ? typeName + "." + funcName : funcName;
+      return typeName && callSite.getMethodName()
+        ? typeName + "." + funcName
+        : funcName;
     }
     function formatPlain(msg, caller, stack) {
-      var timestamp = (/* @__PURE__ */ new Date()).toUTCString();
+      var timestamp = /* @__PURE__ */ new Date().toUTCString();
       var formatted = timestamp + " " + this._namespace + " deprecated " + msg;
       if (this._traced) {
         for (var i = 0; i < stack.length; i++) {
@@ -1569,7 +1738,12 @@ var require_depd = __commonJS({
       return formatted;
     }
     function formatColor(msg, caller, stack) {
-      var formatted = "\x1B[36;1m" + this._namespace + "\x1B[22;39m \x1B[33;1mdeprecated\x1B[22;39m \x1B[0m" + msg + "\x1B[39m";
+      var formatted =
+        "\x1B[36;1m" +
+        this._namespace +
+        "\x1B[22;39m \x1B[33;1mdeprecated\x1B[22;39m \x1B[0m" +
+        msg +
+        "\x1B[39m";
       if (this._traced) {
         for (var i = 0; i < stack.length; i++) {
           formatted += "\n    \x1B[36mat " + stack[i].toString() + "\x1B[39m";
@@ -1582,7 +1756,9 @@ var require_depd = __commonJS({
       return formatted;
     }
     function formatLocation(callSite) {
-      return relative(basePath, callSite[0]) + ":" + callSite[1] + ":" + callSite[2];
+      return (
+        relative(basePath, callSite[0]) + ":" + callSite[1] + ":" + callSite[2]
+      );
     }
     function getStack() {
       var limit = Error.stackTraceLimit;
@@ -1613,12 +1789,14 @@ var require_depd = __commonJS({
         "deprecate",
         "message",
         "site",
-        '"use strict"\nreturn function (' + args + ") {log.call(deprecate, message, site)\nreturn fn.apply(this, arguments)\n}"
+        '"use strict"\nreturn function (' +
+          args +
+          ") {log.call(deprecate, message, site)\nreturn fn.apply(this, arguments)\n}"
       )(fn, log, this, message, site);
       return deprecatedfn;
     }
     function wrapproperty(obj, prop, message) {
-      if (!obj || typeof obj !== "object" && typeof obj !== "function") {
+      if (!obj || (typeof obj !== "object" && typeof obj !== "function")) {
         throw new TypeError("argument obj must be object");
       }
       var descriptor = Object.getOwnPropertyDescriptor(obj, prop);
@@ -1655,42 +1833,42 @@ var require_depd = __commonJS({
       var error = new Error();
       var stackString;
       Object.defineProperty(error, "constructor", {
-        value: DeprecationError
+        value: DeprecationError,
       });
       Object.defineProperty(error, "message", {
         configurable: true,
         enumerable: false,
         value: message,
-        writable: true
+        writable: true,
       });
       Object.defineProperty(error, "name", {
         enumerable: false,
         configurable: true,
         value: "DeprecationError",
-        writable: true
+        writable: true,
       });
       Object.defineProperty(error, "namespace", {
         configurable: true,
         enumerable: false,
         value: namespace,
-        writable: true
+        writable: true,
       });
       Object.defineProperty(error, "stack", {
         configurable: true,
         enumerable: false,
-        get: function() {
+        get: function () {
           if (stackString !== void 0) {
             return stackString;
           }
-          return stackString = createStackString.call(this, stack);
+          return (stackString = createStackString.call(this, stack));
         },
         set: function setter(val) {
           stackString = val;
-        }
+        },
       });
       return error;
     }
-  }
+  },
 });
 
 // node_modules/on-headers/index.js
@@ -1699,8 +1877,11 @@ var require_on_headers = __commonJS({
     "use strict";
     module2.exports = onHeaders;
     var http = require("http");
-    var isAppendHeaderSupported = typeof http.ServerResponse.prototype.appendHeader === "function";
-    var set1dArray = isAppendHeaderSupported ? set1dArrayWithAppend : set1dArrayWithSet;
+    var isAppendHeaderSupported =
+      typeof http.ServerResponse.prototype.appendHeader === "function";
+    var set1dArray = isAppendHeaderSupported
+      ? set1dArrayWithAppend
+      : set1dArrayWithSet;
     function createWriteHead(prevWriteHead, listener) {
       var fired = false;
       return function writeHead(statusCode) {
@@ -1788,7 +1969,7 @@ var require_on_headers = __commonJS({
         }
       }
     }
-  }
+  },
 });
 
 // node_modules/parseurl/index.js
@@ -1811,7 +1992,7 @@ var require_parseurl = __commonJS({
       }
       parsed = fastparse(url2);
       parsed._raw = url2;
-      return req._parsedUrl = parsed;
+      return (req._parsedUrl = parsed);
     }
     function originalurl(req) {
       var url2 = req.originalUrl;
@@ -1824,7 +2005,7 @@ var require_parseurl = __commonJS({
       }
       parsed = fastparse(url2);
       parsed._raw = url2;
-      return req._parsedOriginalUrl = parsed;
+      return (req._parsedOriginalUrl = parsed);
     }
     function fastparse(str) {
       if (typeof str !== "string" || str.charCodeAt(0) !== 47) {
@@ -1870,30 +2051,48 @@ var require_parseurl = __commonJS({
       return url2;
     }
     function fresh(url2, parsedUrl) {
-      return typeof parsedUrl === "object" && parsedUrl !== null && (Url === void 0 || parsedUrl instanceof Url) && parsedUrl._raw === url2;
+      return (
+        typeof parsedUrl === "object" &&
+        parsedUrl !== null &&
+        (Url === void 0 || parsedUrl instanceof Url) &&
+        parsedUrl._raw === url2
+      );
     }
-  }
+  },
 });
 
 // node_modules/express-session/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
-  "node_modules/express-session/node_modules/cookie-signature/index.js"(exports2) {
+  "node_modules/express-session/node_modules/cookie-signature/index.js"(
+    exports2
+  ) {
     var crypto = require("crypto");
-    exports2.sign = function(val, secret) {
-      if ("string" !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
+    exports2.sign = function (val, secret) {
+      if ("string" !== typeof val)
+        throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return (
+        val +
+        "." +
+        crypto
+          .createHmac("sha256", secret)
+          .update(val)
+          .digest("base64")
+          .replace(/\=+$/, "")
+      );
     };
-    exports2.unsign = function(val, secret) {
-      if ("string" !== typeof val) throw new TypeError("Signed cookie string must be provided.");
+    exports2.unsign = function (val, secret) {
+      if ("string" !== typeof val)
+        throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      var str = val.slice(0, val.lastIndexOf(".")), mac = exports2.sign(str, secret);
+      var str = val.slice(0, val.lastIndexOf(".")),
+        mac = exports2.sign(str, secret);
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
       return crypto.createHash("sha1").update(str).digest("hex");
     }
-  }
+  },
 });
 
 // node_modules/random-bytes/index.js
@@ -1901,7 +2100,8 @@ var require_random_bytes = __commonJS({
   "node_modules/random-bytes/index.js"(exports2, module2) {
     "use strict";
     var crypto = require("crypto");
-    var generateAttempts = crypto.randomBytes === crypto.pseudoRandomBytes ? 1 : 3;
+    var generateAttempts =
+      crypto.randomBytes === crypto.pseudoRandomBytes ? 1 : 3;
     module2.exports = randomBytes;
     module2.exports.sync = randomBytesSync;
     function randomBytes(size, callback) {
@@ -1915,10 +2115,14 @@ var require_random_bytes = __commonJS({
         return generateRandomBytes(size, generateAttempts, callback);
       }
       return new Promise(function executor(resolve, reject) {
-        generateRandomBytes(size, generateAttempts, function onRandomBytes(err, str) {
-          if (err) return reject(err);
-          resolve(str);
-        });
+        generateRandomBytes(
+          size,
+          generateAttempts,
+          function onRandomBytes(err, str) {
+            if (err) return reject(err);
+            resolve(str);
+          }
+        );
       });
     }
     function randomBytesSync(size) {
@@ -1936,10 +2140,13 @@ var require_random_bytes = __commonJS({
       crypto.randomBytes(size, function onRandomBytes(err, buf) {
         if (!err) return callback(null, buf);
         if (!--attempts) return callback(err);
-        setTimeout(generateRandomBytes.bind(null, size, attempts, callback), 10);
+        setTimeout(
+          generateRandomBytes.bind(null, size, attempts, callback),
+          10
+        );
       });
     }
-  }
+  },
 });
 
 // node_modules/uid-safe/index.js
@@ -1973,15 +2180,19 @@ var require_uid_safe = __commonJS({
       return toString(randomBytes.sync(length));
     }
     function generateUid(length, callback) {
-      randomBytes(length, function(err, buf) {
+      randomBytes(length, function (err, buf) {
         if (err) return callback(err);
         callback(null, toString(buf));
       });
     }
     function toString(buf) {
-      return buf.toString("base64").replace(EQUAL_END_REGEXP, "").replace(PLUS_GLOBAL_REGEXP, "-").replace(SLASH_GLOBAL_REGEXP, "_");
+      return buf
+        .toString("base64")
+        .replace(EQUAL_END_REGEXP, "")
+        .replace(PLUS_GLOBAL_REGEXP, "-")
+        .replace(SLASH_GLOBAL_REGEXP, "_");
     }
-  }
+  },
 });
 
 // node_modules/express-session/session/cookie.js
@@ -1990,7 +2201,7 @@ var require_cookie2 = __commonJS({
     "use strict";
     var cookie = require_cookie();
     var deprecate = require_depd()("express-session");
-    var Cookie = module2.exports = function Cookie2(options) {
+    var Cookie = (module2.exports = function Cookie2(options) {
       this.path = "/";
       this.maxAge = null;
       this.httpOnly = true;
@@ -2007,7 +2218,7 @@ var require_cookie2 = __commonJS({
       if (this.originalMaxAge === void 0 || this.originalMaxAge === null) {
         this.originalMaxAge = this.maxAge;
       }
-    };
+    });
     Cookie.prototype = {
       /**
        * Set expires `date`.
@@ -2050,7 +2261,9 @@ var require_cookie2 = __commonJS({
        * @api public
        */
       get maxAge() {
-        return this.expires instanceof Date ? this.expires.valueOf() - Date.now() : this.expires;
+        return this.expires instanceof Date
+          ? this.expires.valueOf() - Date.now()
+          : this.expires;
       },
       /**
        * Return cookie data object.
@@ -2068,7 +2281,7 @@ var require_cookie2 = __commonJS({
           httpOnly: this.httpOnly,
           domain: this.domain,
           path: this.path,
-          sameSite: this.sameSite
+          sameSite: this.sameSite,
         };
       },
       /**
@@ -2077,7 +2290,7 @@ var require_cookie2 = __commonJS({
        * @return {String}
        * @api public
        */
-      serialize: function(name, val) {
+      serialize: function (name, val) {
         return cookie.serialize(name, val, this.data);
       },
       /**
@@ -2086,11 +2299,11 @@ var require_cookie2 = __commonJS({
        * @return {Object}
        * @api private
        */
-      toJSON: function() {
+      toJSON: function () {
         return this.data;
-      }
+      },
     };
-  }
+  },
 });
 
 // node_modules/express-session/session/session.js
@@ -2117,14 +2330,13 @@ var require_session = __commonJS({
       return this;
     });
     defineMethod(Session.prototype, "save", function save(fn) {
-      this.req.sessionStore.set(this.id, this, fn || function() {
-      });
+      this.req.sessionStore.set(this.id, this, fn || function () {});
       return this;
     });
     defineMethod(Session.prototype, "reload", function reload(fn) {
       var req = this.req;
       var store = this.req.sessionStore;
-      store.get(this.id, function(err, sess) {
+      store.get(this.id, function (err, sess) {
         if (err) return fn(err);
         if (!sess) return fn(new Error("failed to load session"));
         store.createSession(req, sess);
@@ -2146,10 +2358,10 @@ var require_session = __commonJS({
         configurable: true,
         enumerable: false,
         value: fn,
-        writable: true
+        writable: true,
       });
     }
-  }
+  },
 });
 
 // node_modules/express-session/session/store.js
@@ -2165,23 +2377,23 @@ var require_store = __commonJS({
       EventEmitter.call(this);
     }
     util.inherits(Store, EventEmitter);
-    Store.prototype.regenerate = function(req, fn) {
+    Store.prototype.regenerate = function (req, fn) {
       var self = this;
-      this.destroy(req.sessionID, function(err) {
+      this.destroy(req.sessionID, function (err) {
         self.generate(req);
         fn(err);
       });
     };
-    Store.prototype.load = function(sid, fn) {
+    Store.prototype.load = function (sid, fn) {
       var self = this;
-      this.get(sid, function(err, sess) {
+      this.get(sid, function (err, sess) {
         if (err) return fn(err);
         if (!sess) return fn();
         var req = { sessionID: sid, sessionStore: self };
         fn(null, self.createSession(req, sess));
       });
     };
-    Store.prototype.createSession = function(req, sess) {
+    Store.prototype.createSession = function (req, sess) {
       var expires = sess.cookie.expires;
       var originalMaxAge = sess.cookie.originalMaxAge;
       sess.cookie = new Cookie(sess.cookie);
@@ -2192,7 +2404,7 @@ var require_store = __commonJS({
       req.session = new Session(req, sess);
       return req.session;
     };
-  }
+  },
 });
 
 // node_modules/express-session/session/memory.js
@@ -2201,9 +2413,12 @@ var require_memory = __commonJS({
     "use strict";
     var Store = require_store();
     var util = require("util");
-    var defer = typeof setImmediate === "function" ? setImmediate : function(fn) {
-      process.nextTick(fn.bind.apply(fn, arguments));
-    };
+    var defer =
+      typeof setImmediate === "function"
+        ? setImmediate
+        : function (fn) {
+            process.nextTick(fn.bind.apply(fn, arguments));
+          };
     module2.exports = MemoryStore;
     function MemoryStore() {
       Store.call(this);
@@ -2238,12 +2453,16 @@ var require_memory = __commonJS({
       callback && defer(callback);
     };
     MemoryStore.prototype.length = function length(callback) {
-      this.all(function(err, sessions) {
+      this.all(function (err, sessions) {
         if (err) return callback(err);
         callback(null, Object.keys(sessions).length);
       });
     };
-    MemoryStore.prototype.touch = function touch(sessionId, session2, callback) {
+    MemoryStore.prototype.touch = function touch(
+      sessionId,
+      session2,
+      callback
+    ) {
       var currentSession = getSession.call(this, sessionId);
       if (currentSession) {
         currentSession.cookie = session2.cookie;
@@ -2258,7 +2477,10 @@ var require_memory = __commonJS({
       }
       sess = JSON.parse(sess);
       if (sess.cookie) {
-        var expires = typeof sess.cookie.expires === "string" ? new Date(sess.cookie.expires) : sess.cookie.expires;
+        var expires =
+          typeof sess.cookie.expires === "string"
+            ? new Date(sess.cookie.expires)
+            : sess.cookie.expires;
         if (expires && expires <= Date.now()) {
           delete this.sessions[sessionId];
           return;
@@ -2266,7 +2488,7 @@ var require_memory = __commonJS({
       }
       return sess;
     }
-  }
+  },
 });
 
 // node_modules/express-session/index.js
@@ -2292,10 +2514,14 @@ var require_express_session = __commonJS({
     exports2.Cookie = Cookie;
     exports2.Session = Session;
     exports2.MemoryStore = MemoryStore;
-    var warning = "Warning: connect.session() MemoryStore is not\ndesigned for a production environment, as it will leak\nmemory, and will not scale past a single process.";
-    var defer = typeof setImmediate === "function" ? setImmediate : function(fn) {
-      process.nextTick(fn.bind.apply(fn, arguments));
-    };
+    var warning =
+      "Warning: connect.session() MemoryStore is not\ndesigned for a production environment, as it will leak\nmemory, and will not scale past a single process.";
+    var defer =
+      typeof setImmediate === "function"
+        ? setImmediate
+        : function (fn) {
+            process.nextTick(fn.bind.apply(fn, arguments));
+          };
     function session2(options) {
       var opts = options || {};
       var cookieOptions = opts.cookie || {};
@@ -2315,7 +2541,9 @@ var require_express_session = __commonJS({
         resaveSession = true;
       }
       if (saveUninitializedSession === void 0) {
-        deprecate("undefined saveUninitialized option; provide saveUninitialized option");
+        deprecate(
+          "undefined saveUninitialized option; provide saveUninitialized option"
+        );
         saveUninitializedSession = true;
       }
       if (opts.unset && opts.unset !== "destroy" && opts.unset !== "keep") {
@@ -2323,7 +2551,9 @@ var require_express_session = __commonJS({
       }
       var unsetDestroy = opts.unset === "destroy";
       if (Array.isArray(secret) && secret.length === 0) {
-        throw new TypeError("secret option array must contain one or more strings");
+        throw new TypeError(
+          "secret option array must contain one or more strings"
+        );
       }
       if (secret && !Array.isArray(secret)) {
         secret = [secret];
@@ -2334,7 +2564,7 @@ var require_express_session = __commonJS({
       if (env === "production" && store instanceof MemoryStore) {
         console.warn(warning);
       }
-      store.generate = function(req) {
+      store.generate = function (req) {
         req.sessionID = generateId(req);
         req.session = new Session(req);
         req.session.cookie = new Cookie(cookieOptions);
@@ -2376,8 +2606,8 @@ var require_express_session = __commonJS({
         var savedHash;
         var touched = false;
         req.sessionStore = store;
-        var cookieId = req.sessionID = getcookie(req, name, secrets);
-        onHeaders(res, function() {
+        var cookieId = (req.sessionID = getcookie(req, name, secrets));
+        onHeaders(res, function () {
           if (!req.session) {
             debug("no session");
             return;
@@ -2394,7 +2624,13 @@ var require_express_session = __commonJS({
             touched = true;
           }
           try {
-            setcookie(res, name, req.sessionID, secrets[0], req.session.cookie.data);
+            setcookie(
+              res,
+              name,
+              req.sessionID,
+              secrets[0],
+              req.session.cookie.data
+            );
           } catch (err) {
             defer(next, err);
           }
@@ -2430,7 +2666,9 @@ var require_express_session = __commonJS({
             }
             var contentLength = Number(res.getHeader("Content-Length"));
             if (!isNaN(contentLength) && contentLength > 0) {
-              chunk = !Buffer2.isBuffer(chunk) ? Buffer2.from(chunk, encoding) : chunk;
+              chunk = !Buffer2.isBuffer(chunk)
+                ? Buffer2.from(chunk, encoding)
+                : chunk;
               encoding = void 0;
               if (chunk.length !== 0) {
                 debug("split response");
@@ -2499,7 +2737,7 @@ var require_express_session = __commonJS({
           wrapmethods(req2.session);
         }
         function rewrapmethods(sess, callback) {
-          return function() {
+          return function () {
             if (req.session !== sess) {
               wrapmethods(req.session);
             }
@@ -2522,13 +2760,13 @@ var require_express_session = __commonJS({
             configurable: true,
             enumerable: false,
             value: reload,
-            writable: true
+            writable: true,
           });
           Object.defineProperty(sess, "save", {
             configurable: true,
             enumerable: false,
             value: save,
-            writable: true
+            writable: true,
           });
         }
         function isModified(sess) {
@@ -2542,14 +2780,24 @@ var require_express_session = __commonJS({
         }
         function shouldSave(req2) {
           if (typeof req2.sessionID !== "string") {
-            debug("session ignored because of bogus req.sessionID %o", req2.sessionID);
+            debug(
+              "session ignored because of bogus req.sessionID %o",
+              req2.sessionID
+            );
             return false;
           }
-          return !saveUninitializedSession && !savedHash && cookieId !== req2.sessionID ? isModified(req2.session) : !isSaved(req2.session);
+          return !saveUninitializedSession &&
+            !savedHash &&
+            cookieId !== req2.sessionID
+            ? isModified(req2.session)
+            : !isSaved(req2.session);
         }
         function shouldTouch(req2) {
           if (typeof req2.sessionID !== "string") {
-            debug("session ignored because of bogus req.sessionID %o", req2.sessionID);
+            debug(
+              "session ignored because of bogus req.sessionID %o",
+              req2.sessionID
+            );
             return false;
           }
           return cookieId === req2.sessionID && !shouldSave(req2);
@@ -2558,7 +2806,11 @@ var require_express_session = __commonJS({
           if (typeof req2.sessionID !== "string") {
             return false;
           }
-          return cookieId !== req2.sessionID ? saveUninitializedSession || isModified(req2.session) : rollingSessions || req2.session.cookie.expires != null && isModified(req2.session);
+          return cookieId !== req2.sessionID
+            ? saveUninitializedSession || isModified(req2.session)
+            : rollingSessions ||
+                (req2.session.cookie.expires != null &&
+                  isModified(req2.session));
         }
         if (!req.sessionID) {
           debug("no SID sent, generating session");
@@ -2567,7 +2819,7 @@ var require_express_session = __commonJS({
           return;
         }
         debug("fetching %s", req.sessionID);
-        store.get(req.sessionID, function(err, sess) {
+        store.get(req.sessionID, function (err, sess) {
           if (err && err.code !== "ENOENT") {
             debug("error %j", err);
             next(err);
@@ -2637,7 +2889,7 @@ var require_express_session = __commonJS({
       return val;
     }
     function hash(sess) {
-      var str = JSON.stringify(sess, function(key, val) {
+      var str = JSON.stringify(sess, function (key, val) {
         if (this === sess && key === "cookie") {
           return;
         }
@@ -2657,7 +2909,10 @@ var require_express_session = __commonJS({
       }
       var header = req.headers["x-forwarded-proto"] || "";
       var index = header.indexOf(",");
-      var proto = index !== -1 ? header.substr(0, index).toLowerCase().trim() : header.toLowerCase().trim();
+      var proto =
+        index !== -1
+          ? header.substr(0, index).toLowerCase().trim()
+          : header.toLowerCase().trim();
       return proto === "https";
     }
     function setcookie(res, name, val, secret, options) {
@@ -2677,7 +2932,7 @@ var require_express_session = __commonJS({
       }
       return false;
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/constants.js
@@ -2696,10 +2951,9 @@ var require_constants = __commonJS({
       kListener: Symbol("kListener"),
       kStatusCode: Symbol("status-code"),
       kWebSocket: Symbol("websocket"),
-      NOOP: () => {
-      }
+      NOOP: () => {},
     };
-  }
+  },
 });
 
 // node_modules/node-gyp-build/node-gyp-build.js
@@ -2708,27 +2962,35 @@ var require_node_gyp_build = __commonJS({
     var fs = require("fs");
     var path = require("path");
     var os = require("os");
-    var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : require;
-    var vars = process.config && process.config.variables || {};
+    var runtimeRequire =
+      typeof __webpack_require__ === "function"
+        ? __non_webpack_require__
+        : require;
+    var vars = (process.config && process.config.variables) || {};
     var prebuildsOnly = !!process.env.PREBUILDS_ONLY;
     var abi = process.versions.modules;
     var runtime = isElectron() ? "electron" : isNwjs() ? "node-webkit" : "node";
     var arch = process.env.npm_config_arch || os.arch();
     var platform = process.env.npm_config_platform || os.platform();
     var libc = process.env.LIBC || (isAlpine(platform) ? "musl" : "glibc");
-    var armv = process.env.ARM_VERSION || (arch === "arm64" ? "8" : vars.arm_version) || "";
+    var armv =
+      process.env.ARM_VERSION ||
+      (arch === "arm64" ? "8" : vars.arm_version) ||
+      "";
     var uv = (process.versions.uv || "").split(".")[0];
     module2.exports = load;
     function load(dir) {
       return runtimeRequire(load.resolve(dir));
     }
-    load.resolve = load.path = function(dir) {
+    load.resolve = load.path = function (dir) {
       dir = path.resolve(dir || ".");
       try {
-        var name = runtimeRequire(path.join(dir, "package.json")).name.toUpperCase().replace(/-/g, "_");
-        if (process.env[name + "_PREBUILD"]) dir = process.env[name + "_PREBUILD"];
-      } catch (err) {
-      }
+        var name = runtimeRequire(path.join(dir, "package.json"))
+          .name.toUpperCase()
+          .replace(/-/g, "_");
+        if (process.env[name + "_PREBUILD"])
+          dir = process.env[name + "_PREBUILD"];
+      } catch (err) {}
       if (!prebuildsOnly) {
         var release = getFirst(path.join(dir, "build/Release"), matchBuild);
         if (release) return release;
@@ -2748,14 +3010,26 @@ var require_node_gyp_build = __commonJS({
         armv ? "armv=" + armv : "",
         "libc=" + libc,
         "node=" + process.versions.node,
-        process.versions.electron ? "electron=" + process.versions.electron : "",
-        typeof __webpack_require__ === "function" ? "webpack=true" : ""
+        process.versions.electron
+          ? "electron=" + process.versions.electron
+          : "",
+        typeof __webpack_require__ === "function" ? "webpack=true" : "",
         // eslint-disable-line
-      ].filter(Boolean).join(" ");
-      throw new Error("No native build was found for " + target + "\n    loaded from: " + dir + "\n");
+      ]
+        .filter(Boolean)
+        .join(" ");
+      throw new Error(
+        "No native build was found for " +
+          target +
+          "\n    loaded from: " +
+          dir +
+          "\n"
+      );
       function resolve(dir2) {
         var tuples = readdirSync(path.join(dir2, "prebuilds")).map(parseTuple);
-        var tuple = tuples.filter(matchTuple(platform, arch)).sort(compareTuples)[0];
+        var tuple = tuples
+          .filter(matchTuple(platform, arch))
+          .sort(compareTuples)[0];
         if (!tuple) return;
         var prebuilds = path.join(dir2, "prebuilds", tuple.name);
         var parsed = readdirSync(prebuilds).map(parseTags);
@@ -2789,7 +3063,7 @@ var require_node_gyp_build = __commonJS({
       return { name, platform: platform2, architectures };
     }
     function matchTuple(platform2, arch2) {
-      return function(tuple) {
+      return function (tuple) {
         if (tuple == null) return false;
         if (tuple.platform !== platform2) return false;
         return tuple.architectures.includes(arch2);
@@ -2825,9 +3099,10 @@ var require_node_gyp_build = __commonJS({
       return tags;
     }
     function matchTags(runtime2, abi2) {
-      return function(tags) {
+      return function (tags) {
         if (tags == null) return false;
-        if (tags.runtime && tags.runtime !== runtime2 && !runtimeAgnostic(tags)) return false;
+        if (tags.runtime && tags.runtime !== runtime2 && !runtimeAgnostic(tags))
+          return false;
         if (tags.abi && tags.abi !== abi2 && !tags.napi) return false;
         if (tags.uv && tags.uv !== uv) return false;
         if (tags.armv && tags.armv !== armv) return false;
@@ -2839,7 +3114,7 @@ var require_node_gyp_build = __commonJS({
       return tags.runtime === "node" && tags.napi;
     }
     function compareTags(runtime2) {
-      return function(a, b) {
+      return function (a, b) {
         if (a.runtime !== b.runtime) {
           return a.runtime === runtime2 ? -1 : 1;
         } else if (a.abi !== b.abi) {
@@ -2857,7 +3132,11 @@ var require_node_gyp_build = __commonJS({
     function isElectron() {
       if (process.versions && process.versions.electron) return true;
       if (process.env.ELECTRON_RUN_AS_NODE) return true;
-      return typeof window !== "undefined" && window.process && window.process.type === "renderer";
+      return (
+        typeof window !== "undefined" &&
+        window.process &&
+        window.process.type === "renderer"
+      );
     }
     function isAlpine(platform2) {
       return platform2 === "linux" && fs.existsSync("/etc/alpine-release");
@@ -2868,19 +3147,22 @@ var require_node_gyp_build = __commonJS({
     load.parseTuple = parseTuple;
     load.matchTuple = matchTuple;
     load.compareTuples = compareTuples;
-  }
+  },
 });
 
 // node_modules/node-gyp-build/index.js
 var require_node_gyp_build2 = __commonJS({
   "node_modules/node-gyp-build/index.js"(exports2, module2) {
-    var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : require;
+    var runtimeRequire =
+      typeof __webpack_require__ === "function"
+        ? __non_webpack_require__
+        : require;
     if (typeof runtimeRequire.addon === "function") {
       module2.exports = runtimeRequire.addon.bind(runtimeRequire);
     } else {
       module2.exports = require_node_gyp_build();
     }
-  }
+  },
 });
 
 // node_modules/bufferutil/fallback.js
@@ -2899,7 +3181,7 @@ var require_fallback = __commonJS({
       }
     };
     module2.exports = { mask, unmask };
-  }
+  },
 });
 
 // node_modules/bufferutil/index.js
@@ -2911,7 +3193,7 @@ var require_bufferutil = __commonJS({
     } catch (e) {
       module2.exports = require_fallback();
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/buffer-util.js
@@ -2970,23 +3252,22 @@ var require_buffer_util = __commonJS({
       mask: _mask,
       toArrayBuffer,
       toBuffer,
-      unmask: _unmask
+      unmask: _unmask,
     };
     if (!process.env.WS_NO_BUFFER_UTIL) {
       try {
         const bufferUtil = require_bufferutil();
-        module2.exports.mask = function(source, mask, output, offset, length) {
+        module2.exports.mask = function (source, mask, output, offset, length) {
           if (length < 48) _mask(source, mask, output, offset, length);
           else bufferUtil.mask(source, mask, output, offset, length);
         };
-        module2.exports.unmask = function(buffer, mask) {
+        module2.exports.unmask = function (buffer, mask) {
           if (buffer.length < 32) _unmask(buffer, mask);
           else bufferUtil.unmask(buffer, mask);
         };
-      } catch (e) {
-      }
+      } catch (e) {}
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/limiter.js
@@ -3036,7 +3317,7 @@ var require_limiter = __commonJS({
       }
     };
     module2.exports = Limiter;
-  }
+  },
 });
 
 // node_modules/ws/lib/permessage-deflate.js
@@ -3083,13 +3364,17 @@ var require_permessage_deflate = __commonJS({
       constructor(options, isServer, maxPayload) {
         this._maxPayload = maxPayload | 0;
         this._options = options || {};
-        this._threshold = this._options.threshold !== void 0 ? this._options.threshold : 1024;
+        this._threshold =
+          this._options.threshold !== void 0 ? this._options.threshold : 1024;
         this._isServer = !!isServer;
         this._deflate = null;
         this._inflate = null;
         this.params = null;
         if (!zlibLimiter) {
-          const concurrency = this._options.concurrencyLimit !== void 0 ? this._options.concurrencyLimit : 10;
+          const concurrency =
+            this._options.concurrencyLimit !== void 0
+              ? this._options.concurrencyLimit
+              : 10;
           zlibLimiter = new Limiter(concurrency);
         }
       }
@@ -3132,7 +3417,9 @@ var require_permessage_deflate = __commonJS({
        */
       accept(configurations) {
         configurations = this.normalizeParams(configurations);
-        this.params = this._isServer ? this.acceptAsServer(configurations) : this.acceptAsClient(configurations);
+        this.params = this._isServer
+          ? this.acceptAsServer(configurations)
+          : this.acceptAsClient(configurations);
         return this.params;
       }
       /**
@@ -3168,7 +3455,16 @@ var require_permessage_deflate = __commonJS({
       acceptAsServer(offers) {
         const opts = this._options;
         const accepted = offers.find((params) => {
-          if (opts.serverNoContextTakeover === false && params.server_no_context_takeover || params.server_max_window_bits && (opts.serverMaxWindowBits === false || typeof opts.serverMaxWindowBits === "number" && opts.serverMaxWindowBits > params.server_max_window_bits) || typeof opts.clientMaxWindowBits === "number" && !params.client_max_window_bits) {
+          if (
+            (opts.serverNoContextTakeover === false &&
+              params.server_no_context_takeover) ||
+            (params.server_max_window_bits &&
+              (opts.serverMaxWindowBits === false ||
+                (typeof opts.serverMaxWindowBits === "number" &&
+                  opts.serverMaxWindowBits > params.server_max_window_bits))) ||
+            (typeof opts.clientMaxWindowBits === "number" &&
+              !params.client_max_window_bits)
+          ) {
             return false;
           }
           return true;
@@ -3187,7 +3483,10 @@ var require_permessage_deflate = __commonJS({
         }
         if (typeof opts.clientMaxWindowBits === "number") {
           accepted.client_max_window_bits = opts.clientMaxWindowBits;
-        } else if (accepted.client_max_window_bits === true || opts.clientMaxWindowBits === false) {
+        } else if (
+          accepted.client_max_window_bits === true ||
+          opts.clientMaxWindowBits === false
+        ) {
           delete accepted.client_max_window_bits;
         }
         return accepted;
@@ -3201,14 +3500,21 @@ var require_permessage_deflate = __commonJS({
        */
       acceptAsClient(response) {
         const params = response[0];
-        if (this._options.clientNoContextTakeover === false && params.client_no_context_takeover) {
+        if (
+          this._options.clientNoContextTakeover === false &&
+          params.client_no_context_takeover
+        ) {
           throw new Error('Unexpected parameter "client_no_context_takeover"');
         }
         if (!params.client_max_window_bits) {
           if (typeof this._options.clientMaxWindowBits === "number") {
             params.client_max_window_bits = this._options.clientMaxWindowBits;
           }
-        } else if (this._options.clientMaxWindowBits === false || typeof this._options.clientMaxWindowBits === "number" && params.client_max_window_bits > this._options.clientMaxWindowBits) {
+        } else if (
+          this._options.clientMaxWindowBits === false ||
+          (typeof this._options.clientMaxWindowBits === "number" &&
+            params.client_max_window_bits > this._options.clientMaxWindowBits)
+        ) {
           throw new Error(
             'Unexpected or invalid parameter "client_max_window_bits"'
           );
@@ -3227,7 +3533,9 @@ var require_permessage_deflate = __commonJS({
           Object.keys(params).forEach((key) => {
             let value = params[key];
             if (value.length > 1) {
-              throw new Error(`Parameter "${key}" must have only a single value`);
+              throw new Error(
+                `Parameter "${key}" must have only a single value`
+              );
             }
             value = value[0];
             if (key === "client_max_window_bits") {
@@ -3252,7 +3560,10 @@ var require_permessage_deflate = __commonJS({
                 );
               }
               value = num;
-            } else if (key === "client_no_context_takeover" || key === "server_no_context_takeover") {
+            } else if (
+              key === "client_no_context_takeover" ||
+              key === "server_no_context_takeover"
+            ) {
               if (value !== true) {
                 throw new TypeError(
                   `Invalid value for parameter "${key}": ${value}`
@@ -3310,10 +3621,13 @@ var require_permessage_deflate = __commonJS({
         const endpoint = this._isServer ? "client" : "server";
         if (!this._inflate) {
           const key = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key];
+          const windowBits =
+            typeof this.params[key] !== "number"
+              ? zlib.Z_DEFAULT_WINDOWBITS
+              : this.params[key];
           this._inflate = zlib.createInflateRaw({
             ...this._options.zlibInflateOptions,
-            windowBits
+            windowBits,
           });
           this._inflate[kPerMessageDeflate] = this;
           this._inflate[kTotalLength] = 0;
@@ -3361,10 +3675,13 @@ var require_permessage_deflate = __commonJS({
         const endpoint = this._isServer ? "server" : "client";
         if (!this._deflate) {
           const key = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key];
+          const windowBits =
+            typeof this.params[key] !== "number"
+              ? zlib.Z_DEFAULT_WINDOWBITS
+              : this.params[key];
           this._deflate = zlib.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
-            windowBits
+            windowBits,
           });
           this._deflate[kTotalLength] = 0;
           this._deflate[kBuffers] = [];
@@ -3381,7 +3698,11 @@ var require_permessage_deflate = __commonJS({
             this._deflate[kTotalLength]
           );
           if (fin) {
-            data2 = new FastBuffer(data2.buffer, data2.byteOffset, data2.length - 4);
+            data2 = new FastBuffer(
+              data2.buffer,
+              data2.byteOffset,
+              data2.length - 4
+            );
           }
           this._deflate[kCallback] = null;
           this._deflate[kTotalLength] = 0;
@@ -3400,7 +3721,10 @@ var require_permessage_deflate = __commonJS({
     }
     function inflateOnData(chunk) {
       this[kTotalLength] += chunk.length;
-      if (this[kPerMessageDeflate]._maxPayload < 1 || this[kTotalLength] <= this[kPerMessageDeflate]._maxPayload) {
+      if (
+        this[kPerMessageDeflate]._maxPayload < 1 ||
+        this[kTotalLength] <= this[kPerMessageDeflate]._maxPayload
+      ) {
         this[kBuffers].push(chunk);
         return;
       }
@@ -3419,7 +3743,7 @@ var require_permessage_deflate = __commonJS({
       err[kStatusCode] = 1007;
       this[kCallback](err);
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/validation.js
@@ -3429,145 +3753,32 @@ var require_validation = __commonJS({
     var { isUtf8 } = require("buffer");
     var { hasBlob } = require_constants();
     var tokenChars = [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       // 0 - 15
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       // 16 - 31
-      0,
-      1,
-      0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      0,
-      0,
-      1,
-      1,
-      0,
-      1,
-      1,
-      0,
+      0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0,
       // 32 - 47
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
       // 48 - 63
-      0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
+      0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       // 64 - 79
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      0,
-      0,
-      0,
-      1,
-      1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1,
       // 80 - 95
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       // 96 - 111
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      0,
-      1,
-      0,
-      1,
-      0
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0,
       // 112 - 127
     ];
     function isValidStatusCode(code) {
-      return code >= 1e3 && code <= 1014 && code !== 1004 && code !== 1005 && code !== 1006 || code >= 3e3 && code <= 4999;
+      return (
+        (code >= 1e3 &&
+          code <= 1014 &&
+          code !== 1004 &&
+          code !== 1005 &&
+          code !== 1006) ||
+        (code >= 3e3 && code <= 4999)
+      );
     }
     function _isValidUTF8(buf) {
       const len = buf.length;
@@ -3576,19 +3787,35 @@ var require_validation = __commonJS({
         if ((buf[i] & 128) === 0) {
           i++;
         } else if ((buf[i] & 224) === 192) {
-          if (i + 1 === len || (buf[i + 1] & 192) !== 128 || (buf[i] & 254) === 192) {
+          if (
+            i + 1 === len ||
+            (buf[i + 1] & 192) !== 128 ||
+            (buf[i] & 254) === 192
+          ) {
             return false;
           }
           i += 2;
         } else if ((buf[i] & 240) === 224) {
-          if (i + 2 >= len || (buf[i + 1] & 192) !== 128 || (buf[i + 2] & 192) !== 128 || buf[i] === 224 && (buf[i + 1] & 224) === 128 || // Overlong
-          buf[i] === 237 && (buf[i + 1] & 224) === 160) {
+          if (
+            i + 2 >= len ||
+            (buf[i + 1] & 192) !== 128 ||
+            (buf[i + 2] & 192) !== 128 ||
+            (buf[i] === 224 && (buf[i + 1] & 224) === 128) || // Overlong
+            (buf[i] === 237 && (buf[i + 1] & 224) === 160)
+          ) {
             return false;
           }
           i += 3;
         } else if ((buf[i] & 248) === 240) {
-          if (i + 3 >= len || (buf[i + 1] & 192) !== 128 || (buf[i + 2] & 192) !== 128 || (buf[i + 3] & 192) !== 128 || buf[i] === 240 && (buf[i + 1] & 240) === 128 || // Overlong
-          buf[i] === 244 && buf[i + 1] > 143 || buf[i] > 244) {
+          if (
+            i + 3 >= len ||
+            (buf[i + 1] & 192) !== 128 ||
+            (buf[i + 2] & 192) !== 128 ||
+            (buf[i + 3] & 192) !== 128 ||
+            (buf[i] === 240 && (buf[i + 1] & 240) === 128) || // Overlong
+            (buf[i] === 244 && buf[i + 1] > 143) ||
+            buf[i] > 244
+          ) {
             return false;
           }
           i += 4;
@@ -3599,28 +3826,35 @@ var require_validation = __commonJS({
       return true;
     }
     function isBlob(value) {
-      return hasBlob && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string" && typeof value.stream === "function" && (value[Symbol.toStringTag] === "Blob" || value[Symbol.toStringTag] === "File");
+      return (
+        hasBlob &&
+        typeof value === "object" &&
+        typeof value.arrayBuffer === "function" &&
+        typeof value.type === "string" &&
+        typeof value.stream === "function" &&
+        (value[Symbol.toStringTag] === "Blob" ||
+          value[Symbol.toStringTag] === "File")
+      );
     }
     module2.exports = {
       isBlob,
       isValidStatusCode,
       isValidUTF8: _isValidUTF8,
-      tokenChars
+      tokenChars,
     };
     if (isUtf8) {
-      module2.exports.isValidUTF8 = function(buf) {
+      module2.exports.isValidUTF8 = function (buf) {
         return buf.length < 24 ? _isValidUTF8(buf) : isUtf8(buf);
       };
     } else if (!process.env.WS_NO_UTF_8_VALIDATE) {
       try {
         const isValidUTF8 = require("utf-8-validate");
-        module2.exports.isValidUTF8 = function(buf) {
+        module2.exports.isValidUTF8 = function (buf) {
           return buf.length < 32 ? _isValidUTF8(buf) : isValidUTF8(buf);
         };
-      } catch (e) {
-      }
+      } catch (e) {}
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/receiver.js
@@ -3629,12 +3863,8 @@ var require_receiver = __commonJS({
     "use strict";
     var { Writable } = require("stream");
     var PerMessageDeflate = require_permessage_deflate();
-    var {
-      BINARY_TYPES,
-      EMPTY_BUFFER,
-      kStatusCode,
-      kWebSocket
-    } = require_constants();
+    var { BINARY_TYPES, EMPTY_BUFFER, kStatusCode, kWebSocket } =
+      require_constants();
     var { concat, toArrayBuffer, unmask } = require_buffer_util();
     var { isValidStatusCode, isValidUTF8 } = require_validation();
     var FastBuffer = Buffer[Symbol.species];
@@ -3664,7 +3894,10 @@ var require_receiver = __commonJS({
        */
       constructor(options = {}) {
         super();
-        this._allowSynchronousEvents = options.allowSynchronousEvents !== void 0 ? options.allowSynchronousEvents : true;
+        this._allowSynchronousEvents =
+          options.allowSynchronousEvents !== void 0
+            ? options.allowSynchronousEvents
+            : true;
         this._binaryType = options.binaryType || BINARY_TYPES[0];
         this._extensions = options.extensions || {};
         this._isServer = !!options.isServer;
@@ -3869,7 +4102,10 @@ var require_receiver = __commonJS({
             cb(error);
             return;
           }
-          if (this._payloadLength > 125 || this._opcode === 8 && this._payloadLength === 1) {
+          if (
+            this._payloadLength > 125 ||
+            (this._opcode === 8 && this._payloadLength === 1)
+          ) {
             const error = this.createError(
               RangeError,
               `invalid payload length ${this._payloadLength}`,
@@ -3917,7 +4153,8 @@ var require_receiver = __commonJS({
           return;
         }
         if (this._payloadLength === 126) this._state = GET_PAYLOAD_LENGTH_16;
-        else if (this._payloadLength === 127) this._state = GET_PAYLOAD_LENGTH_64;
+        else if (this._payloadLength === 127)
+          this._state = GET_PAYLOAD_LENGTH_64;
         else this.haveLength(cb);
       }
       /**
@@ -3970,7 +4207,10 @@ var require_receiver = __commonJS({
       haveLength(cb) {
         if (this._payloadLength && this._opcode < 8) {
           this._totalPayloadLength += this._payloadLength;
-          if (this._totalPayloadLength > this._maxPayload && this._maxPayload > 0) {
+          if (
+            this._totalPayloadLength > this._maxPayload &&
+            this._maxPayload > 0
+          ) {
             const error = this.createError(
               RangeError,
               "Max payload size exceeded",
@@ -4012,7 +4252,11 @@ var require_receiver = __commonJS({
             return;
           }
           data = this.consume(this._payloadLength);
-          if (this._masked && (this._mask[0] | this._mask[1] | this._mask[2] | this._mask[3]) !== 0) {
+          if (
+            this._masked &&
+            (this._mask[0] | this._mask[1] | this._mask[2] | this._mask[3]) !==
+              0
+          ) {
             unmask(data, this._mask);
           }
         }
@@ -4039,12 +4283,16 @@ var require_receiver = __commonJS({
        * @private
        */
       decompress(data, cb) {
-        const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
+        const perMessageDeflate =
+          this._extensions[PerMessageDeflate.extensionName];
         perMessageDeflate.decompress(data, this._fin, (err, buf) => {
           if (err) return cb(err);
           if (buf.length) {
             this._messageLength += buf.length;
-            if (this._messageLength > this._maxPayload && this._maxPayload > 0) {
+            if (
+              this._messageLength > this._maxPayload &&
+              this._maxPayload > 0
+            ) {
               const error = this.createError(
                 RangeError,
                 "Max payload size exceeded",
@@ -4212,7 +4460,7 @@ var require_receiver = __commonJS({
       }
     };
     module2.exports = Receiver;
-  }
+  },
 });
 
 // node_modules/ws/lib/sender.js
@@ -4305,7 +4553,10 @@ var require_sender = __commonJS({
         }
         let dataLength;
         if (typeof data === "string") {
-          if ((!options.mask || skipMasking) && options[kByteLength] !== void 0) {
+          if (
+            (!options.mask || skipMasking) &&
+            options[kByteLength] !== void 0
+          ) {
             dataLength = options[kByteLength];
           } else {
             data = Buffer.from(data);
@@ -4361,14 +4612,18 @@ var require_sender = __commonJS({
         if (code === void 0) {
           buf = EMPTY_BUFFER;
         } else if (typeof code !== "number" || !isValidStatusCode(code)) {
-          throw new TypeError("First argument must be a valid error code number");
+          throw new TypeError(
+            "First argument must be a valid error code number"
+          );
         } else if (data === void 0 || !data.length) {
           buf = Buffer.allocUnsafe(2);
           buf.writeUInt16BE(code, 0);
         } else {
           const length = Buffer.byteLength(data);
           if (length > 123) {
-            throw new RangeError("The message must not be greater than 123 bytes");
+            throw new RangeError(
+              "The message must not be greater than 123 bytes"
+            );
           }
           buf = Buffer.allocUnsafe(2 + length);
           buf.writeUInt16BE(code, 0);
@@ -4386,7 +4641,7 @@ var require_sender = __commonJS({
           maskBuffer: this._maskBuffer,
           opcode: 8,
           readOnly: false,
-          rsv1: false
+          rsv1: false,
         };
         if (this._state !== DEFAULT) {
           this.enqueue([this.dispatch, buf, false, options, cb]);
@@ -4417,7 +4672,9 @@ var require_sender = __commonJS({
           readOnly = toBuffer.readOnly;
         }
         if (byteLength > 125) {
-          throw new RangeError("The data size must not be greater than 125 bytes");
+          throw new RangeError(
+            "The data size must not be greater than 125 bytes"
+          );
         }
         const options = {
           [kByteLength]: byteLength,
@@ -4427,7 +4684,7 @@ var require_sender = __commonJS({
           maskBuffer: this._maskBuffer,
           opcode: 9,
           readOnly,
-          rsv1: false
+          rsv1: false,
         };
         if (isBlob(data)) {
           if (this._state !== DEFAULT) {
@@ -4464,7 +4721,9 @@ var require_sender = __commonJS({
           readOnly = toBuffer.readOnly;
         }
         if (byteLength > 125) {
-          throw new RangeError("The data size must not be greater than 125 bytes");
+          throw new RangeError(
+            "The data size must not be greater than 125 bytes"
+          );
         }
         const options = {
           [kByteLength]: byteLength,
@@ -4474,7 +4733,7 @@ var require_sender = __commonJS({
           maskBuffer: this._maskBuffer,
           opcode: 10,
           readOnly,
-          rsv1: false
+          rsv1: false,
         };
         if (isBlob(data)) {
           if (this._state !== DEFAULT) {
@@ -4505,7 +4764,8 @@ var require_sender = __commonJS({
        * @public
        */
       send(data, options, cb) {
-        const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
+        const perMessageDeflate =
+          this._extensions[PerMessageDeflate.extensionName];
         let opcode = options.binary ? 2 : 1;
         let rsv1 = options.compress;
         let byteLength;
@@ -4523,7 +4783,15 @@ var require_sender = __commonJS({
         }
         if (this._firstFragment) {
           this._firstFragment = false;
-          if (rsv1 && perMessageDeflate && perMessageDeflate.params[perMessageDeflate._isServer ? "server_no_context_takeover" : "client_no_context_takeover"]) {
+          if (
+            rsv1 &&
+            perMessageDeflate &&
+            perMessageDeflate.params[
+              perMessageDeflate._isServer
+                ? "server_no_context_takeover"
+                : "client_no_context_takeover"
+            ]
+          ) {
             rsv1 = byteLength >= perMessageDeflate._threshold;
           }
           this._compress = rsv1;
@@ -4540,7 +4808,7 @@ var require_sender = __commonJS({
           maskBuffer: this._maskBuffer,
           opcode,
           readOnly,
-          rsv1
+          rsv1,
         };
         if (isBlob(data)) {
           if (this._state !== DEFAULT) {
@@ -4580,26 +4848,29 @@ var require_sender = __commonJS({
       getBlobData(blob, compress, options, cb) {
         this._bufferedBytes += options[kByteLength];
         this._state = GET_BLOB_DATA;
-        blob.arrayBuffer().then((arrayBuffer) => {
-          if (this._socket.destroyed) {
-            const err = new Error(
-              "The socket was closed while the blob was being read"
-            );
-            process.nextTick(callCallbacks, this, err, cb);
-            return;
-          }
-          this._bufferedBytes -= options[kByteLength];
-          const data = toBuffer(arrayBuffer);
-          if (!compress) {
-            this._state = DEFAULT;
-            this.sendFrame(_Sender.frame(data, options), cb);
-            this.dequeue();
-          } else {
-            this.dispatch(data, compress, options, cb);
-          }
-        }).catch((err) => {
-          process.nextTick(onError, this, err, cb);
-        });
+        blob
+          .arrayBuffer()
+          .then((arrayBuffer) => {
+            if (this._socket.destroyed) {
+              const err = new Error(
+                "The socket was closed while the blob was being read"
+              );
+              process.nextTick(callCallbacks, this, err, cb);
+              return;
+            }
+            this._bufferedBytes -= options[kByteLength];
+            const data = toBuffer(arrayBuffer);
+            if (!compress) {
+              this._state = DEFAULT;
+              this.sendFrame(_Sender.frame(data, options), cb);
+              this.dequeue();
+            } else {
+              this.dispatch(data, compress, options, cb);
+            }
+          })
+          .catch((err) => {
+            process.nextTick(onError, this, err, cb);
+          });
       }
       /**
        * Dispatches a message.
@@ -4629,7 +4900,8 @@ var require_sender = __commonJS({
           this.sendFrame(_Sender.frame(data, options), cb);
           return;
         }
-        const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
+        const perMessageDeflate =
+          this._extensions[PerMessageDeflate.extensionName];
         this._bufferedBytes += options[kByteLength];
         this._state = DEFLATING;
         perMessageDeflate.compress(data, options.fin, (_, buf) => {
@@ -4700,7 +4972,7 @@ var require_sender = __commonJS({
       callCallbacks(sender, err, cb);
       sender.onerror(err);
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/event-target.js
@@ -4760,7 +5032,8 @@ var require_event_target = __commonJS({
         super(type);
         this[kCode] = options.code === void 0 ? 0 : options.code;
         this[kReason] = options.reason === void 0 ? "" : options.reason;
-        this[kWasClean] = options.wasClean === void 0 ? false : options.wasClean;
+        this[kWasClean] =
+          options.wasClean === void 0 ? false : options.wasClean;
       }
       /**
        * @type {Number}
@@ -4783,7 +5056,9 @@ var require_event_target = __commonJS({
     };
     Object.defineProperty(CloseEvent.prototype, "code", { enumerable: true });
     Object.defineProperty(CloseEvent.prototype, "reason", { enumerable: true });
-    Object.defineProperty(CloseEvent.prototype, "wasClean", { enumerable: true });
+    Object.defineProperty(CloseEvent.prototype, "wasClean", {
+      enumerable: true,
+    });
     var ErrorEvent = class extends Event {
       /**
        * Create a new `ErrorEvent`.
@@ -4813,7 +5088,9 @@ var require_event_target = __commonJS({
       }
     };
     Object.defineProperty(ErrorEvent.prototype, "error", { enumerable: true });
-    Object.defineProperty(ErrorEvent.prototype, "message", { enumerable: true });
+    Object.defineProperty(ErrorEvent.prototype, "message", {
+      enumerable: true,
+    });
     var MessageEvent = class extends Event {
       /**
        * Create a new `MessageEvent`.
@@ -4850,7 +5127,11 @@ var require_event_target = __commonJS({
        */
       addEventListener(type, handler, options = {}) {
         for (const listener of this.listeners(type)) {
-          if (!options[kForOnEventAttribute] && listener[kListener] === handler && !listener[kForOnEventAttribute]) {
+          if (
+            !options[kForOnEventAttribute] &&
+            listener[kListener] === handler &&
+            !listener[kForOnEventAttribute]
+          ) {
             return;
           }
         }
@@ -4858,7 +5139,7 @@ var require_event_target = __commonJS({
         if (type === "message") {
           wrapper = function onMessage(data, isBinary) {
             const event = new MessageEvent("message", {
-              data: isBinary ? data : data.toString()
+              data: isBinary ? data : data.toString(),
             });
             event[kTarget] = this;
             callListener(handler, this, event);
@@ -4868,7 +5149,7 @@ var require_event_target = __commonJS({
             const event = new CloseEvent("close", {
               code,
               reason: message.toString(),
-              wasClean: this._closeFrameReceived && this._closeFrameSent
+              wasClean: this._closeFrameReceived && this._closeFrameSent,
             });
             event[kTarget] = this;
             callListener(handler, this, event);
@@ -4877,7 +5158,7 @@ var require_event_target = __commonJS({
           wrapper = function onError(error) {
             const event = new ErrorEvent("error", {
               error,
-              message: error.message
+              message: error.message,
             });
             event[kTarget] = this;
             callListener(handler, this, event);
@@ -4908,19 +5189,22 @@ var require_event_target = __commonJS({
        */
       removeEventListener(type, handler) {
         for (const listener of this.listeners(type)) {
-          if (listener[kListener] === handler && !listener[kForOnEventAttribute]) {
+          if (
+            listener[kListener] === handler &&
+            !listener[kForOnEventAttribute]
+          ) {
             this.removeListener(type, listener);
             break;
           }
         }
-      }
+      },
     };
     module2.exports = {
       CloseEvent,
       ErrorEvent,
       Event,
       EventTarget,
-      MessageEvent
+      MessageEvent,
     };
     function callListener(listener, thisArg, event) {
       if (typeof listener === "object" && listener.handleEvent) {
@@ -4929,7 +5213,7 @@ var require_event_target = __commonJS({
         listener.call(thisArg, event);
       }
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/extension.js
@@ -5067,22 +5351,30 @@ var require_extension = __commonJS({
       return offers;
     }
     function format(extensions) {
-      return Object.keys(extensions).map((extension) => {
-        let configurations = extensions[extension];
-        if (!Array.isArray(configurations)) configurations = [configurations];
-        return configurations.map((params) => {
-          return [extension].concat(
-            Object.keys(params).map((k) => {
-              let values = params[k];
-              if (!Array.isArray(values)) values = [values];
-              return values.map((v) => v === true ? k : `${k}=${v}`).join("; ");
+      return Object.keys(extensions)
+        .map((extension) => {
+          let configurations = extensions[extension];
+          if (!Array.isArray(configurations)) configurations = [configurations];
+          return configurations
+            .map((params) => {
+              return [extension]
+                .concat(
+                  Object.keys(params).map((k) => {
+                    let values = params[k];
+                    if (!Array.isArray(values)) values = [values];
+                    return values
+                      .map((v) => (v === true ? k : `${k}=${v}`))
+                      .join("; ");
+                  })
+                )
+                .join("; ");
             })
-          ).join("; ");
-        }).join(", ");
-      }).join(", ");
+            .join(", ");
+        })
+        .join(", ");
     }
     module2.exports = { format, parse };
-  }
+  },
 });
 
 // node_modules/ws/lib/websocket.js
@@ -5109,10 +5401,10 @@ var require_websocket = __commonJS({
       kListener,
       kStatusCode,
       kWebSocket,
-      NOOP
+      NOOP,
     } = require_constants();
     var {
-      EventTarget: { addEventListener, removeEventListener }
+      EventTarget: { addEventListener, removeEventListener },
     } = require_event_target();
     var { format, parse } = require_extension();
     var { toBuffer } = require_buffer_util();
@@ -5267,9 +5559,13 @@ var require_websocket = __commonJS({
           extensions: this._extensions,
           isServer: this._isServer,
           maxPayload: options.maxPayload,
-          skipUTF8Validation: options.skipUTF8Validation
+          skipUTF8Validation: options.skipUTF8Validation,
         });
-        const sender = new Sender(socket, this._extensions, options.generateMask);
+        const sender = new Sender(
+          socket,
+          this._extensions,
+          options.generateMask
+        );
         this._receiver = receiver;
         this._sender = sender;
         this._socket = socket;
@@ -5334,12 +5630,17 @@ var require_websocket = __commonJS({
       close(code, data) {
         if (this.readyState === _WebSocket.CLOSED) return;
         if (this.readyState === _WebSocket.CONNECTING) {
-          const msg = "WebSocket was closed before the connection was established";
+          const msg =
+            "WebSocket was closed before the connection was established";
           abortHandshake(this, this._req, msg);
           return;
         }
         if (this.readyState === _WebSocket.CLOSING) {
-          if (this._closeFrameSent && (this._closeFrameReceived || this._receiver._writableState.errorEmitted)) {
+          if (
+            this._closeFrameSent &&
+            (this._closeFrameReceived ||
+              this._receiver._writableState.errorEmitted)
+          ) {
             this._socket.end();
           }
           return;
@@ -5348,7 +5649,10 @@ var require_websocket = __commonJS({
         this._sender.close(code, data, !this._isServer, (err) => {
           if (err) return;
           this._closeFrameSent = true;
-          if (this._closeFrameReceived || this._receiver._writableState.errorEmitted) {
+          if (
+            this._closeFrameReceived ||
+            this._receiver._writableState.errorEmitted
+          ) {
             this._socket.end();
           }
         });
@@ -5360,7 +5664,10 @@ var require_websocket = __commonJS({
        * @public
        */
       pause() {
-        if (this.readyState === _WebSocket.CONNECTING || this.readyState === _WebSocket.CLOSED) {
+        if (
+          this.readyState === _WebSocket.CONNECTING ||
+          this.readyState === _WebSocket.CLOSED
+        ) {
           return;
         }
         this._paused = true;
@@ -5426,7 +5733,10 @@ var require_websocket = __commonJS({
        * @public
        */
       resume() {
-        if (this.readyState === _WebSocket.CONNECTING || this.readyState === _WebSocket.CLOSED) {
+        if (
+          this.readyState === _WebSocket.CONNECTING ||
+          this.readyState === _WebSocket.CLOSED
+        ) {
           return;
         }
         this._paused = false;
@@ -5465,7 +5775,7 @@ var require_websocket = __commonJS({
           mask: !this._isServer,
           compress: true,
           fin: true,
-          ...options
+          ...options,
         };
         if (!this._extensions[PerMessageDeflate.extensionName]) {
           opts.compress = false;
@@ -5480,7 +5790,8 @@ var require_websocket = __commonJS({
       terminate() {
         if (this.readyState === _WebSocket.CLOSED) return;
         if (this.readyState === _WebSocket.CONNECTING) {
-          const msg = "WebSocket was closed before the connection was established";
+          const msg =
+            "WebSocket was closed before the connection was established";
           abortHandshake(this, this._req, msg);
           return;
         }
@@ -5492,35 +5803,35 @@ var require_websocket = __commonJS({
     };
     Object.defineProperty(WebSocket, "CONNECTING", {
       enumerable: true,
-      value: readyStates.indexOf("CONNECTING")
+      value: readyStates.indexOf("CONNECTING"),
     });
     Object.defineProperty(WebSocket.prototype, "CONNECTING", {
       enumerable: true,
-      value: readyStates.indexOf("CONNECTING")
+      value: readyStates.indexOf("CONNECTING"),
     });
     Object.defineProperty(WebSocket, "OPEN", {
       enumerable: true,
-      value: readyStates.indexOf("OPEN")
+      value: readyStates.indexOf("OPEN"),
     });
     Object.defineProperty(WebSocket.prototype, "OPEN", {
       enumerable: true,
-      value: readyStates.indexOf("OPEN")
+      value: readyStates.indexOf("OPEN"),
     });
     Object.defineProperty(WebSocket, "CLOSING", {
       enumerable: true,
-      value: readyStates.indexOf("CLOSING")
+      value: readyStates.indexOf("CLOSING"),
     });
     Object.defineProperty(WebSocket.prototype, "CLOSING", {
       enumerable: true,
-      value: readyStates.indexOf("CLOSING")
+      value: readyStates.indexOf("CLOSING"),
     });
     Object.defineProperty(WebSocket, "CLOSED", {
       enumerable: true,
-      value: readyStates.indexOf("CLOSED")
+      value: readyStates.indexOf("CLOSED"),
     });
     Object.defineProperty(WebSocket.prototype, "CLOSED", {
       enumerable: true,
-      value: readyStates.indexOf("CLOSED")
+      value: readyStates.indexOf("CLOSED"),
     });
     [
       "binaryType",
@@ -5529,9 +5840,11 @@ var require_websocket = __commonJS({
       "isPaused",
       "protocol",
       "readyState",
-      "url"
+      "url",
     ].forEach((property) => {
-      Object.defineProperty(WebSocket.prototype, property, { enumerable: true });
+      Object.defineProperty(WebSocket.prototype, property, {
+        enumerable: true,
+      });
     });
     ["open", "error", "close", "message"].forEach((method) => {
       Object.defineProperty(WebSocket.prototype, `on${method}`, {
@@ -5551,9 +5864,9 @@ var require_websocket = __commonJS({
           }
           if (typeof handler !== "function") return;
           this.addEventListener(method, handler, {
-            [kForOnEventAttribute]: true
+            [kForOnEventAttribute]: true,
           });
-        }
+        },
       });
     });
     WebSocket.prototype.addEventListener = addEventListener;
@@ -5577,7 +5890,7 @@ var require_websocket = __commonJS({
         method: "GET",
         host: void 0,
         path: void 0,
-        port: void 0
+        port: void 0,
       };
       websocket._autoPong = opts.autoPong;
       if (!protocolVersions.includes(opts.protocolVersion)) {
@@ -5625,16 +5938,19 @@ var require_websocket = __commonJS({
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
-      opts.createConnection = opts.createConnection || (isSecure ? tlsConnect : netConnect);
+      opts.createConnection =
+        opts.createConnection || (isSecure ? tlsConnect : netConnect);
       opts.defaultPort = opts.defaultPort || defaultPort;
       opts.port = parsedUrl.port || defaultPort;
-      opts.host = parsedUrl.hostname.startsWith("[") ? parsedUrl.hostname.slice(1, -1) : parsedUrl.hostname;
+      opts.host = parsedUrl.hostname.startsWith("[")
+        ? parsedUrl.hostname.slice(1, -1)
+        : parsedUrl.hostname;
       opts.headers = {
         ...opts.headers,
         "Sec-WebSocket-Version": opts.protocolVersion,
         "Sec-WebSocket-Key": key,
         Connection: "Upgrade",
-        Upgrade: "websocket"
+        Upgrade: "websocket",
       };
       opts.path = parsedUrl.pathname + parsedUrl.search;
       opts.timeout = opts.handshakeTimeout;
@@ -5645,12 +5961,16 @@ var require_websocket = __commonJS({
           opts.maxPayload
         );
         opts.headers["Sec-WebSocket-Extensions"] = format({
-          [PerMessageDeflate.extensionName]: perMessageDeflate.offer()
+          [PerMessageDeflate.extensionName]: perMessageDeflate.offer(),
         });
       }
       if (protocols.length) {
         for (const protocol of protocols) {
-          if (typeof protocol !== "string" || !subprotocolRegex.test(protocol) || protocolSet.has(protocol)) {
+          if (
+            typeof protocol !== "string" ||
+            !subprotocolRegex.test(protocol) ||
+            protocolSet.has(protocol)
+          ) {
             throw new SyntaxError(
               "An invalid or duplicated subprotocol was specified"
             );
@@ -5679,7 +5999,9 @@ var require_websocket = __commonJS({
         if (websocket._redirects === 0) {
           websocket._originalIpc = isIpcUrl;
           websocket._originalSecure = isSecure;
-          websocket._originalHostOrSocketPath = isIpcUrl ? opts.socketPath : parsedUrl.host;
+          websocket._originalHostOrSocketPath = isIpcUrl
+            ? opts.socketPath
+            : parsedUrl.host;
           const headers = options && options.headers;
           options = { ...options, headers: {} };
           if (headers) {
@@ -5688,8 +6010,14 @@ var require_websocket = __commonJS({
             }
           }
         } else if (websocket.listenerCount("redirect") === 0) {
-          const isSameHost = isIpcUrl ? websocket._originalIpc ? opts.socketPath === websocket._originalHostOrSocketPath : false : websocket._originalIpc ? false : parsedUrl.host === websocket._originalHostOrSocketPath;
-          if (!isSameHost || websocket._originalSecure && !isSecure) {
+          const isSameHost = isIpcUrl
+            ? websocket._originalIpc
+              ? opts.socketPath === websocket._originalHostOrSocketPath
+              : false
+            : websocket._originalIpc
+              ? false
+              : parsedUrl.host === websocket._originalHostOrSocketPath;
+          if (!isSameHost || (websocket._originalSecure && !isSecure)) {
             delete opts.headers.authorization;
             delete opts.headers.cookie;
             if (!isSameHost) delete opts.headers.host;
@@ -5697,7 +6025,8 @@ var require_websocket = __commonJS({
           }
         }
         if (opts.auth && !options.headers.authorization) {
-          options.headers.authorization = "Basic " + Buffer.from(opts.auth).toString("base64");
+          options.headers.authorization =
+            "Basic " + Buffer.from(opts.auth).toString("base64");
         }
         req = websocket._req = request(opts);
         if (websocket._redirects) {
@@ -5719,7 +6048,12 @@ var require_websocket = __commonJS({
       req.on("response", (res) => {
         const location = res.headers.location;
         const statusCode = res.statusCode;
-        if (location && opts.followRedirects && statusCode >= 300 && statusCode < 400) {
+        if (
+          location &&
+          opts.followRedirects &&
+          statusCode >= 300 &&
+          statusCode < 400
+        ) {
           if (++websocket._redirects > opts.maxRedirects) {
             abortHandshake(websocket, req, "Maximum redirects exceeded");
             return;
@@ -5751,9 +6085,15 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash("sha1")
+          .update(key + GUID)
+          .digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
-          abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
+          abortHandshake(
+            websocket,
+            socket,
+            "Invalid Sec-WebSocket-Accept header"
+          );
           return;
         }
         const serverProt = res.headers["sec-websocket-protocol"];
@@ -5775,7 +6115,8 @@ var require_websocket = __commonJS({
         const secWebSocketExtensions = res.headers["sec-websocket-extensions"];
         if (secWebSocketExtensions !== void 0) {
           if (!perMessageDeflate) {
-            const message = "Server sent a Sec-WebSocket-Extensions header but no extension was requested";
+            const message =
+              "Server sent a Sec-WebSocket-Extensions header but no extension was requested";
             abortHandshake(websocket, socket, message);
             return;
           }
@@ -5788,25 +6129,32 @@ var require_websocket = __commonJS({
             return;
           }
           const extensionNames = Object.keys(extensions);
-          if (extensionNames.length !== 1 || extensionNames[0] !== PerMessageDeflate.extensionName) {
-            const message = "Server indicated an extension that was not requested";
+          if (
+            extensionNames.length !== 1 ||
+            extensionNames[0] !== PerMessageDeflate.extensionName
+          ) {
+            const message =
+              "Server indicated an extension that was not requested";
             abortHandshake(websocket, socket, message);
             return;
           }
           try {
-            perMessageDeflate.accept(extensions[PerMessageDeflate.extensionName]);
+            perMessageDeflate.accept(
+              extensions[PerMessageDeflate.extensionName]
+            );
           } catch (err) {
             const message = "Invalid Sec-WebSocket-Extensions header";
             abortHandshake(websocket, socket, message);
             return;
           }
-          websocket._extensions[PerMessageDeflate.extensionName] = perMessageDeflate;
+          websocket._extensions[PerMessageDeflate.extensionName] =
+            perMessageDeflate;
         }
         websocket.setSocket(socket, head, {
           allowSynchronousEvents: opts.allowSynchronousEvents,
           generateMask: opts.generateMask,
           maxPayload: opts.maxPayload,
-          skipUTF8Validation: opts.skipUTF8Validation
+          skipUTF8Validation: opts.skipUTF8Validation,
         });
       });
       if (opts.finishRequest) {
@@ -5932,13 +6280,21 @@ var require_websocket = __commonJS({
       this.removeListener("end", socketOnEnd);
       websocket._readyState = WebSocket.CLOSING;
       let chunk;
-      if (!this._readableState.endEmitted && !websocket._closeFrameReceived && !websocket._receiver._writableState.errorEmitted && (chunk = websocket._socket.read()) !== null) {
+      if (
+        !this._readableState.endEmitted &&
+        !websocket._closeFrameReceived &&
+        !websocket._receiver._writableState.errorEmitted &&
+        (chunk = websocket._socket.read()) !== null
+      ) {
         websocket._receiver.write(chunk);
       }
       websocket._receiver.end();
       this[kWebSocket] = void 0;
       clearTimeout(websocket._closeTimer);
-      if (websocket._receiver._writableState.finished || websocket._receiver._writableState.errorEmitted) {
+      if (
+        websocket._receiver._writableState.finished ||
+        websocket._receiver._writableState.errorEmitted
+      ) {
         websocket.emitClose();
       } else {
         websocket._receiver.on("error", receiverOnFinish);
@@ -5965,7 +6321,7 @@ var require_websocket = __commonJS({
         this.destroy();
       }
     }
-  }
+  },
 });
 
 // node_modules/ws/lib/stream.js
@@ -5996,10 +6352,11 @@ var require_stream = __commonJS({
         autoDestroy: false,
         emitClose: false,
         objectMode: false,
-        writableObjectMode: false
+        writableObjectMode: false,
       });
       ws.on("message", function message(msg, isBinary) {
-        const data = !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
+        const data =
+          !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
         if (!duplex.push(data)) ws.pause();
       });
       ws.once("error", function error(err) {
@@ -6011,7 +6368,7 @@ var require_stream = __commonJS({
         if (duplex.destroyed) return;
         duplex.push(null);
       });
-      duplex._destroy = function(err, callback) {
+      duplex._destroy = function (err, callback) {
         if (ws.readyState === ws.CLOSED) {
           callback(err);
           process.nextTick(emitClose, duplex);
@@ -6028,7 +6385,7 @@ var require_stream = __commonJS({
         });
         if (terminateOnDestroy) ws.terminate();
       };
-      duplex._final = function(callback) {
+      duplex._final = function (callback) {
         if (ws.readyState === ws.CONNECTING) {
           ws.once("open", function open() {
             duplex._final(callback);
@@ -6046,10 +6403,10 @@ var require_stream = __commonJS({
           ws.close();
         }
       };
-      duplex._read = function() {
+      duplex._read = function () {
         if (ws.isPaused) ws.resume();
       };
-      duplex._write = function(chunk, encoding, callback) {
+      duplex._write = function (chunk, encoding, callback) {
         if (ws.readyState === ws.CONNECTING) {
           ws.once("open", function open() {
             duplex._write(chunk, encoding, callback);
@@ -6063,7 +6420,7 @@ var require_stream = __commonJS({
       return duplex;
     }
     module2.exports = createWebSocketStream;
-  }
+  },
 });
 
 // node_modules/ws/lib/subprotocol.js
@@ -6089,7 +6446,9 @@ var require_subprotocol = __commonJS({
           if (end === -1) end = i;
           const protocol2 = header.slice(start, end);
           if (protocols.has(protocol2)) {
-            throw new SyntaxError(`The "${protocol2}" subprotocol is duplicated`);
+            throw new SyntaxError(
+              `The "${protocol2}" subprotocol is duplicated`
+            );
           }
           protocols.add(protocol2);
           start = end = -1;
@@ -6108,7 +6467,7 @@ var require_subprotocol = __commonJS({
       return protocols;
     }
     module2.exports = { parse };
-  }
+  },
 });
 
 // node_modules/ws/lib/websocket-server.js
@@ -6179,9 +6538,13 @@ var require_websocket_server = __commonJS({
           path: null,
           port: null,
           WebSocket,
-          ...options
+          ...options,
         };
-        if (options.port == null && !options.server && !options.noServer || options.port != null && (options.server || options.noServer) || options.server && options.noServer) {
+        if (
+          (options.port == null && !options.server && !options.noServer) ||
+          (options.port != null && (options.server || options.noServer)) ||
+          (options.server && options.noServer)
+        ) {
           throw new TypeError(
             'One and only one of the "port", "server", or "noServer" options must be specified'
           );
@@ -6191,7 +6554,7 @@ var require_websocket_server = __commonJS({
             const body = http.STATUS_CODES[426];
             res.writeHead(426, {
               "Content-Length": body.length,
-              "Content-Type": "text/plain"
+              "Content-Type": "text/plain",
             });
             res.end(body);
           });
@@ -6211,7 +6574,7 @@ var require_websocket_server = __commonJS({
             error: this.emit.bind(this, "error"),
             upgrade: (req, socket, head) => {
               this.handleUpgrade(req, socket, head, emitConnection);
-            }
+            },
           });
         }
         if (options.perMessageDeflate === true) options.perMessageDeflate = {};
@@ -6328,7 +6691,7 @@ var require_websocket_server = __commonJS({
         if (version !== 13 && version !== 8) {
           const message = "Missing or invalid Sec-WebSocket-Version header";
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message, {
-            "Sec-WebSocket-Version": "13, 8"
+            "Sec-WebSocket-Version": "13, 8",
           });
           return;
         }
@@ -6349,7 +6712,10 @@ var require_websocket_server = __commonJS({
         }
         const secWebSocketExtensions = req.headers["sec-websocket-extensions"];
         const extensions = {};
-        if (this.options.perMessageDeflate && secWebSocketExtensions !== void 0) {
+        if (
+          this.options.perMessageDeflate &&
+          secWebSocketExtensions !== void 0
+        ) {
           const perMessageDeflate = new PerMessageDeflate(
             this.options.perMessageDeflate,
             true,
@@ -6362,35 +6728,43 @@ var require_websocket_server = __commonJS({
               extensions[PerMessageDeflate.extensionName] = perMessageDeflate;
             }
           } catch (err) {
-            const message = "Invalid or unacceptable Sec-WebSocket-Extensions header";
+            const message =
+              "Invalid or unacceptable Sec-WebSocket-Extensions header";
             abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
             return;
           }
         }
         if (this.options.verifyClient) {
           const info = {
-            origin: req.headers[`${version === 8 ? "sec-websocket-origin" : "origin"}`],
+            origin:
+              req.headers[
+                `${version === 8 ? "sec-websocket-origin" : "origin"}`
+              ],
             secure: !!(req.socket.authorized || req.socket.encrypted),
-            req
+            req,
           };
           if (this.options.verifyClient.length === 2) {
-            this.options.verifyClient(info, (verified, code, message, headers) => {
-              if (!verified) {
-                return abortHandshake(socket, code || 401, message, headers);
+            this.options.verifyClient(
+              info,
+              (verified, code, message, headers) => {
+                if (!verified) {
+                  return abortHandshake(socket, code || 401, message, headers);
+                }
+                this.completeUpgrade(
+                  extensions,
+                  key,
+                  protocols,
+                  req,
+                  socket,
+                  head,
+                  cb
+                );
               }
-              this.completeUpgrade(
-                extensions,
-                key,
-                protocols,
-                req,
-                socket,
-                head,
-                cb
-              );
-            });
+            );
             return;
           }
-          if (!this.options.verifyClient(info)) return abortHandshake(socket, 401);
+          if (!this.options.verifyClient(info))
+            return abortHandshake(socket, 401);
         }
         this.completeUpgrade(extensions, key, protocols, req, socket, head, cb);
       }
@@ -6415,16 +6789,20 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash("sha1")
+          .update(key + GUID)
+          .digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
           "Connection: Upgrade",
-          `Sec-WebSocket-Accept: ${digest}`
+          `Sec-WebSocket-Accept: ${digest}`,
         ];
         const ws = new this.options.WebSocket(null, void 0, this.options);
         if (protocols.size) {
-          const protocol = this.options.handleProtocols ? this.options.handleProtocols(protocols, req) : protocols.values().next().value;
+          const protocol = this.options.handleProtocols
+            ? this.options.handleProtocols(protocols, req)
+            : protocols.values().next().value;
           if (protocol) {
             headers.push(`Sec-WebSocket-Protocol: ${protocol}`);
             ws._protocol = protocol;
@@ -6433,7 +6811,7 @@ var require_websocket_server = __commonJS({
         if (extensions[PerMessageDeflate.extensionName]) {
           const params = extensions[PerMessageDeflate.extensionName].params;
           const value = extension.format({
-            [PerMessageDeflate.extensionName]: [params]
+            [PerMessageDeflate.extensionName]: [params],
           });
           headers.push(`Sec-WebSocket-Extensions: ${value}`);
           ws._extensions = extensions;
@@ -6444,7 +6822,7 @@ var require_websocket_server = __commonJS({
         ws.setSocket(socket, head, {
           allowSynchronousEvents: this.options.allowSynchronousEvents,
           maxPayload: this.options.maxPayload,
-          skipUTF8Validation: this.options.skipUTF8Validation
+          skipUTF8Validation: this.options.skipUTF8Validation,
         });
         if (this.clients) {
           this.clients.add(ws);
@@ -6480,15 +6858,27 @@ var require_websocket_server = __commonJS({
         Connection: "close",
         "Content-Type": "text/html",
         "Content-Length": Buffer.byteLength(message),
-        ...headers
+        ...headers,
       };
       socket.once("finish", socket.destroy);
       socket.end(
         `HTTP/1.1 ${code} ${http.STATUS_CODES[code]}\r
-` + Object.keys(headers).map((h) => `${h}: ${headers[h]}`).join("\r\n") + "\r\n\r\n" + message
+` +
+          Object.keys(headers)
+            .map((h) => `${h}: ${headers[h]}`)
+            .join("\r\n") +
+          "\r\n\r\n" +
+          message
       );
     }
-    function abortHandshakeOrEmitwsClientError(server2, req, socket, code, message, headers) {
+    function abortHandshakeOrEmitwsClientError(
+      server2,
+      req,
+      socket,
+      code,
+      message,
+      headers
+    ) {
       if (server2.listenerCount("wsClientError")) {
         const err = new Error(message);
         Error.captureStackTrace(err, abortHandshakeOrEmitwsClientError);
@@ -6497,7 +6887,7 @@ var require_websocket_server = __commonJS({
         abortHandshake(socket, code, message, headers);
       }
     }
-  }
+  },
 });
 
 // node_modules/ws/index.js
@@ -6512,13 +6902,13 @@ var require_ws = __commonJS({
     WebSocket.WebSocket = WebSocket;
     WebSocket.WebSocketServer = WebSocket.Server;
     module2.exports = WebSocket;
-  }
+  },
 });
 
 // api/server.ts
 var server_exports = {};
 __export(server_exports, {
-  default: () => server_default
+  default: () => server_default,
 });
 module.exports = __toCommonJS(server_exports);
 var import_supabase_js = require("@supabase/supabase-js");
@@ -6558,13 +6948,14 @@ var allowedOrigins = [
   "https://www.axixfinance.com",
   process.env.FRONTEND_URL,
   process.env.CLIENT_URL,
-  process.env.SITE_URL
+  process.env.SITE_URL,
 ].filter(Boolean);
 app.use(
   (0, import_cors.default)({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      const isAllowed = allowedOrigins.includes(origin) || origin.endsWith(".supabase.co");
+      const isAllowed =
+        allowedOrigins.includes(origin) || origin.endsWith(".supabase.co");
       if (isAllowed) {
         return callback(null, true);
       }
@@ -6573,7 +6964,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Info"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Info"],
   })
 );
 app.use(import_express.default.json());
@@ -6585,24 +6976,29 @@ if (!process.env.VERCEL) {
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1e3 * 60 * 60 * 24
+      maxAge: 1e3 * 60 * 60 * 24,
       // 24 hours
-    }
+    },
   });
   app.use(sessionMiddleware);
 }
-var SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+var SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 var SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-var supabaseAdmin = SUPABASE_URL && SERVICE_ROLE_KEY ? (0, import_supabase_js.createClient)(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-}) : null;
+var supabaseAdmin =
+  SUPABASE_URL && SERVICE_ROLE_KEY
+    ? (0, import_supabase_js.createClient)(SUPABASE_URL, SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
 app.get("/api/health", (req, res) => {
   try {
     const diagnostics = {
       NODE_ENV: process.env.NODE_ENV || null,
       VERCEL: process.env.VERCEL || null,
       SUPABASE_URL: process.env.SUPABASE_URL || null,
-      SUPABASE_SERVICE_ROLE_KEY_PRESENT: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_SERVICE_ROLE_KEY_PRESENT:
+        !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
       SERVICE_ROLE_KEY_PRESENT: !!SERVICE_ROLE_KEY,
       SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
@@ -6610,14 +7006,14 @@ app.get("/api/health", (req, res) => {
       PORT: process.env.PORT || null,
       SITE_URL: process.env.SITE_URL || null,
       FRONTEND_URL: process.env.FRONTEND_URL || null,
-      CLIENT_URL: process.env.CLIENT_URL || null
+      CLIENT_URL: process.env.CLIENT_URL || null,
     };
     res.json({ status: "ok", diagnostics });
   } catch (err) {
     console.error("[health-error]", err);
     res.status(500).json({
       error: "health endpoint crash",
-      details: err && err.message ? err.message : String(err)
+      details: err && err.message ? err.message : String(err),
     });
   }
 });
@@ -6627,7 +7023,8 @@ app.get("/api/ping", (req, res) => {
       NODE_ENV: process.env.NODE_ENV || null,
       VERCEL: process.env.VERCEL || null,
       SUPABASE_URL: process.env.SUPABASE_URL || null,
-      SUPABASE_SERVICE_ROLE_KEY_PRESENT: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_SERVICE_ROLE_KEY_PRESENT:
+        !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
       SERVICE_ROLE_KEY_PRESENT: !!SERVICE_ROLE_KEY,
       SUPABASE_ADMIN_CONFIGURED: !!supabaseAdmin,
@@ -6635,19 +7032,19 @@ app.get("/api/ping", (req, res) => {
       PORT: process.env.PORT || null,
       SITE_URL: process.env.SITE_URL || null,
       FRONTEND_URL: process.env.FRONTEND_URL || null,
-      CLIENT_URL: process.env.CLIENT_URL || null
+      CLIENT_URL: process.env.CLIENT_URL || null,
     };
     res.json({
       status: "ok",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      timestamp: /* @__PURE__ */ new Date().toISOString(),
       environment: process.env.NODE_ENV || null,
-      diagnostics
+      diagnostics,
     });
   } catch (err) {
     console.error("[ping-error]", err);
     res.status(500).json({
       error: "ping endpoint crash",
-      details: err && err.message ? err.message : String(err)
+      details: err && err.message ? err.message : String(err),
     });
   }
 });
@@ -6678,25 +7075,33 @@ app.post("/api/auth/create-profile", async (req, res) => {
     if (!uid || !email || !username) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    const { data, error } = await supabaseAdmin.from("users").insert([
-      {
-        uid,
-        email,
-        username,
-        first_name: firstName || null,
-        last_name: lastName || null,
-        full_name: firstName && lastName ? `${firstName} ${lastName}` : null,
-        role: "user",
-        is_active: true,
-        balance: "0"
-      }
-    ]).select().single();
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .insert([
+        {
+          uid,
+          email,
+          username,
+          first_name: firstName || null,
+          last_name: lastName || null,
+          full_name: firstName && lastName ? `${firstName} ${lastName}` : null,
+          role: "user",
+          is_active: true,
+          balance: "0",
+        },
+      ])
+      .select()
+      .single();
     if (error) {
       const code = error.code;
       if (code === "23505") {
-        return res.status(409).json({ error: "Username or email already exists" });
+        return res
+          .status(409)
+          .json({ error: "Username or email already exists" });
       }
-      return res.status(500).json({ error: error.message || "Failed to create profile" });
+      return res
+        .status(500)
+        .json({ error: error.message || "Failed to create profile" });
     }
     return res.json({ success: true, user: data });
   } catch (e) {
@@ -6718,10 +7123,15 @@ app.get("/api/admin/users", async (req, res) => {
     const {
       data: users,
       error,
-      count
-    } = await supabaseAdmin.from("users").select("*", { count: "exact" }).range(offset, offset + limit - 1);
+      count,
+    } = await supabaseAdmin
+      .from("users")
+      .select("*", { count: "exact" })
+      .range(offset, offset + limit - 1);
     if (error) {
-      return res.status(500).json({ error: "Failed to fetch users", details: error.message });
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch users", details: error.message });
     }
     return res.status(200).json({
       users,
@@ -6729,13 +7139,13 @@ app.get("/api/admin/users", async (req, res) => {
         page,
         limit,
         total: count || 0,
-        pages: Math.ceil((count || 0) / limit)
-      }
+        pages: Math.ceil((count || 0) / limit),
+      },
     });
   } catch (e) {
     return res.status(500).json({
       error: "Internal server error",
-      details: e?.message || String(e)
+      details: e?.message || String(e),
     });
   }
 });
@@ -6745,7 +7155,7 @@ app.get("/api/debug/status", (req, res) => {
       supabaseAdminConfigured: !!supabaseAdmin,
       supabaseUrlPresent: !!SUPABASE_URL,
       serviceRoleKeyPresent: !!SERVICE_ROLE_KEY,
-      nodeEnv: process.env.NODE_ENV || null
+      nodeEnv: process.env.NODE_ENV || null,
     });
   } catch (e) {
     return res.status(500).json({ error: String(e) });
@@ -6754,7 +7164,7 @@ app.get("/api/debug/status", (req, res) => {
 app.use("/api", (req, res) => {
   return res.status(404).json({
     error: "Not Found",
-    message: `No handler for ${req.method} ${req.path}`
+    message: `No handler for ${req.method} ${req.path}`,
   });
 });
 app.get("/api", (req, res) => {
