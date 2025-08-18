@@ -44,9 +44,9 @@ export async function sendWelcomeEmail(user: {
 }): Promise<{ success: boolean; message: string }> {
   try {
     // Prefer same-origin relative path to satisfy production CSP; fall back to explicit base if provided
-  const base = config.apiUrl.replace(/\/$/, "");
-  const relative = base.startsWith("/");
-  const url = `${relative ? "" : base}/api/send-welcome-email`;
+    const base = config.apiUrl.replace(/\/$/, "");
+    const relative = base.startsWith("/");
+    const url = `${relative ? "" : base}/api/send-welcome-email`;
     // Lightweight client-side debug (won't leak secrets)
     if (typeof window !== "undefined") {
       (window as any)._welcomeEmailDebug = { url, ts: Date.now() };
@@ -97,10 +97,10 @@ export async function sendTestEmail(
   recipientEmail: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-  const base2 = config.apiUrl.replace(/\/$/, "");
-  const rel2 = base2.startsWith("/");
-  const testUrl = `${rel2 ? "" : base2}/api/admin/test-email`;
-  const response = await fetch(testUrl, {
+    const base2 = config.apiUrl.replace(/\/$/, "");
+    const rel2 = base2.startsWith("/");
+    const testUrl = `${rel2 ? "" : base2}/api/admin/test-email`;
+    const response = await fetch(testUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

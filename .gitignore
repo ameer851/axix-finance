@@ -98,6 +98,14 @@ drizzle.config.*.backup
 
 # Local migration state snapshots not meant for commit
 migrations/*.tmp
+
+# Exclude disabled API and legacy files from deployment
+api_disabled/
+api/health.ts
+api/routes.ts.new
+api/package.json
+api/utils/
+api/lib/
 migrations/*-scratch.sql
 
 # Backup / legacy server route files

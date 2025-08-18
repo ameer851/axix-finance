@@ -2,8 +2,8 @@
  * API client with consistent error handling for JSON responses
  */
 
-import { supabase } from "./supabase";
 import config from "../config";
+import { supabase } from "./supabase";
 
 interface FetchOptions extends RequestInit {
   timeout?: number;

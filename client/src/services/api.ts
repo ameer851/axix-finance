@@ -1,5 +1,5 @@
-import { apiFetch } from "../utils/apiFetch";
 import config from "../config";
+import { apiFetch } from "../utils/apiFetch";
 /**
  * API Service for Axix Finance
  * Centralizes all API calls to the backend
