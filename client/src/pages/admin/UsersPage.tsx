@@ -1,4 +1,38 @@
-import AdminFilters, { FilterState } from "@/components/AdminFilters";
+import AdminFilters, { F  // Guard/mapper for API responses
+function toMinimalUser(raw: any): MinimalUser {
+  try {
+    if (!raw || typeof raw !== "object")
+      throw new Error("Invalid user object from API");
+    if (!raw.id || !raw.email)
+      throw new Error("User object missing required fields: id or email");
+
+    // Safely convert values to their expected types
+    const user: MinimalUser = {
+      id: String(raw.id || ""),
+      email: String(raw.email || ""),
+      username: raw.username ? String(raw.username) : null,
+      firstName: raw.firstName ? String(raw.firstName) : null,
+      lastName: raw.lastName ? String(raw.lastName) : null,
+      role: raw.role === "admin" ? "admin" : "user",
+      balance: raw.balance ? String(raw.balance) : null,
+      isVerified: Boolean(raw.isVerified),
+      isActive: Boolean(raw.isActive),
+      createdAt: raw.createdAt ? String(raw.createdAt) : null,
+      updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+    };
+    
+    return user;
+  } catch (error) {
+    console.error("Error parsing user data:", error, "Raw data:", raw);
+    // Return a minimal valid user object to prevent UI crashes
+    return {
+      id: String(raw.id || "unknown"),
+      email: String(raw.email || "invalid@email"),
+      isVerified: false,
+      isActive: false,
+      role: "user"
+    };
+  }@/components/AdminFilters";
 import BulkActions, { createUserBulkActions } from "@/components/BulkActions";
 import { useAdminActions, useAdminData } from "@/hooks/use-admin-data";
 import { useToast } from "@/hooks/use-toast";
@@ -24,23 +58,34 @@ interface MinimalUser {
 
 // Guard/mapper for API responses
 function toMinimalUser(raw: any): MinimalUser {
-  if (!raw || typeof raw !== "object")
-    throw new Error("Invalid user object from API");
-  if (!raw.id || !raw.email)
-    throw new Error("User object missing required fields: id or email");
-  return {
-    id: String(raw.id),
-    email: String(raw.email),
-    username: raw.username != null ? String(raw.username) : null,
-    firstName: raw.firstName != null ? String(raw.firstName) : null,
-    lastName: raw.lastName != null ? String(raw.lastName) : null,
-    role: raw.role === "admin" ? "admin" : "user",
-    balance: raw.balance != null ? String(raw.balance) : null,
-    isVerified: raw.isVerified ?? false,
-    isActive: raw.isActive ?? false,
-    createdAt: raw.createdAt != null ? String(raw.createdAt) : null,
-    updatedAt: raw.updatedAt != null ? String(raw.updatedAt) : null,
-  };
+  try {
+    if (!raw || typeof raw !== "object") {
+      throw new Error("Invalid user object from API");
+    }
+    
+    return {
+      id: String(raw.id || "unknown"),
+      email: String(raw.email || "invalid@email"),
+      username: raw.username ? String(raw.username) : null,
+      firstName: raw.firstName ? String(raw.firstName) : null,
+      lastName: raw.lastName ? String(raw.lastName) : null,
+      role: raw.role === "admin" ? "admin" : "user",
+      balance: raw.balance ? String(raw.balance) : null,
+      isVerified: Boolean(raw.isVerified),
+      isActive: Boolean(raw.isActive),
+      createdAt: raw.createdAt ? String(raw.createdAt) : null,
+      updatedAt: raw.updatedAt ? String(raw.updatedAt) : null
+    };
+  } catch (error) {
+    console.error("Error parsing user data:", error, "Raw data:", raw);
+    return {
+      id: String(raw.id || "unknown"),
+      email: String(raw.email || "invalid@email"),
+      isVerified: false,
+      isActive: false,
+      role: "user"
+    };
+  }
 }
 
 interface UserFormData {
@@ -350,9 +395,20 @@ export default function AdminUsers() {
     return "Active";
   };
 
+  // Responsive table wrapper
+  const TableWrapper = ({ children }: { children: React.ReactNode }) => (
+    <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8">
+      <div className="inline-block min-w-full align-middle">
+        <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="animate-pulse">
+      <div className="animate-pulse p-4">
         <div className="h-8 bg-gray-300 rounded w-1/4 mb-6"></div>
         <div className="bg-white shadow rounded-lg">
           <div className="p-6 space-y-4">

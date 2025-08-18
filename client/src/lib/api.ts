@@ -22,6 +22,15 @@ function safeJsonParse(text: string) {
     };
   }
 
+  // Try to detect non-JSON content early
+  const firstChar = text.trim()[0];
+  if (firstChar !== "{" && firstChar !== "[" && firstChar !== '"') {
+    return {
+      data: null,
+      error: new Error("Invalid JSON response: Response is not in JSON format"),
+    };
+  }
+
   // Check if response is HTML (common server error pages)
   if (
     text.trim().startsWith("<!DOCTYPE html>") ||

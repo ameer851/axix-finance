@@ -22,7 +22,7 @@ import DepositsPage from "@/pages/admin/DepositsPage";
 import MaintenancePageStatic from "@/pages/admin/MaintenancePageStatic";
 import SettingsPageStatic from "@/pages/admin/SettingsPageStatic";
 import UsersPageSimple from "@/pages/admin/UsersPageSimple";
-import VisitorsPage from "@/pages/admin/VisitorsPage";
+// VisitorsPage removed
 import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
 import Deposit from "@/pages/Client/Deposit";
 import DepositConfirmation from "@/pages/Client/DepositConfirmation";
@@ -433,15 +433,7 @@ function Router() {
               </ProtectedRoute>
             )}
           </Route>
-          <Route path="/admin/visitors">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <VisitorsPage />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
+          {/* Visitors page removed */}
         </>
       )}
       {!ENABLE_LEGACY_ADMIN && (

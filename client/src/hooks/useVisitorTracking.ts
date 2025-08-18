@@ -14,7 +14,8 @@ export const useVisitorTracking = () => {
   // Silenced: disable all network tracking in production if env flag set
   const disabled = import.meta.env.VITE_DISABLE_VISITOR_TRACKING === "true";
   if (disabled) {
-    return; // no-ops
+    // Explicit no-op: don't register any effects or listeners
+    return;
   }
   const [location] = useLocation();
   const sessionInitialized = useRef(false);

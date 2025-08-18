@@ -1,37 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const esbuild = require("esbuild");
 
-const API_ENTRIES = ["api/server.ts"];
-
-async function main() {
-  const entries = API_ENTRIES.filter((entry) => fs.existsSync(entry));
-
-  if (entries.length === 0) {
-    console.log("[build:api] No API source files found to build");
-    return;
-  }
-
-  console.log("[build:api] Building API files:", entries.join(", "));
-
-  try {
-    await esbuild.build({
-      entryPoints: entries,
-      bundle: true,
-      platform: "node",
-      format: "cjs",
-      outdir: "api",
-      external: ["@vercel/node", "express", "@supabase/supabase-js"],
-      target: "node18",
-    });
-    console.log("[build:api] Successfully built API files");
-  } catch (error) {
-    console.error("[build:api] Build failed:", error);
-    process.exit(1);
-  }
-}
-
-// Inline prune step: move extra api files to api_disabled/pruned when asked
 function ensureDir(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
 }
@@ -42,6 +11,7 @@ function moveFile(src, dest) {
     fs.renameSync(src, dest);
     console.log(`[prune-api] Moved ${src} -> ${dest}`);
   } catch (e) {
+    // Fallback to copy+unlink for cross-device
     try {
       fs.copyFileSync(src, dest);
       fs.unlinkSync(src);
@@ -52,7 +22,7 @@ function moveFile(src, dest) {
   }
 }
 
-function runPrune() {
+function main() {
   const shouldPrune =
     process.env.VERCEL === "1" || process.env.PRUNE_API === "1";
   if (!shouldPrune) {
@@ -88,10 +58,4 @@ function runPrune() {
   }
 }
 
-main().catch((err) => {
-  console.error("[build:api] Failed:", err && err.message ? err.message : err);
-  process.exit(1);
-});
-
-// run prune after build
-runPrune();
+main();

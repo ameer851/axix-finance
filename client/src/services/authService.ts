@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { User } from "@shared/schema";
+import config from "../config";
 import { apiFetch } from "../utils/apiFetch";
 
 // Minimal user shape (still exported if other modules rely on it)
@@ -20,19 +21,22 @@ interface RegistrationUser extends User {
   _registrationMessage?: string;
 }
 
-// Check if Supabase is available
+// Check if server is available
 export async function checkServerConnection(): Promise<boolean> {
   try {
-    console.log("Testing Supabase connection...");
-    const { data, error } = await supabase.from("users").select("id").limit(1);
-    if (error) {
-      console.error("Supabase connection error:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-      });
-      return false;
+    // First check our API server
+    try {
+      const data = await apiFetch(`${config.apiUrl}/api/ping`);
+      if (data.status !== "ok") {
+        console.error("API server reported unhealthy status:", data);
+        throw new Error("API server reported unhealthy status");
+      }
+      console.log("API server connection successful:", data);
+    } catch (apiError) {
+      console.error("API server connection failed:", apiError);
+      throw new Error("API server is not responding");
     }
+    // If API is up, treat service as available. Supabase RLS may block anon reads, so don't hard-fail here.
     return true;
   } catch (error) {
     console.error("Supabase connection check failed:", error);
@@ -44,13 +48,6 @@ export async function logout(): Promise<void> {
   try {
     const { error: supabaseError } = await supabase.auth.signOut();
     if (supabaseError) console.warn("Supabase sign out error:", supabaseError);
-
-    // Session-based logout endpoint (best-effort)
-    try {
-      await apiFetch("/api/logout", { method: "POST", credentials: "include" });
-    } catch (e) {
-      console.warn("Logout endpoint call failed, continuing cleanup");
-    }
 
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
@@ -69,36 +66,24 @@ export async function login(
   try {
     let email = identifier;
     if (!identifier.includes("@")) {
-      // Resolve username/uid to email via backend to avoid RLS/env issues
-      try {
-        const resolved = await apiFetch("/api/auth/resolve-identifier", {
-          method: "POST",
-          body: { identifier },
-        });
-        if (!resolved?.email) {
-          throw new Error("Invalid username or password.");
-        }
-        email = resolved.email as string;
-      } catch (e) {
-        // Fallback to direct query as last resort
-        const isUuid =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            identifier
-          );
-        let userQuery = supabase.from("users").select("email, username");
-        if (isUuid) {
-          userQuery = userQuery.or(
-            `username.eq.${identifier},uid.eq.${identifier}`
-          );
-        } else {
-          userQuery = userQuery.eq("username", identifier);
-        }
-        const { data: users, error: usersError } = await userQuery.limit(1);
-        if (usersError || !users || users.length === 0) {
-          throw new Error("Invalid username or password.");
-        }
-        email = users[0].email;
+      // Resolve username/uid to email directly via Supabase
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          identifier
+        );
+      let userQuery = supabase.from("users").select("email, username");
+      if (isUuid) {
+        userQuery = userQuery.or(
+          `username.eq.${identifier},uid.eq.${identifier}`
+        );
+      } else {
+        userQuery = userQuery.eq("username", identifier);
       }
+      const { data: users, error: usersError } = await userQuery.limit(1);
+      if (usersError || !users || users.length === 0) {
+        throw new Error("Invalid username or password.");
+      }
+      email = users[0].email;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -106,29 +91,7 @@ export async function login(
       password,
     });
     if (error) {
-      // Try to diagnose for a better message
-      try {
-        const diag = await apiFetch("/api/auth/diagnose-login", {
-          method: "POST",
-          body: { identifier },
-        });
-        const code = diag?.code;
-        const map: Record<string, string> = {
-          username_not_found: "Username not found.",
-          profile_missing: "No user profile exists for this account.",
-          account_deactivated: "Account is deactivated.",
-          auth_unlinked: "Account setup incomplete. Please contact support.",
-          auth_user_missing: "No authentication account exists for this email.",
-        };
-        const friendly =
-          diag?.message ||
-          map[code] ||
-          error.message ||
-          "Invalid username or password.";
-        throw new Error(friendly);
-      } catch {
-        throw new Error(error.message || "Invalid username or password.");
-      }
+      throw new Error(error.message || "Invalid username or password.");
     }
     if (!data.user)
       throw new Error("No user data returned from authentication.");
@@ -250,36 +213,31 @@ export async function register(userData: {
     if (!auth.user?.id)
       throw new Error("Failed to create user account - no user ID returned");
 
-    // Insert using snake_case columns (matches canonical DB schema) to avoid 400 errors
-    const { data: newUser, error: insertError } = await supabase
-      .from("users")
-      .insert([
-        {
+    // Create profile via backend to bypass RLS with service role
+    let newUser: any = null;
+    try {
+      newUser = await apiFetch(`${config.apiUrl}/api/auth/create-profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           uid: auth.user.id,
           email: userData.email,
           username: userData.username,
-          first_name: userData.firstName,
-          last_name: userData.lastName,
-          full_name: `${userData.firstName} ${userData.lastName}`,
-          role: "user",
-          is_active: true,
-          balance: "0",
-        } as any,
-      ])
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("[register] insert users error", insertError);
-      const code = (insertError as any).code;
-      if (code === "23505") throw new Error("Username or email already exists");
-      if (code === "23503") throw new Error("Invalid reference data");
-      if (code === "23502") throw new Error("Missing required fields");
-      if (code === "PGRST301")
-        throw new Error("Database connection error. Please try again");
-      throw new Error(
-        insertError.message || "Registration failed. Please try again."
-      );
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+        }),
+      }).then((r: any) => r.user || r);
+    } catch (e: any) {
+      // If profile already exists (race or trigger), read it
+      const { data: existing, error: readErr } = await supabase
+        .from("users")
+        .select("*")
+        .eq("uid", auth.user.id)
+        .single();
+      if (readErr || !existing) {
+        throw new Error(e?.message || "Failed to create user profile");
+      }
+      newUser = existing;
     }
 
     // Attempt welcome email (await for visibility but non-fatal)

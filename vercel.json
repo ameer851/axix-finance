@@ -10,19 +10,19 @@
     }
   },
   "functions": {
-    "api/**": {
+    "api/server.js": {
       "memory": 1024,
       "maxDuration": 10
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
+      "source": "/api",
+      "destination": "/api/server"
     },
     {
-      "source": "/api",
-      "destination": "/api/index"
+      "source": "/api/(.*)",
+      "destination": "/api/server"
     },
     {
       "source": "/(.*)",
@@ -36,10 +36,6 @@
         {
           "key": "Access-Control-Allow-Credentials",
           "value": "true"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
         },
         {
           "key": "Access-Control-Allow-Methods",

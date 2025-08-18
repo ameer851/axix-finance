@@ -3,7 +3,6 @@ import { useAuth } from "@/context/AuthContext";
 import {
   ArrowUp,
   DollarSign,
-  Eye,
   FileText,
   Home,
   LogOut,
@@ -45,7 +44,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const navigation = [
     { name: "Dashboard", href: "/admin", icon: Home },
     { name: "Users", href: "/admin/users", icon: Users },
-    { name: "Visitors", href: "/admin/visitors", icon: Eye },
+    // { name: "Visitors", href: "/admin/visitors", icon: Eye }, // removed
     { name: "Deposits", href: "/admin/deposits", icon: DollarSign },
     { name: "Withdrawals", href: "/admin/withdrawals", icon: ArrowUp },
     { name: "Settings", href: "/admin/settings", icon: Settings },
