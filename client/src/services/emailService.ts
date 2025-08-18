@@ -1,3 +1,4 @@
+import config from "../config";
 /**
  * Request an email change and initiate verification process
  * @param newEmail The new email address to use
@@ -43,12 +44,9 @@ export async function sendWelcomeEmail(user: {
 }): Promise<{ success: boolean; message: string }> {
   try {
     // Prefer same-origin relative path to satisfy production CSP; fall back to explicit base if provided
-    const envBase = (import.meta.env.VITE_API_URL as string | undefined) || "";
-    const baseOk =
-      envBase && !/^(undefined|null)$/i.test(envBase) ? envBase : "";
-    const preferRelative = typeof window !== "undefined";
-    const apiBase = preferRelative ? "" : baseOk.replace(/\/$/, "");
-    const url = `${apiBase}/api/send-welcome-email`;
+  const base = config.apiUrl.replace(/\/$/, "");
+  const relative = base.startsWith("/");
+  const url = `${relative ? "" : base}/api/send-welcome-email`;
     // Lightweight client-side debug (won't leak secrets)
     if (typeof window !== "undefined") {
       (window as any)._welcomeEmailDebug = { url, ts: Date.now() };
@@ -99,7 +97,10 @@ export async function sendTestEmail(
   recipientEmail: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await fetch("/api/admin/test-email", {
+  const base2 = config.apiUrl.replace(/\/$/, "");
+  const rel2 = base2.startsWith("/");
+  const testUrl = `${rel2 ? "" : base2}/api/admin/test-email`;
+  const response = await fetch(testUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

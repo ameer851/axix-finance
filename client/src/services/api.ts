@@ -1,4 +1,5 @@
 import { apiFetch } from "../utils/apiFetch";
+import config from "../config";
 /**
  * API Service for Axix Finance
  * Centralizes all API calls to the backend
@@ -7,7 +8,7 @@ import { apiFetch } from "../utils/apiFetch";
 import { supabase } from "@/lib/supabase";
 import { Transaction, User } from "@shared/schema";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+const API_BASE_URL = config.apiUrl;
 
 // Helper function to handle fetch responses
 const handleResponse = async (response: Response) => {

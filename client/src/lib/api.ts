@@ -3,6 +3,7 @@
  */
 
 import { supabase } from "./supabase";
+import config from "../config";
 
 interface FetchOptions extends RequestInit {
   timeout?: number;
@@ -311,7 +312,7 @@ export async function apiRequest<T>(
   body?: any,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${import.meta.env.VITE_API_URL || "/api"}${endpoint}`;
+  const url = `${config.apiUrl}${endpoint}`;
 
   const headers = {
     "Content-Type": "application/json",
@@ -319,18 +320,18 @@ export async function apiRequest<T>(
     ...options.headers,
   };
 
-  const config: RequestInit = {
+  const requestConfig: RequestInit = {
     method,
     ...options,
     headers,
   };
 
   if (body) {
-    config.body = JSON.stringify(body);
+    requestConfig.body = JSON.stringify(body);
   }
 
   // Use apiFetch for consistent error handling
-  return await apiFetch<T>(url, config);
+  return await apiFetch<T>(url, requestConfig);
 }
 
 export interface FetchWithTimeoutOptions extends RequestInit {

@@ -242,15 +242,9 @@ export async function register(userData: {
 
     // Attempt welcome email (await for visibility but non-fatal)
     try {
-      const envBase =
-        (import.meta.env.VITE_API_URL as string | undefined) || "";
-      const apiBase =
-        envBase && !/^(undefined|null)$/i.test(envBase)
-          ? envBase.replace(/\/$/, "")
-          : "";
-      const preferRelative = typeof window !== "undefined";
-      const baseToUse = preferRelative ? "" : apiBase;
-      const url = `${baseToUse}/api/send-welcome-email`;
+      const base = config.apiUrl.replace(/\/$/, "");
+      const relative = base.startsWith("/");
+      const url = `${relative ? "" : base}/api/send-welcome-email`;
       console.log(
         "[register] Dispatching welcome email to",
         newUser.email,

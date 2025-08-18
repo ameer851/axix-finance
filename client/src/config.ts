@@ -1,10 +1,33 @@
 // Application configuration
+// Defensive resolver for API base to avoid malformed env values (e.g., pasted CLI commands)
+function resolveApiUrl(): string {
+  const raw = (import.meta.env as any)?.VITE_API_URL as string | undefined;
+  if (!raw) return "/api";
+  const s = String(raw).trim();
+  if (!s) return "/api";
+
+  // Reject obvious bad inputs: spaces, semicolons, or encoded spaces that indicate pasted commands
+  if (/[\s;]|%20/i.test(s)) {
+    console.warn("Invalid VITE_API_URL detected, falling back to /api", s);
+    return "/api";
+  }
+
+  // Allow relative API mount points (e.g., "/api")
+  if (s.startsWith("/")) return s;
+
+  // Allow absolute origins only (no path)
+  if (/^https?:\/\/[^\/]+\/?$/i.test(s)) {
+    return s.replace(/\/$/, "");
+  }
+
+  console.warn("Unrecognized VITE_API_URL format, falling back to /api", s);
+  return "/api";
+}
+
 const config = {
   // API base URL - Prefer same-origin /api in prod to avoid cross-origin HTML/SSO gates
-  // Override with VITE_API_URL only if explicitly provided
-  apiUrl: import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL
-    : "/api",
+  // Override with VITE_API_URL only if explicitly provided and valid
+  apiUrl: resolveApiUrl(),
 
   // Frontend URL - environment dependent
   frontendUrl:
