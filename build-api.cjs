@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const esbuild = require("esbuild");
 
-const API_ENTRIES = ["api/server.ts"];
+const API_ENTRIES = ["api/server.ts"]; // primary source; we re-include via .vercelignore !api/server.ts
 
 async function main() {
   const entries = API_ENTRIES.filter((entry) => fs.existsSync(entry));
@@ -24,6 +24,20 @@ async function main() {
       external: ["@vercel/node", "express", "@supabase/supabase-js"],
       target: "node18",
     });
+    // Ensure handler export for Vercel: module.exports = app
+    const outFile = path.join(process.cwd(), "api", "server.js");
+    if (fs.existsSync(outFile)) {
+      let content = fs.readFileSync(outFile, "utf8");
+      if (!/module\.exports\s*=\s*app\s*;/.test(content)) {
+        content += "\nmodule.exports = app;\n";
+        fs.writeFileSync(outFile, content);
+        console.log("[build:api] Appended CommonJS handler export to api/server.js");
+      } else {
+        console.log("[build:api] CommonJS handler export already present");
+      }
+    } else {
+      console.warn("[build:api] Expected output api/server.js not found after build");
+    }
     console.log("[build:api] Successfully built API files");
   } catch (error) {
     console.error("[build:api] Build failed:", error);

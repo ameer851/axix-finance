@@ -29,7 +29,8 @@ _.backup_
 api/auth.ts
 api/health.ts
 api/ping.ts
-api/server.ts
+# allow server.ts for bundling (we'll include it explicitly below)
+# api/server.ts
 api/fallback.ts
 api/routes.ts.new
 
@@ -37,6 +38,8 @@ api/routes.ts.new
 api/index.ts
 api/**/*.ts
 api/**/*.tsx
+# re-include the single TS entry we bundle into api/server.js
+!api/server.ts
 # Do not deploy standalone ping; route through api/index.js handler
 # !api/ping.ts
 
