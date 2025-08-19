@@ -1,16 +1,28 @@
-import react from "@vitejs/plugin-react";
 import express, { type Express } from "express";
 import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createLogger, createServer as createViteServer } from "vite";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Compute a base directory that works in both CJS and ESM bundles
+let baseDir: string;
+try {
+  // @ts-ignore __dirname exists in CJS
+  baseDir =
+    typeof __dirname !== "undefined"
+      ? __dirname
+      : path.dirname(fileURLToPath(import.meta.url));
+} catch {
+  baseDir = process.cwd();
+}
 
-const viteLogger = createLogger();
+// Create a minimal shim logger; real Vite logger will be created dynamically in dev
+const viteLogger = {
+  error: (msg: any) => console.error(msg),
+  warn: (msg: any) => console.warn(msg),
+  info: (msg: any) => console.log(msg),
+};
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -39,21 +51,30 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
+  // Dynamically import Vite and plugin-react only when needed (dev)
+  if (process.env.NODE_ENV !== "development") {
+    throw new Error("setupVite should only be called in development mode");
+  }
+  const viteMod = await import("vite");
+  const { default: react } = await import("@vitejs/plugin-react");
+  const createViteServer = viteMod.createServer;
+  const realLogger = viteMod.createLogger();
+
   const vite = await createViteServer({
     configFile: false,
-    root: path.resolve(__dirname, "..", "client"),
+    root: path.resolve(baseDir, "..", "client"),
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "..", "client", "src"),
-        "@shared": path.resolve(__dirname, "..", "shared"),
-        "@assets": path.resolve(__dirname, "..", "attached_assets"),
+        "@": path.resolve(baseDir, "..", "client", "src"),
+        "@shared": path.resolve(baseDir, "..", "shared"),
+        "@assets": path.resolve(baseDir, "..", "attached_assets"),
       },
     },
     plugins: [react()],
     customLogger: {
-      ...viteLogger,
+      ...realLogger,
       error: (msg, options) => {
-        viteLogger.error(msg, options);
+        realLogger.error(msg, options);
         process.exit(1);
       },
     },
@@ -67,7 +88,7 @@ export async function setupVite(app: Express, server: Server) {
 
     try {
       const clientTemplate = path.resolve(
-        __dirname,
+        baseDir,
         "..",
         "client",
         "index.html"
@@ -89,7 +110,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
+  const distPath = path.resolve(baseDir, "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

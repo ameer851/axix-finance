@@ -11,6 +11,7 @@
   },
   "functions": {
     "api/server.js": {
+      "runtime": "nodejs20.x",
       "memory": 1024,
       "maxDuration": 10
     }
@@ -18,11 +19,11 @@
   "rewrites": [
     {
       "source": "/api",
-      "destination": "/api/server"
+      "destination": "/api/server.js"
     },
     {
       "source": "/api/(.*)",
-      "destination": "/api/server"
+      "destination": "/api/server.js"
     },
     {
       "source": "/(.*)",

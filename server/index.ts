@@ -1,5 +1,4 @@
 import cors from "cors";
-import "dotenv/config"; // Load .env file
 import express, { NextFunction, type Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { setupAdminApi } from "./admin-api";
@@ -38,27 +37,9 @@ const app = express();
 setupAuth(app);
 
 // Health check endpoint - no rate limiting
-app.get("/health", async (req: Request, res: Response) => {
-  try {
-    const dbConnected = await checkDatabaseConnection();
-    if (!dbConnected) {
-      return res.status(200).json({
-        status: "ok",
-        message: "Server is running with limited functionality",
-        database: "disconnected",
-      });
-    }
-    res.status(200).json({
-      status: "ok",
-      database: "connected",
-    });
-  } catch (error) {
-    res.status(200).json({
-      status: "ok",
-      message: "Server is running with limited functionality",
-      database: "error",
-    });
-  }
+app.get("/health", (_req: Request, res: Response) => {
+  // Do not perform external checks here; keep it fast and reliable for Fly health probes
+  res.status(200).json({ status: "ok" });
 });
 
 // Declare global variables for TypeScript
@@ -121,7 +102,10 @@ app.use(
       ].filter(Boolean); // Remove undefined/null values
 
       // Check if the origin is in our allowed origins
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        /https?:\/\/[a-z0-9-]+\.fly\.dev$/i.test(origin)
+      ) {
         return callback(null, true);
       }
 
@@ -381,61 +365,16 @@ app.use("/api/visitors", visitorRouter);
 
   // ALWAYS serve the app on a configurable port
   // this serves both the API and the client
-  const port = parseInt(process.env.PORT || "4000");
-  const host = "127.0.0.1"; // Force IPv4 localhost for Windows compatibility
+  const port = parseInt(
+    process.env.PORT ||
+      (process.env.NODE_ENV === "production" ? "8080" : "4000")
+  );
+  // In containers (Fly.io), bind to 0.0.0.0 so the proxy can reach the service
+  const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1"; // Bind to all interfaces in production
 
   // Check database connection before starting the server
   try {
-    // Always check database connection regardless of environment
-    const dbConnected = await checkDatabaseConnection();
-
-    if (!dbConnected) {
-      console.warn(
-        "⚠️ Database connection issues detected. Server will start but some features may be limited."
-      );
-      // Set a global flag that can be used to show a maintenance message in the UI
-      global.dbConnectionIssues = true;
-    }
-
-    // Initialize email services (Resend preferred, SMTP as fallback)
-    try {
-      // Check if email services are configured
-      const emailConfigured = emailManager.isEmailServiceConfigured();
-
-      if (!emailConfigured) {
-        console.warn(
-          "⚠️ No email service is configured. Email functionality will not work."
-        );
-        console.warn(
-          "⚠️ Make sure to set the RESEND_API_KEY in your environment variables."
-        );
-      } else {
-        // Initialize email services
-        const initialized = await emailManager.initializeEmailServices();
-
-        if (initialized) {
-          console.log(
-            `📧 Email service initialized: ${emailManager.getActiveEmailService()}`
-          );
-
-          // Test email services if needed
-          if (process.env.TEST_EMAIL_ON_STARTUP === "true") {
-            console.log("Running email test at startup as requested...");
-            // Add test email functionality here if needed
-          }
-        } else {
-          console.warn(
-            "⚠️ Email services are configured but failed to initialize properly."
-          );
-        }
-      }
-    } catch (error) {
-      console.error("⚠️ Error initializing email services:", error);
-    }
-
-    // (email health endpoint already registered earlier)
-
-    // Start the server
+    // Start the server immediately; perform external checks asynchronously afterwards
     server.listen(port, host, () => {
       if (process.env.NODE_ENV !== "production")
         console.log(
@@ -444,26 +383,60 @@ app.use("/api/visitors", visitorRouter);
       if (process.env.NODE_ENV !== "production")
         console.log(`🔗 http://localhost:${port}`);
 
-      if (dbConnected) {
-        if (process.env.NODE_ENV !== "production")
-          console.log("📊 Database connection established");
-
-        // Initialize database with required settings
-        if (process.env.NODE_ENV === "production") {
-          storage.initializeDatabase().catch((err) => {
-            console.error("Failed to initialize database:", err);
-          });
+      // Kick off DB connectivity check and email service initialization asynchronously
+      (async () => {
+        try {
+          const dbConnected = await checkDatabaseConnection();
+          if (dbConnected) {
+            if (process.env.NODE_ENV !== "production")
+              console.log("📊 Database connection established");
+            if (process.env.NODE_ENV === "production") {
+              storage.initializeDatabase().catch((err) => {
+                console.error("Failed to initialize database:", err);
+              });
+            }
+          } else {
+            console.warn(
+              "⚠️ Database connection issues detected. Running with limited functionality."
+            );
+            global.dbConnectionIssues = true;
+          }
+        } catch (err) {
+          console.error("Failed to check database connection:", err);
+          console.warn(
+            "⚠️ Proceeding without confirmed database connection; periodic checks will continue."
+          );
+          global.dbConnectionIssues = true;
         }
-      } else {
-        if (process.env.NODE_ENV !== "production")
-          console.log(
-            "⚠️ Running with limited functionality due to database connection issues"
-          );
-        if (process.env.NODE_ENV !== "production")
-          console.log(
-            "⚠️ The application will automatically retry connecting to the database"
-          );
-      }
+
+        try {
+          const emailConfigured = emailManager.isEmailServiceConfigured();
+          if (!emailConfigured) {
+            console.warn(
+              "⚠️ No email service is configured. Email functionality will not work."
+            );
+            console.warn(
+              "⚠️ Make sure to set the RESEND_API_KEY in your environment variables."
+            );
+          } else {
+            const initialized = await emailManager.initializeEmailServices();
+            if (initialized) {
+              console.log(
+                `📧 Email service initialized: ${emailManager.getActiveEmailService()}`
+              );
+              if (process.env.TEST_EMAIL_ON_STARTUP === "true") {
+                console.log("Running email test at startup as requested...");
+              }
+            } else {
+              console.warn(
+                "⚠️ Email services are configured but failed to initialize properly."
+              );
+            }
+          }
+        } catch (error) {
+          console.error("⚠️ Error initializing email services:", error);
+        }
+      })();
 
       // Set up periodic database connection check (every 30 seconds)
       const dbCheckInterval = setInterval(async () => {

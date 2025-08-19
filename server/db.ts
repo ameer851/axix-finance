@@ -1,8 +1,6 @@
-import * as dotenv from "dotenv";
 import { testSupabaseConnection } from "./supabase";
 
-// Load environment variables from .env file
-dotenv.config();
+// Environment variables should be provided by the runtime (Fly secrets)
 
 // Set up global database connection issues flag
 declare global {

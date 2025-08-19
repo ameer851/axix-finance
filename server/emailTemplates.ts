@@ -120,7 +120,8 @@ function generateWelcomeEmailHTML(
   user: DrizzleUser,
   opts?: WelcomeEmailOptions
 ): string {
-  const plainPassword = opts?.plainPassword || (user as any).initialPassword || null;
+  const plainPassword =
+    opts?.plainPassword || (user as any).initialPassword || null;
   return `
     <div style="${COMMON_STYLES.outerWrapper}">
       <div style="${COMMON_STYLES.container}">
@@ -138,9 +139,10 @@ function generateWelcomeEmailHTML(
 
           <div style="${COMMON_STYLES.infoBox}">
             <p style="margin:0;"><strong>Email:</strong> ${user.email}</p>
-            ${plainPassword 
-              ? `<p style="margin:10px 0 0;"><strong>Password:</strong> <span style="font-family:monospace; background:#FFF4EA; padding:2px 6px; border-radius:4px; border:1px solid ${BRAND_COLORS.border};">${plainPassword}</span></p>`
-              : `<p style="margin:12px 0 0 0; font-size:12px; color:${BRAND_COLORS.lightText};"><em>Password not included for security. Use the one you created during signup.</em></p>`
+            ${
+              plainPassword
+                ? `<p style="margin:10px 0 0;"><strong>Password:</strong> <span style="font-family:monospace; background:#FFF4EA; padding:2px 6px; border-radius:4px; border:1px solid ${BRAND_COLORS.border};">${plainPassword}</span></p>`
+                : `<p style="margin:12px 0 0 0; font-size:12px; color:${BRAND_COLORS.lightText};"><em>Password not included for security. Use the one you created during signup.</em></p>`
             }
           </div>
 
@@ -159,103 +161,7 @@ function generateWelcomeEmailHTML(
   `;
 }
 
-function generateWelcomeEmailHTML(
-  user: DrizzleUser,
-  opts?: WelcomeEmailOptions
-): string {
-  const plainPassword = opts?.plainPassword || (user as any).initialPassword || null;
-  return `
-    <div style="${COMMON_STYLES.outerWrapper}">
-      <div style="${COMMON_STYLES.container}">
-        ${renderHeader()}
-        <div style="${COMMON_STYLES.body}">
-          <h2>Welcome to ${BRAND.name}!</h2>
-          <p>Hello ${user.full_name || user.email},</p>
-          <p>Thank you for joining ${BRAND.name}. Your account is now ready to use.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <img src="${BRAND.welcomeImage}" 
-                 alt="${BRAND.name}" 
-                 style="${COMMON_STYLES.heroImage}" />
-          </div>
-
-          <div style="${COMMON_STYLES.infoBox}">
-            <p style="margin:0;"><strong>Email:</strong> ${user.email}</p>
-            ${plainPassword 
-              ? `<p style="margin:10px 0 0;"><strong>Password:</strong> <span style="font-family:monospace; background:#FFF4EA; padding:2px 6px; border-radius:4px; border:1px solid ${BRAND_COLORS.border};">${plainPassword}</span></p>`
-              : `<p style="margin:12px 0 0 0; font-size:12px; color:${BRAND_COLORS.lightText};"><em>Password not included for security. Use the one you created during signup.</em></p>`
-            }
-          </div>
-
-          <p style="margin-top:24px; text-align:center;">
-            <a href="${BRAND.url}/login" style="${COMMON_STYLES.button}">
-              Access Your Account
-            </a>
-          </p>
-        </div>
-        
-        <div style="${COMMON_STYLES.footer}">
-          <p>&copy; ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.</p>
-        </div>
-      </div>
-    </div>
-  `;
-        "{{YEAR}}": String(new Date().getFullYear()),
-      };
-      for (const [key, val] of Object.entries(replacements)) {
-        raw = raw.split(key).join(val);
-      }
-      // Support a conditional password block insertion
-      const passwordBlock = plainPassword
-        ? `<p style="margin:10px 0 0;"><strong>Password:</strong> <span style="font-family:monospace; background:#FFF4EA; padding:2px 6px; border-radius:4px; border:1px solid ${BRAND_COLORS.border};">${plainPassword}</span></p>`
-        : `<p style="margin:12px 0 0 0; font-size:12px; color:${BRAND_COLORS.lightText};"><em>Password not included for security. Use the one you created during signup.</em></p>`;
-      raw = raw.split("{{PASSWORD_BLOCK}}").join(passwordBlock);
-      return raw;
-    }
-  } catch (e) {
-    // Fall back to default template on any error
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[emailTemplates] Custom welcome template load failed:", e);
-    }
-  }
-  return `
-    <div style="${COMMON_STYLES.outerWrapper}">
-      <div style="${COMMON_STYLES.container}">
-        ${renderHeader()}
-        <div style="${COMMON_STYLES.body}">
-  <h2>Welcome to ${BRAND.name}!</h2>
-        <p>Hello ${user.full_name || user.email},</p>
-  <p>Thank you for joining ${BRAND.name}. Your account is now ready to use.</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <img src="${BRAND.welcomeImage}" 
-               alt="${BRAND.name} Welcome" 
-               style="${COMMON_STYLES.heroImage}" />
-        </div>
-
-        <div style="${COMMON_STYLES.infoBox}">
-          <h3 style="margin: 0 0 15px 0; color: ${BRAND_COLORS.primary};">Login Information</h3>
-          <p style="margin: 0 0 10px 0;"><strong>Username:</strong> ${user.username || user.full_name || user.email}</p>
-          <p style="margin: 0;"><strong>Email:</strong> ${user.email}</p>
-          ${plainPassword ? `<p style="margin:10px 0 0 0;"><strong>Password:</strong> <span style="font-family:monospace; background:#FFF4EA; padding:2px 6px; border-radius:4px; border:1px solid ${BRAND_COLORS.border};">${plainPassword}</span></p>` : `<p style=\"margin:12px 0 0 0; font-size:12px; color:${BRAND_COLORS.lightText};\"><em>Password not included for security. Use the one you created during signup.</em></p>`}
-          <p style="margin:14px 0 0 0; font-size:11px; color:${BRAND_COLORS.lightText}; line-height:1.4;">For security, change this password after first login and never share it. This email will not be shown again.</p>
-        </div>
-        <p style="margin-top:24px;">You now have full access to your investment dashboard. Fund your account, track performance, and manage withdrawals in one secure place.</p>
-        <div style="text-align:center; margin:32px 0;">
-          <a href="${BRAND.url}/login" style="${COMMON_STYLES.button}">Access Your Dashboard</a>
-        </div>
-        <p><strong>Security Notice:</strong> For your security, please ensure you're accessing ${BRAND.name} only through our official website.</p>
-        <p>If you need any assistance, our support team is ready to help!</p>
-        <p>Best regards,<br>The ${BRAND.name} Team</p>
-        </div>
-  <div style="${COMMON_STYLES.footer}">
-  <p>© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.</p>
-        <p>This is an automated email, please do not reply.</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
+// (Removed invalid duplicate template block)
 
 function generateDepositConfirmationEmailHTML(
   user: DrizzleUser,

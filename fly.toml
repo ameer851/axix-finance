@@ -1,0 +1,53 @@
+# fly.toml app configuration file generated for axix-finance on 2025-08-18
+# See https://fly.io/docs/reference/configuration/ for information about fly.toml.
+
+app = "axix-finance"
+primary_region = "iad"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "30s"
+    method = "get"
+    path = "/health"
+    protocol = "http"
+    tls_skip_verify = false
+
+  [[services.tcp_checks]]
+  interval = "20s"
+  timeout = "5s"
+  grace_period = "30s"
+
+  [services.concurrency]
+    type = "requests"
+    soft_limit = 100
+    hard_limit = 200
+
+[checks]
+  [checks.ping]
+    port = 8080
+    type = "http"
+    interval = "15s"
+    timeout = "5s"
+    path = "/health"

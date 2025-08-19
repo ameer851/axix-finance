@@ -31,12 +31,16 @@ async function main() {
       if (!/module\.exports\s*=\s*app\s*;/.test(content)) {
         content += "\nmodule.exports = app;\n";
         fs.writeFileSync(outFile, content);
-        console.log("[build:api] Appended CommonJS handler export to api/server.js");
+        console.log(
+          "[build:api] Appended CommonJS handler export to api/server.js"
+        );
       } else {
         console.log("[build:api] CommonJS handler export already present");
       }
     } else {
-      console.warn("[build:api] Expected output api/server.js not found after build");
+      console.warn(
+        "[build:api] Expected output api/server.js not found after build"
+      );
     }
     console.log("[build:api] Successfully built API files");
   } catch (error) {

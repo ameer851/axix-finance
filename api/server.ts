@@ -50,7 +50,9 @@ app.use(
       if (!origin) return callback(null, true);
 
       const isAllowed =
-        allowedOrigins.includes(origin) || origin.endsWith(".supabase.co");
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".supabase.co") ||
+        /https?:\/\/[a-z0-9-]+\.fly\.dev$/i.test(origin);
 
       if (isAllowed) {
         return callback(null, true);
@@ -324,7 +326,7 @@ app.use((err: any, req: any, res: any, next: Function) => {
   res.status(500).json({ error: message });
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
   server.listen(port, () => {
     console.log(`Server is running on port ${port}`);

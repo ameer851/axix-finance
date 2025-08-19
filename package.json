@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && node build-api.cjs",
-    "build:server": "esbuild server/index.ts --platform=node --external:@prisma/client --external:express --external:morgan --bundle --format=esm --outdir=dist/server",
+    "build:server": "esbuild server/index.ts --platform=node --external:@prisma/client --external:express --external:morgan --external:vite --external:@vitejs/plugin-react --external:dotenv --bundle --format=cjs --outdir=dist/server --out-extension:.js=.cjs",
     "build:frontend": "vite build --outDir dist",
     "clean": "rimraf dist .vercel/output client/dist api/index.js",
     "clean:server": "rimraf dist/server",

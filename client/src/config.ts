@@ -1,9 +1,10 @@
 // Application configuration
 // Defensive resolver for API base to avoid malformed env values (e.g., pasted CLI commands)
 function resolveApiUrl(): string {
-  const raw = (import.meta.env as any)?.VITE_API_URL as string | undefined;
-  if (!raw) return "/api";
-  const s = String(raw).trim();
+  const envAny = (import.meta.env as any) ?? {};
+  const raw = envAny?.VITE_API_URL as string | undefined;
+  const s = String(raw ?? "").trim();
+  const allowCross = String(envAny?.VITE_ALLOW_CROSS_ORIGIN ?? "").toLowerCase();
   if (!s) return "/api";
 
   // Reject obvious bad inputs: spaces, semicolons, or encoded spaces that indicate pasted commands
@@ -15,9 +16,12 @@ function resolveApiUrl(): string {
   // Allow relative API mount points (e.g., "/api")
   if (s.startsWith("/")) return s;
 
-  // Allow absolute origins only (no path)
+  // Allow absolute origins only (no path) when explicitly allowed
   if (/^https?:\/\/[^\/]+\/?$/i.test(s)) {
-    return s.replace(/\/$/, "");
+    const enabled = allowCross === "1" || allowCross === "true";
+    if (enabled) return s.replace(/\/$/, "");
+    console.warn("VITE_API_URL is absolute but cross-origin is disabled; using /api", s);
+    return "/api";
   }
 
   console.warn("Unrecognized VITE_API_URL format, falling back to /api", s);

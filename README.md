@@ -13,6 +13,7 @@ A modern financial management platform built with React, TypeScript, and Node.js
 ## Deployment Guide
 
 ### Prerequisites
+
 - Supabase account (for database and authentication)
 - Vercel account (for hosting)
 - Resend API key (for email services)
@@ -44,6 +45,7 @@ A modern financial management platform built with React, TypeScript, and Node.js
 ## Technology Stack
 
 ### Frontend
+
 - React 18
 - TypeScript
 - React Query for data fetching
@@ -53,6 +55,7 @@ A modern financial management platform built with React, TypeScript, and Node.js
 - Recharts for data visualization
 
 ### Backend
+
 - Node.js
 - Express
 - PostgreSQL with Drizzle ORM
@@ -62,6 +65,7 @@ A modern financial management platform built with React, TypeScript, and Node.js
 - Resend API for email delivery with SMTP fallback
 
 ### Infrastructure
+
 - Docker containers
 - Docker Compose for local development
 - Multi-stage Docker builds for production optimization
@@ -69,29 +73,34 @@ A modern financial management platform built with React, TypeScript, and Node.js
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - PostgreSQL (or use the provided Docker setup)
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/axix-finance.git
 cd axix-finance
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Set up environment variables:
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
 4. Configure the email service (recommended):
+
 ```bash
 # Set up Resend email service (recommended)
 npm run email:setup:resend
@@ -100,6 +109,7 @@ npm run email:setup:resend
 ```
 
 5. Start the development environment:
+
 ```bash
 # Using Docker Compose (recommended)
 docker-compose up -d
@@ -110,6 +120,7 @@ npm run dev:client
 ```
 
 6. Access the application:
+
 - Frontend: http://localhost:4000
 - Backend API: http://localhost:5000
 
@@ -157,22 +168,27 @@ See `.env.example` for a complete list of environment variables. Critical variab
 ## Documentation
 
 ### Email Service
+
 The project uses Resend API as the primary email service with SMTP fallback:
+
 - **Primary**: [Resend API](https://resend.com) for reliable email delivery and analytics
 - **Fallback**: Gmail SMTP with App Password authentication
 - **Multi-Provider**: Automatic fallback ensures maximum email deliverability
 - **Simple Setup**: Easy configuration with `npm run email:setup:resend`
 
 See [Email Service Documentation](docs/email-service-documentation.md) for details.
+
 - **High Deliverability**: Reliable email delivery backed by Google
 
 Documentation:
+
 - [Email Service Documentation](docs/email-service-documentation.md): Comprehensive guide to the Gmail SMTP setup
 - [Gmail SMTP Setup](docs/gmail-smtp-setup.md): Step-by-step Gmail configuration guide
 
 ### API Documentation
 
 ### Authentication
+
 - `POST /api/auth/register`: Register a new user
 - `POST /api/auth/login`: Log in an existing user
 - `POST /api/auth/logout`: Log out the current user
@@ -181,17 +197,20 @@ Documentation:
 - `POST /api/auth/reset-password`: Reset a user's password
 
 ### User
+
 - `GET /api/profile`: Get the current user's profile
 - `PUT /api/profile`: Update the current user's profile
 - `POST /api/change-password`: Change the current user's password
 
 ### Transactions
+
 - `POST /api/transactions`: Create a new transaction
 - `GET /api/transactions`: Get transactions with optional filtering
 - `GET /api/transactions/:id`: Get a single transaction
 - `PATCH /api/transactions/:id/status`: Update transaction status
 
 ### Messages
+
 - `POST /api/messages`: Create a new support message
 - `GET /api/messages`: Get messages with optional filtering
 - `GET /api/messages/:id`: Get a single message
@@ -199,6 +218,7 @@ Documentation:
 - `DELETE /api/messages/:id`: Delete a message
 
 ### Notifications
+
 - `GET /api/notifications`: Get notifications for the current user
 - `GET /api/notifications/unread-count`: Get unread notification count
 - `PATCH /api/notifications/:id/read`: Mark a notification as read
@@ -231,6 +251,7 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ### Quick Deployment Guide
 
 1. **Prepare for deployment:**
+
    ```bash
    npm run deploy:prepare
    npm run deploy:secrets
@@ -241,12 +262,14 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
    - Use the checklist in `DEPLOYMENT-CHECKLIST.md`
 
 ### Deployment Architecture
+
 - **Backend**: Render (Node.js + PostgreSQL)
 - **Frontend**: Vercel (Static hosting)
 - **Email**: Gmail SMTP
 - **Domain**: Custom domain with SSL
 
 ### Cost: ~$180/year
+
 - Render: $14/month (backend + database)
 - Vercel: Free (frontend)
 - Domain: ~$12/year
@@ -263,35 +286,44 @@ If you encounter CORS errors during development:
 import cors from "cors";
 
 // CORS configuration for development
-if (process.env.NODE_ENV !== 'production') {
-  app.use(cors({
-    origin: 'http://localhost:4000',  // Your frontend URL
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With']
-  }));
+if (process.env.NODE_ENV !== "production") {
+  app.use(
+    cors({
+      origin: "http://localhost:4000", // Your frontend URL
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-CSRF-Token",
+        "X-Requested-With",
+      ],
+    })
+  );
 } else {
   // Production CORS settings
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'https://axix-finance.co',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
+  app.use(
+    cors({
+      origin: process.env.CORS_ORIGIN || "https://axix-finance.co",
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    })
+  );
 }
 ```
 
 2. Test the connection with:
 
 ```javascript
-fetch('http://localhost:5000/api/health', {
-  method: 'GET',
-  credentials: 'include',
-  headers: { 'Accept': 'application/json' }
+fetch("http://localhost:5000/api/health", {
+  method: "GET",
+  credentials: "include",
+  headers: { Accept: "application/json" },
 })
-  .then(res => res.json())
-  .then(data => console.log(data))
-  .catch(err => console.error(err));
+  .then((res) => res.json())
+  .then((data) => console.log(data))
+  .catch((err) => console.error(err));
 ```
 
 ### Database Issues
@@ -313,3 +345,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Contributors
 
 - [Your Name](https://github.com/yourusername) - Initial work
+
+## Fly.io Deployment
+
+For deploying this app on Fly.io, see `docs/DEPLOY_TO_FLY.md`.
