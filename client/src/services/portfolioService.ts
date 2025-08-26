@@ -31,7 +31,7 @@ export async function getUserPortfolio(
   }
 
   try {
-    return await api.get<PortfolioData>(`/api/portfolio/${userId}`);
+    return await api.get<PortfolioData>(`/portfolio/${userId}`);
   } catch (error: any) {
     console.error("Error fetching portfolio data:", error);
     throw new Error(
@@ -51,7 +51,7 @@ export async function getPortfolioTransactions(
   }
 
   try {
-    return await api.get<any[]>(`/api/portfolio/${userId}/transactions`);
+    return await api.get<any[]>(`/portfolio/${userId}/transactions`);
   } catch (error: any) {
     console.error("Error fetching portfolio transactions:", error);
     throw new Error(
@@ -66,7 +66,7 @@ export async function getPortfolioTransactions(
  */
 export async function getMarketData(): Promise<any[]> {
   try {
-    return await api.get<any[]>("/api/market/data");
+    return await api.get<any[]>("/market/data");
   } catch (error: any) {
     console.error("Error fetching market data:", error);
     throw new Error(
@@ -91,7 +91,7 @@ export async function depositFunds(
   }
 
   try {
-    return await api.post(`/api/portfolio/${userId}/deposit`, { amount });
+    return await api.post(`/portfolio/${userId}/deposit`, { amount });
   } catch (error: any) {
     console.error("Error depositing funds:", error);
     throw new Error(
@@ -116,7 +116,7 @@ export async function withdrawFunds(
   }
 
   try {
-    return await api.post(`/api/portfolio/${userId}/withdraw`, { amount });
+    return await api.post(`/portfolio/${userId}/withdraw`, { amount });
   } catch (error: any) {
     console.error("Error withdrawing funds:", error);
     throw new Error(
@@ -146,7 +146,7 @@ export async function investInSecurity(
   }
 
   try {
-    return await api.post(`/api/portfolio/${userId}/invest`, {
+    return await api.post(`/portfolio/${userId}/invest`, {
       symbol,
       amount,
     });

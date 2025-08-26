@@ -47,7 +47,7 @@ import React, { useState } from "react";
 // API function to fetch deposits history
 const fetchDepositsHistory = async (userId: number) => {
   try {
-    const data = await apiFetch(`/api/users/${userId}/deposits-history`, {
+    const data = await apiFetch(`/users/${userId}/deposits-history`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

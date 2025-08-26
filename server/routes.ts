@@ -13,9 +13,9 @@ import { resendVerificationEmail, verifyUserEmail } from "./auth";
 import { handleEmailChange } from "./emailChangeService";
 import {
   initializeEmailTransporter,
-  sendWithdrawalRequestEmail,
   sendDepositRequestEmail,
   sendDepositSuccessEmail,
+  sendWithdrawalRequestEmail,
 } from "./emailService";
 import { DatabaseStorage } from "./storage";
 
@@ -34,18 +34,29 @@ router.use(async (req, _res, next) => {
     const token = authHeader.slice(7).trim();
     (req as any).bearerPresent = true;
     try {
-      const secret =
-        process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_KEY;
+      // Use the real Supabase project JWT secret ONLY. The anon key is NOT the signing secret.
+      const secret = process.env.SUPABASE_JWT_SECRET;
+      const allowUnverified =
+        process.env.SUPABASE_UNVERIFIED_FALLBACK === "true" ||
+        process.env.ADMIN_JWT_ALLOW_UNVERIFIED === "true";
       let decoded: any = null;
       if (secret) {
         try {
           decoded = jwt.verify(token, secret as any);
         } catch (e) {
           decoded = null;
+          (req as any).bearerVerifyFailed = true;
         }
       }
-      if (!decoded && process.env.NODE_ENV !== "production") {
-        decoded = jwt.decode(token); // dev-only unsigned decode mapping
+      if (!decoded && allowUnverified) {
+        decoded = jwt.decode(token); // unsigned decode mapping (fallback)
+        if (!decoded) {
+          (req as any).bearerDecodeError = true;
+        }
+      }
+      if (!decoded && !secret) {
+        (req as any).bearerMappingFailed = true;
+        (req as any).bearerMissingSecret = true;
       }
       // Supabase JWT: sub = auth user uuid
       const uid: string | undefined = decoded?.sub;
@@ -88,6 +99,8 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
             mappedBy: (req as any).bearerMappedBy || null,
             mappingFailed: !!(req as any).bearerMappingFailed,
             decodeError: !!(req as any).bearerDecodeError,
+            verifyFailed: !!(req as any).bearerVerifyFailed,
+            missingSecret: !!(req as any).bearerMissingSecret,
           }
         : undefined,
     });
@@ -141,6 +154,57 @@ router.post("/verify-email", async (req: Request, res: Response) => {
   } catch (e) {
     console.error("verify-email error", e);
     res.status(500).json({ message: "Failed to verify email" });
+  }
+});
+
+// Create profile via service role (used after Supabase auth sign-up)
+router.post("/auth/create-profile", async (req: Request, res: Response) => {
+  try {
+    const { uid, email, username, firstName, lastName } = (req.body ||
+      {}) as any;
+    if (!uid || !email) {
+      return res.status(400).json({ message: "uid and email are required" });
+    }
+
+    // If profile already exists, return it
+    const existingByUid = await (storage as any).getUserByUid?.(uid);
+    if (existingByUid) {
+      return res.json({ user: mapUser(existingByUid) });
+    }
+    const existingByEmail = await (storage as any).getUserByEmail?.(email);
+    if (existingByEmail) {
+      return res.json({ user: mapUser(existingByEmail) });
+    }
+
+    // Create minimal profile; password is not stored (auth handled by Supabase)
+    const created = await (storage as any).createUser?.({
+      uid,
+      username: username || email.split("@")[0],
+      password: "", // placeholder; not used for Supabase auth
+      email,
+      firstName: firstName || "",
+      lastName: lastName || "",
+      role: "user",
+      balance: "0",
+      isActive: true,
+      isVerified: true,
+    });
+
+    if (!created) {
+      return res.status(500).json({ message: "Failed to create profile" });
+    }
+    // Ensure uid is stored if schema supports it
+    try {
+      const updated = await (storage as any).updateUser?.((created as any).id, {
+        uid,
+      });
+      return res.status(201).json({ user: mapUser(updated || created) });
+    } catch {
+      return res.status(201).json({ user: mapUser(created) });
+    }
+  } catch (e: any) {
+    console.error("/auth/create-profile error", e);
+    res.status(500).json({ message: e?.message || "Internal error" });
   }
 });
 

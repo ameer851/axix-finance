@@ -7,7 +7,7 @@ export async function updateEmail(
   newEmail: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await fetch("/api/update-email", {
+    const response = await fetch("/update-email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -46,7 +46,7 @@ export async function sendWelcomeEmail(user: {
     // Prefer same-origin relative path to satisfy production CSP; fall back to explicit base if provided
     const base = config.apiUrl.replace(/\/$/, "");
     const relative = base.startsWith("/");
-    const url = `${relative ? "" : base}/api/send-welcome-email`;
+    const url = `${relative ? "" : base}/send-welcome-email`;
     // Lightweight client-side debug (won't leak secrets)
     if (typeof window !== "undefined") {
       (window as any)._welcomeEmailDebug = { url, ts: Date.now() };
@@ -99,7 +99,7 @@ export async function sendTestEmail(
   try {
     const base2 = config.apiUrl.replace(/\/$/, "");
     const rel2 = base2.startsWith("/");
-    const testUrl = `${rel2 ? "" : base2}/api/admin/test-email`;
+    const testUrl = `${rel2 ? "" : base2}/admin/test-email`;
     const response = await fetch(testUrl, {
       method: "POST",
       headers: {

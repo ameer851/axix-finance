@@ -33,6 +33,17 @@ declare global {
 // Initialize Express app
 const app = express();
 
+// Warn early if JWT secret missing (affects bearer mapping for admin & transactions)
+if (!process.env.SUPABASE_JWT_SECRET) {
+  console.warn(
+    "[startup] SUPABASE_JWT_SECRET not set – bearer token verification will fail; mapping will rely on fallback if enabled."
+  );
+}
+
+// Body parsers - MUST come before auth setup which uses req.body
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false }));
+
 // Centralized auth setup (session + passport strategies + /api/login, /api/register routes)
 setupAuth(app);
 
@@ -137,10 +148,6 @@ app.use(
 
 // Apply our custom cookie policy middleware
 app.use(setupCookiePolicy);
-
-// Body parsers
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: false }));
 
 // Apply our custom middleware for better auth handling and stability
 app.use(routeDelay);
@@ -351,6 +358,14 @@ app.use("/api/visitors", visitorRouter);
   console.log("🔄 Legacy admin panel disabled; only modular admin API active");
   applyRoutePatches(app); // Legacy compatibility endpoints
   console.log("🔄 Legacy route patches applied for compatibility");
+
+  // Ensure unmatched /api requests return JSON 404 instead of falling through to HTML
+  // Place AFTER all API mounts (admin, visitors, patches) and BEFORE static catch-all
+  app.use("/api", (req: Request, res: Response) => {
+    if (!res.headersSent) {
+      res.status(404).json({ message: "Not Found", path: req.path });
+    }
+  });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

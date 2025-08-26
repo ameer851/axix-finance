@@ -27,7 +27,7 @@ export default function DepositsPageV2() {
     setError(null);
     try {
       const json = await fetchWithAuth(
-        `/api/admin/transactions?page=${page}&limit=20&type=deposit`
+        `/admin/transactions?page=${page}&limit=20&type=deposit`
       );
       setRows(json.data || []);
       setTotalPages(json.pagination?.totalPages || 1);
@@ -44,7 +44,7 @@ export default function DepositsPageV2() {
   async function approve(id: number) {
     try {
       setLoading(true);
-      const res = await fetchWithAuth(`/api/admin/deposits/${id}/approve`, {
+      const res = await fetchWithAuth(`/admin/deposits/${id}/approve`, {
         method: "POST",
       });
       if (res && res.emailSent === false) {
@@ -101,7 +101,7 @@ export default function DepositsPageV2() {
     const reason = prompt("Optional rejection reason:") || undefined;
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/deposits/${id}/reject`, {
+      await fetchWithAuth(`/admin/deposits/${id}/reject`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       });
@@ -119,7 +119,7 @@ export default function DepositsPageV2() {
     }
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/deposits/${id}`, { method: "DELETE" });
+      await fetchWithAuth(`/admin/deposits/${id}`, { method: "DELETE" });
       await load();
     } catch (e: any) {
       alert(e.message || "Failed to delete deposit");

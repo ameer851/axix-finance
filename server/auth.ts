@@ -222,14 +222,12 @@ export function setupAuth(app: Express) {
       const safe: any = { ...user };
       delete safe.password;
       req.login(safe, () => {});
-      res
-        .status(201)
-        .json({
-          success: true,
-          message: "Account created successfully!",
-          username: safe.username ?? safe.email,
-          email: safe.email,
-        });
+      res.status(201).json({
+        success: true,
+        message: "Account created successfully!",
+        username: safe.username ?? safe.email,
+        email: safe.email,
+      });
     } catch (e: any) {
       res.status(400).json({ message: e.message || "Registration failed" });
     }
@@ -286,7 +284,12 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/health", (_req: Request, res: Response) =>
-    res.status(200).json({ status: "ok", serverTime: new Date().toISOString() })
+    res.status(200).json({
+      status: "ok",
+      ok: true,
+      ts: Date.now(),
+      serverTime: new Date().toISOString(),
+    })
   );
 
   app.post("/api/logout", (req: Request, res: Response) => {

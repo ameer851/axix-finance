@@ -10,7 +10,7 @@ export async function getGoals(userId?: number | string): Promise<Goal[]> {
   }
 
   try {
-    return await api.get<Goal[]>(`/api/goals?userId=${userId}`);
+    return await api.get<Goal[]>(`/goals?userId=${userId}`);
   } catch (error: any) {
     console.error("Error fetching goals:", error);
     throw new Error(
@@ -24,7 +24,7 @@ export async function getGoals(userId?: number | string): Promise<Goal[]> {
  */
 export async function getGoal(goalId: string): Promise<Goal> {
   try {
-    return await api.get<Goal>(`/api/goals/${goalId}`);
+    return await api.get<Goal>(`/goals/${goalId}`);
   } catch (error: any) {
     console.error("Error fetching goal:", error);
     throw new Error(
@@ -38,7 +38,7 @@ export async function getGoal(goalId: string): Promise<Goal> {
  */
 export async function createGoal(goalData: Partial<Goal>): Promise<Goal> {
   try {
-    return await api.post<Goal>("/api/goals", goalData);
+    return await api.post<Goal>("/goals", goalData);
   } catch (error: any) {
     console.error("Error creating goal:", error);
     throw new Error(
@@ -55,7 +55,7 @@ export async function updateGoal(
   goalData: Partial<Goal>
 ): Promise<Goal> {
   try {
-    return await api.put<Goal>(`/api/goals/${goalId}`, goalData);
+    return await api.put<Goal>(`/goals/${goalId}`, goalData);
   } catch (error: any) {
     console.error("Error updating goal:", error);
     throw new Error(
@@ -69,7 +69,7 @@ export async function updateGoal(
  */
 export async function deleteGoal(goalId: string): Promise<void> {
   try {
-    await api.delete(`/api/goals/${goalId}`);
+    await api.delete(`/goals/${goalId}`);
   } catch (error: any) {
     console.error("Error deleting goal:", error);
     throw new Error(

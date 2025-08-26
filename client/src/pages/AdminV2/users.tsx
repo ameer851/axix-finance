@@ -36,7 +36,7 @@ export default function UsersPageV2() {
       params.set("limit", "20");
       if (search.trim()) params.set("search", search.trim());
       if (status && status !== "all") params.set("status", status);
-      const json = await fetchWithAuth(`/api/admin/users?${params}`);
+      const json = await fetchWithAuth(`/admin/users?${params}`);
       setData(json.data || []);
       setTotalPages(json.pagination?.totalPages || 1);
     } catch (e: any) {
@@ -66,7 +66,7 @@ export default function UsersPageV2() {
       return;
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/users/${id}`, { method: "DELETE" });
+      await fetchWithAuth(`/admin/users/${id}`, { method: "DELETE" });
       await load();
     } catch (e: any) {
       alert(e.message || "Failed to delete user");
@@ -78,7 +78,7 @@ export default function UsersPageV2() {
   async function onPromote(id: number) {
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/admins/${id}/promote`, {
+      await fetchWithAuth(`/admin/admins/${id}/promote`, {
         method: "POST",
       });
       await load();
@@ -92,7 +92,7 @@ export default function UsersPageV2() {
   async function onDemote(id: number) {
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/admins/${id}/demote`, { method: "POST" });
+      await fetchWithAuth(`/admin/admins/${id}/demote`, { method: "POST" });
       await load();
     } catch (e: any) {
       alert(e.message || "Failed to demote admin");
@@ -106,7 +106,7 @@ export default function UsersPageV2() {
     if (!pwd) return;
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/admins/${id}/password`, {
+      await fetchWithAuth(`/admin/admins/${id}/password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: pwd }),

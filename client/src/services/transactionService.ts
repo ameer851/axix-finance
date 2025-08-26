@@ -169,7 +169,7 @@ export async function updateTransactionStatus(
   try {
     const payload = { status };
     return await api.patch<Transaction>(
-      `/api/transactions/${transactionId}/status`,
+      `/transactions/${transactionId}/status`,
       payload
     );
   } catch (error: any) {
@@ -205,9 +205,9 @@ export async function getUserTransactions(
 ): Promise<Transaction[]> {
   try {
     if (userId) {
-      return await api.get(`/api/transactions/${userId}`);
+      return await api.get(`/transactions/${userId}`);
     } else {
-      return await api.get("/api/transactions");
+      return await api.get("/transactions");
     }
   } catch (error: any) {
     console.error("Error fetching user transactions:", error);
@@ -229,7 +229,7 @@ export async function getUserTransactions(
  */
 export async function getUserPendingTransactions(): Promise<Transaction[]> {
   try {
-    return await api.get("/api/transactions/pending");
+    return await api.get("/transactions/pending");
   } catch (error: any) {
     console.error("Error fetching pending transactions:", error);
     throw new Error(
@@ -251,7 +251,7 @@ export async function getUserDeposits(
   try {
     // Use transactions endpoint filtered by type=deposit
     const raw = await api.get(
-      `/api/users/${userId}/transactions?type=deposit&limit=100`
+      `/users/${userId}/transactions?type=deposit&limit=100`
     );
     const data =
       raw && typeof raw === "object" && "data" in raw ? (raw as any).data : raw;
@@ -292,7 +292,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
       pendingBalance: number;
       totalBalance: number;
       lastUpdated: string;
-    }>(`/api/users/${userId}/balance`);
+    }>(`/users/${userId}/balance`);
 
     console.log("Fetched real balance data:", balanceData);
 
@@ -361,7 +361,7 @@ export async function depositFunds(data: {
   transactionId: number;
 }> {
   try {
-    return await api.post(`/api/transactions/deposit`, data);
+    return await api.post(`/transactions/deposit`, data);
   } catch (error: any) {
     console.error("Error depositing funds:", error);
     throw new Error(
@@ -390,10 +390,7 @@ export async function submitDepositConfirmation(data: {
 
   const attemptSubmission = async (): Promise<any> => {
     try {
-      const result = await api.post(
-        `/api/transactions/deposit-confirmation`,
-        data
-      );
+      const result = await api.post(`/transactions/deposit-confirmation`, data);
       console.log("Server response:", result);
       return result;
     } catch (error: any) {
@@ -495,7 +492,7 @@ export async function getTransactionStats(): Promise<{
   transactionTrend: { date: string; count: number; volume: string }[];
 }> {
   try {
-    return await api.get("/api/transactions/stats");
+    return await api.get("/transactions/stats");
   } catch (error: any) {
     console.error("Error fetching transaction statistics:", error);
 

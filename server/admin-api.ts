@@ -66,8 +66,11 @@ export function createAdminApiRouter(app: express.Express): Router {
       if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         const token = authHeader.slice(7).trim();
         try {
-          const secret =
-            process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_KEY;
+          (req as any).bearerPresent = true;
+          const secret = process.env.SUPABASE_JWT_SECRET;
+          const allowUnverified =
+            process.env.SUPABASE_UNVERIFIED_FALLBACK === "true" ||
+            process.env.ADMIN_JWT_ALLOW_UNVERIFIED === "true";
           let decoded: any = null;
           if (secret) {
             try {
@@ -75,31 +78,47 @@ export function createAdminApiRouter(app: express.Express): Router {
             } catch (e) {
               // If verification fails, do not trust claims; keep decoded null
               decoded = null;
+              (req as any).bearerVerifyFailed = true;
             }
           }
           // As a last resort in development, allow unsigned decode to map uid -> user
-          if (
-            !decoded &&
-            (process.env.NODE_ENV !== "production" ||
-              process.env.ADMIN_JWT_ALLOW_UNVERIFIED === "true")
-          ) {
+          if (!decoded && allowUnverified) {
             decoded = jwt.decode(token);
+            if (!decoded) (req as any).bearerDecodeError = true;
+          }
+          if (!decoded && !secret) {
+            (req as any).bearerMappingFailed = true;
+            (req as any).bearerMissingSecret = true;
           }
           const uid: string | undefined = decoded?.sub;
           let mappedUser: any = null;
           if (uid && typeof uid === "string" && uid.length >= 16) {
             mappedUser = await (storage as any).getUserByUid?.(uid);
+            if (mappedUser) (req as any).bearerMappedBy = "uid";
           }
           if (!mappedUser) {
             const possibleId = decoded?.userId || decoded?.id;
             if (possibleId && !Number.isNaN(Number(possibleId))) {
               mappedUser = await storage.getUser(Number(possibleId));
+              if (mappedUser) (req as any).bearerMappedBy = "numericId";
             }
           }
           if (!mappedUser && decoded?.email) {
             mappedUser = await (storage as any).getUserByEmail?.(decoded.email);
+            if (mappedUser) (req as any).bearerMappedBy = "email";
           }
           if (mappedUser) (req as any).user = mappedUser;
+          else {
+            (req as any).bearerMappingFailed = true;
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("[admin-api] bearer mapping failed", {
+                hasSecret: !!process.env.SUPABASE_JWT_SECRET,
+                allowUnverified,
+                decodedSub: decoded?.sub,
+                decodedEmail: decoded?.email,
+              });
+            }
+          }
         } catch {
           // ignore
         }
@@ -110,8 +129,21 @@ export function createAdminApiRouter(app: express.Express): Router {
   // Lightweight admin guard that works with session or bearer-mapped users
   router.use((req, res, next) => {
     const user: any = (req as any).user;
-    if (!user)
-      return res.status(401).json({ message: "You must be logged in" });
+    if (!user) {
+      return res.status(401).json({
+        message: "You must be logged in",
+        bearer: (req as any).bearerPresent
+          ? {
+              present: true,
+              mappedBy: (req as any).bearerMappedBy || null,
+              mappingFailed: !!(req as any).bearerMappingFailed,
+              decodeError: !!(req as any).bearerDecodeError,
+              missingSecret: !!(req as any).bearerMissingSecret,
+              verifyFailed: !!(req as any).bearerVerifyFailed,
+            }
+          : undefined,
+      });
+    }
     const ownerId = process.env.OWNER_USER_ID;
     const ownerEmail = process.env.OWNER_EMAIL;
     const ownerUid = process.env.OWNER_UID;

@@ -43,7 +43,7 @@ export async function getStatements(
     if (filters.page) queryParams.append("page", String(filters.page));
     if (filters.limit) queryParams.append("limit", String(filters.limit));
 
-    const url = `/api/users/${filters.userId}/statements${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const url = `/users/${filters.userId}/statements${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
     return await api.get<Document[]>(url);
   } catch (error: any) {
     console.error("Error fetching statements:", error);
@@ -78,7 +78,7 @@ export async function getTaxDocuments(
     if (filters.page) queryParams.append("page", String(filters.page));
     if (filters.limit) queryParams.append("limit", String(filters.limit));
 
-    const url = `/api/users/${filters.userId}/tax-documents${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const url = `/users/${filters.userId}/tax-documents${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
     return await api.get<Document[]>(url);
   } catch (error: any) {
     console.error("Error fetching tax documents:", error);
@@ -104,7 +104,7 @@ export async function downloadDocument(documentId: string): Promise<Blob> {
     }
 
     const response = await api.get<Response>(
-      `/api/documents/${documentId}/download`
+      `/documents/${documentId}/download`
     );
     return await response.blob();
   } catch (error: any) {

@@ -86,14 +86,23 @@ visitorRouter.post("/track", (req: Request, res: Response) => {
 visitorRouter.put("/activity", (req: Request, res: Response) => {
   try {
     const key = getClientKey(req);
-    const sess = visitors.get(key);
-    if (sess) {
-      sess.lastActivity = Date.now();
-      res.json({ ok: true, lastActivity: sess.lastActivity });
-    } else {
-      console.warn("[visitors] activity 404 for key", key);
-      res.status(404).json({ ok: false, message: "Session not found" });
+    let sess = visitors.get(key);
+    if (!sess) {
+      // Auto-create session if it doesn't exist
+      sess = {
+        id: key,
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        pageViews: 0,
+        userAgent: req.headers["user-agent"] as string,
+        language: req.headers["accept-language"]?.split(",")[0] || "en",
+        lastPage: "unknown",
+      };
+      visitors.set(key, sess);
+      console.log("[visitors] auto-created session for activity update:", key);
     }
+    sess.lastActivity = Date.now();
+    res.json({ ok: true, lastActivity: sess.lastActivity });
   } catch (e) {
     console.error("Visitor activity error", e);
     res.status(500).json({ ok: false, message: "Failed to update activity" });

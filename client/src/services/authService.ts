@@ -26,8 +26,11 @@ export async function checkServerConnection(): Promise<boolean> {
   try {
     // First check our API server
     try {
-      const data = await apiFetch(`${config.apiUrl}/api/ping`);
-      if (data.status !== "ok") {
+      const healthUrl =
+        (config as any).healthCheckEndpoint || `${config.apiUrl}/health`;
+      const data = await apiFetch(healthUrl);
+      const healthy = !!(data && (data.status === "ok" || data.ok === true));
+      if (!healthy) {
         console.error("API server reported unhealthy status:", data);
         throw new Error("API server reported unhealthy status");
       }
@@ -66,24 +69,33 @@ export async function login(
   try {
     let email = identifier;
     if (!identifier.includes("@")) {
-      // Resolve username/uid to email directly via Supabase
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          identifier
+      // Prefer secure server-side resolution to avoid RLS issues
+      try {
+        const resolveResp: any = await apiFetch(
+          `${config.apiUrl}/auth/resolve-identifier`,
+          {
+            method: "POST",
+            body: JSON.stringify({ identifier }),
+            headers: { "Content-Type": "application/json" },
+          }
         );
-      let userQuery = supabase.from("users").select("email, username");
-      if (isUuid) {
-        userQuery = userQuery.or(
-          `username.eq.${identifier},uid.eq.${identifier}`
-        );
-      } else {
-        userQuery = userQuery.eq("username", identifier);
+        if (resolveResp?.email) {
+          email = resolveResp.email;
+        } else {
+          throw new Error("resolve-identifier returned no email");
+        }
+      } catch (e) {
+        // Fallback: minimal client-side attempt (may fail under RLS)
+        const { data: users } = await supabase
+          .from("users")
+          .select("email")
+          .eq("username", identifier)
+          .limit(1);
+        if (!users || users.length === 0) {
+          throw new Error("Invalid username or password.");
+        }
+        email = users[0].email;
       }
-      const { data: users, error: usersError } = await userQuery.limit(1);
-      if (usersError || !users || users.length === 0) {
-        throw new Error("Invalid username or password.");
-      }
-      email = users[0].email;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -216,7 +228,7 @@ export async function register(userData: {
     // Create profile via backend to bypass RLS with service role
     let newUser: any = null;
     try {
-      newUser = await apiFetch(`${config.apiUrl}/api/auth/create-profile`, {
+      newUser = await apiFetch(`${config.apiUrl}/auth/create-profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -243,8 +255,7 @@ export async function register(userData: {
     // Attempt welcome email (await for visibility but non-fatal)
     try {
       const base = config.apiUrl.replace(/\/$/, "");
-      const relative = base.startsWith("/");
-      const url = `${relative ? "" : base}/api/send-welcome-email`;
+      const url = `${base}/send-welcome-email`;
       console.log(
         "[register] Dispatching welcome email to",
         newUser.email,

@@ -6,7 +6,7 @@ import { Setting } from "@shared/schema";
  */
 export async function getAllSettings(): Promise<Setting[]> {
   try {
-    return await api.get<Setting[]>("/api/settings");
+    return await api.get<Setting[]>("/settings");
   } catch (error: any) {
     console.error("Error fetching settings:", error);
 
@@ -30,7 +30,7 @@ export async function getAllSettings(): Promise<Setting[]> {
  */
 export async function getSetting(name: string): Promise<Setting> {
   try {
-    return await api.get<Setting>(`/api/settings/${name}`);
+    return await api.get<Setting>(`/settings/${name}`);
   } catch (error: any) {
     console.error(`Error fetching setting ${name}:`, error);
 
@@ -57,7 +57,7 @@ export async function getSetting(name: string): Promise<Setting> {
  */
 export async function getPublicSettings(): Promise<Record<string, string>> {
   try {
-    return await api.get<Record<string, string>>("/api/settings/public");
+    return await api.get<Record<string, string>>("/settings/public");
   } catch (error: any) {
     console.error("Error fetching public settings:", error);
 

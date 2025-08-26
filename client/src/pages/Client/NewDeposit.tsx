@@ -26,7 +26,7 @@ const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response: any = await api.get(`/api/users/${userId}/balance`);
+    const response: any = await api.get(`/users/${userId}/balance`);
     const data =
       response && typeof response === "object" && "data" in response
         ? response.data
@@ -112,7 +112,7 @@ const submitDeposit = async (
       type: "deposit",
     };
 
-    const response = await api.post("/api/transactions/deposit", depositData);
+    const response = await api.post("/transactions/deposit", depositData);
     return { type: "balance", result: response.data };
   }
 };

@@ -118,10 +118,32 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  app.use(
+    express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        // Never cache HTML documents
+        if (filePath.endsWith(".html")) {
+          res.setHeader("Cache-Control", "no-store");
+          return;
+        }
+        // Long-cache immutable assets
+        if (
+          /\.(?:js|css|png|jpe?g|svg|gif|webp|ico|woff2?|ttf|eot)$/i.test(
+            filePath
+          )
+        ) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          return;
+        }
+        // Default: short cache
+        res.setHeader("Cache-Control", "public, max-age=300");
+      },
+    })
+  );
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

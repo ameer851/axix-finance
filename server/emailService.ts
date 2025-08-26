@@ -58,6 +58,44 @@ function getFromEmail(): string {
   );
 }
 
+// Basic HTML -> text fallback (very lightweight; for better fidelity use a library like html-to-text)
+function htmlToText(html: string): string {
+  return html
+    .replace(/<head[\s\S]*?<\/head>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+interface BuildMailOpts {
+  to: string;
+  subject: string;
+  html: string;
+  headers?: Record<string, string>;
+}
+
+function buildMail({ to, subject, html, headers = {} }: BuildMailOpts) {
+  const text = htmlToText(html).slice(0, 4000); // keep text part reasonable
+  const baseHeaders: Record<string, string> = {
+    "X-Mailer": "AxixFinance-Mailer",
+    "X-Axix-Mail-Type": "transactional",
+    "X-Entity-Type": "transactional",
+  };
+  if (process.env.LIST_UNSUBSCRIBE_URL) {
+    baseHeaders["List-Unsubscribe"] = `<${process.env.LIST_UNSUBSCRIBE_URL}>`;
+  }
+  return {
+    from: getFromEmail(),
+    to,
+    subject,
+    html,
+    text,
+    headers: { ...baseHeaders, ...headers },
+  };
+}
+
 /**
  * Check if email service is properly configured
  * @returns {boolean} Whether email service is configured
@@ -149,12 +187,11 @@ export async function sendVerificationEmail(userRaw: any): Promise<boolean> {
       });
       return true;
     }
-    const mailOptions = {
-      from: getFromEmail(),
+    const mailOptions = buildMail({
       to: user.email,
       subject: "Verify your email address",
       html: `<p>Hello ${user.username || user.email},</p><p>Please verify your email address for Axix Finance.</p>`,
-    };
+    });
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
@@ -199,12 +236,11 @@ export async function sendWelcomeEmail(user: DrizzleUser): Promise<boolean> {
       });
       return true;
     }
-    const mailOptions = {
-      from: getFromEmail(),
+    const mailOptions = buildMail({
       to: user.email,
       subject: `Welcome to ${BRAND.name}`,
       html: generateWelcomeEmailHTML(user),
-    };
+    });
     console.log("[email] Sending welcome email via transporter", {
       to: user.email,
       from: mailOptions.from,
@@ -268,8 +304,7 @@ export async function sendDepositRequestEmail(
         planName,
       });
     }
-    const mailOptions = {
-      from: getFromEmail(),
+    const mailOptions = buildMail({
       to: user.email,
       subject: "Axix Finance - Deposit Request Received",
       html: generateDepositConfirmationEmailHTML(
@@ -279,7 +314,7 @@ export async function sendDepositRequestEmail(
         "",
         planName
       ),
-    };
+    });
     const info = await transporter.sendMail(mailOptions);
     if (process.env.NODE_ENV !== "production") {
       console.log("[email] deposit request sent", {
@@ -311,8 +346,7 @@ export async function sendDepositApprovedEmail(
   let attempts = 0;
   let lastError: any = null;
   if (!transporter) await initializeEmailTransporter();
-  const mailOptions = {
-    from: getFromEmail(),
+  const mailOptions = buildMail({
     to: user.email,
     subject: `${BRAND.name} - Deposit Approved & Confirmed`,
     html: generateDepositApprovalEmailHTML(
@@ -322,7 +356,7 @@ export async function sendDepositApprovedEmail(
       planName,
       getBaseUrl()
     ),
-  };
+  });
   while (attempts < 2) {
     try {
       await transporter.sendMail(mailOptions);
@@ -350,8 +384,7 @@ export async function sendWithdrawalRequestEmail(
 ): Promise<boolean> {
   try {
     if (!transporter) await initializeEmailTransporter();
-    const mailOptions = {
-      from: getFromEmail(),
+    const mailOptions = buildMail({
       to: user.email,
       subject: `${BRAND.name} - Withdrawal Request Received`,
       html: generateWithdrawalRequestEmailHTML(
@@ -361,7 +394,7 @@ export async function sendWithdrawalRequestEmail(
         "Your crypto wallet",
         ipAddress
       ),
-    };
+    });
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
@@ -385,8 +418,7 @@ export async function sendWithdrawalApprovedEmail(
   let attempts = 0;
   let lastError: any = null;
   if (!transporter) await initializeEmailTransporter();
-  const mailOptions = {
-    from: getFromEmail(),
+  const mailOptions = buildMail({
     to: user.email,
     subject: `${BRAND.name} - Withdrawal Successfully Processed`,
     html: generateWithdrawalConfirmationEmailHTML(
@@ -396,7 +428,7 @@ export async function sendWithdrawalApprovedEmail(
       cryptoAccount,
       getBaseUrl()
     ),
-  };
+  });
   while (attempts < 2) {
     try {
       await transporter.sendMail(mailOptions);
@@ -424,8 +456,7 @@ export async function sendDepositSuccessEmail(
 ): Promise<boolean> {
   try {
     if (!transporter) await initializeEmailTransporter();
-    const mailOptions = {
-      from: getFromEmail(),
+    const mailOptions = buildMail({
       to: user.email,
       subject: `${BRAND.name} - Deposit Confirmation`,
       html: generateDepositConfirmationEmailHTML(
@@ -435,7 +466,7 @@ export async function sendDepositSuccessEmail(
         "pending-review",
         planName
       ),
-    };
+    });
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {

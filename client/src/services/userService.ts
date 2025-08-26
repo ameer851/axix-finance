@@ -92,7 +92,7 @@ export async function getUserProfile(userId?: number | string): Promise<any> {
     }
 
     // For specific user ID, check if there's an admin route or fallback to current user
-    const endpoint = `/api/users/${userId}/profile`;
+    const endpoint = `/users/${userId}/profile`;
     return await api.get(endpoint);
   } catch (error: any) {
     console.error("Error fetching user profile:", error);
@@ -121,7 +121,7 @@ export async function getUserActivity(
     throw new Error("User ID is required");
   }
   try {
-    return await api.get(`/api/users/${userId}/activity`);
+    return await api.get(`/users/${userId}/activity`);
   } catch (error: any) {
     console.error("Error fetching user activity:", error);
     if (error.status === 403) {
@@ -153,7 +153,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
   }
 
   try {
-    const raw = await api.get<any>(`/api/users/${userId}/balance`);
+    const raw = await api.get<any>(`/users/${userId}/balance`);
     if (!raw || typeof raw !== "object")
       throw new Error("Empty balance response");
 
@@ -211,7 +211,7 @@ export async function updateUserProfile(
     throw new Error("User ID is required");
   }
   try {
-    return await api.patch(`/api/users/${userId}/profile`, data);
+    return await api.patch(`/users/${userId}/profile`, data);
   } catch (error: any) {
     console.error("Error updating user profile:", error);
     if (error.status === 400) {
@@ -244,7 +244,7 @@ export async function updateUserProfileGeneral(
     throw new Error("User ID is required");
   }
   try {
-    return await api.patch(`/api/users/${userId}/profile`, data);
+    return await api.patch(`/users/${userId}/profile`, data);
   } catch (error: any) {
     console.error("Error updating user profile:", error);
     if (error.status === 400) {
@@ -277,7 +277,7 @@ export async function updateUserSecurity(
     throw new Error("User ID is required");
   }
   try {
-    return await api.patch(`/api/users/${userId}/security`, data);
+    return await api.patch(`/users/${userId}/security`, data);
   } catch (error: any) {
     console.error("Error updating security settings:", error);
     if (error.message === "Current password is incorrect") {
@@ -313,7 +313,7 @@ export async function updateUserNotifications(
     throw new Error("User ID is required");
   }
   try {
-    return await api.patch(`/api/users/${userId}/notifications`, data);
+    return await api.patch(`/users/${userId}/notifications`, data);
   } catch (error: any) {
     console.error("Error updating notification preferences:", error);
     if (error.status === 400) {
@@ -346,7 +346,7 @@ export async function getUserReferrals(
     throw new Error("User ID is required");
   }
   try {
-    return await api.get(`/api/users/${userId}/referrals`);
+    return await api.get(`/users/${userId}/referrals`);
   } catch (error: any) {
     console.error("Error fetching user referrals:", error);
     if (error.status === 403) {
@@ -374,7 +374,7 @@ export async function getUserReferralStats(
     throw new Error("User ID is required");
   }
   try {
-    return await api.get(`/api/users/${userId}/referral-stats`);
+    return await api.get(`/users/${userId}/referral-stats`);
   } catch (error: any) {
     console.error("Error fetching referral stats:", error);
     if (error.status === 403) {
@@ -400,7 +400,7 @@ export async function getUserReferralStats(
  */
 export async function getUser(userId: number): Promise<User> {
   try {
-    return await api.get(`/api/users/${userId}`);
+    return await api.get(`/users/${userId}`);
   } catch (error: any) {
     console.error("Error fetching user:", error);
     if (error.status === 403) {
@@ -441,7 +441,7 @@ export async function getUsers(filters: UserFilters = {}): Promise<{
     if (filters.sortBy) queryParams.append("sortBy", filters.sortBy);
     if (filters.order) queryParams.append("order", filters.order);
 
-    const url = `/api/users${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const url = `/users${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
     return await api.get(url);
   } catch (error: any) {
     console.error("Error fetching users:", error);
@@ -486,7 +486,7 @@ export async function getUserTransactions(
     if (filters.page) queryParams.append("page", String(filters.page));
     if (filters.limit) queryParams.append("limit", String(filters.limit));
 
-    const url = `/api/users/${userId}/transactions${
+    const url = `/users/${userId}/transactions${
       queryParams.toString() ? `?${queryParams.toString()}` : ""
     }`;
     return await api.get(url);

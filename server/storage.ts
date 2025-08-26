@@ -934,6 +934,7 @@ export class DatabaseStorage {
   }
 
   async createUser(userData: {
+    uid?: string;
     username: string;
     password: string;
     email: string;
@@ -954,36 +955,85 @@ export class DatabaseStorage {
     verificationTokenExpiry?: Date | null;
   }): Promise<User | undefined> {
     try {
-      const { data, error } = await supabase
+      // Attempt 1: snake_case minimal payload compatible with canonical Supabase schema
+      // Avoid columns that may not exist (like password, camelCase names)
+      let attempt = 1;
+      let insertResp = await supabase
         .from("users")
         .insert({
+          uid: userData.uid || null,
           username: userData.username,
-          password: userData.password,
           email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
+          first_name: userData.firstName || null,
+          last_name: userData.lastName || null,
           role: userData.role || "user",
           balance: userData.balance || "0",
-          isActive: userData.isActive !== false,
-          isVerified: userData.isVerified || false,
-          twoFactorEnabled: userData.twoFactorEnabled || false,
-          referredBy: userData.referredBy,
-          bitcoinAddress: userData.bitcoinAddress,
-          bitcoinCashAddress: userData.bitcoinCashAddress,
-          ethereumAddress: userData.ethereumAddress,
-          bnbAddress: userData.bnbAddress,
-          usdtTrc20Address: userData.usdtTrc20Address,
-          verificationToken: userData.verificationToken,
-          verificationTokenExpiry:
-            userData.verificationTokenExpiry?.toISOString(),
+          is_active: userData.isActive !== false,
+          is_verified: userData.isVerified || false,
+          // Keep optional snake_case fields minimal to reduce schema mismatch risk
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        })
+        } as any)
         .select()
         .single();
 
+      let data = (insertResp as any).data as any;
+      let error = (insertResp as any).error as any;
+
+      // On column errors or undefined column (42703), fall back to camelCase payload
+      if (error) {
+        const msg = String(error?.message || "");
+        if (
+          error?.code === "42703" ||
+          msg.includes("column") ||
+          msg.includes("does not exist")
+        ) {
+          attempt = 2;
+          const retry = await supabase
+            .from("users")
+            .insert({
+              uid: userData.uid,
+              username: userData.username,
+              password: userData.password, // legacy schemas only
+              email: userData.email,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              role: userData.role || "user",
+              balance: userData.balance || "0",
+              isActive: userData.isActive !== false,
+              isVerified: userData.isVerified || false,
+              twoFactorEnabled: userData.twoFactorEnabled || false,
+              referredBy: userData.referredBy,
+              bitcoinAddress: userData.bitcoinAddress,
+              bitcoinCashAddress: userData.bitcoinCashAddress,
+              ethereumAddress: userData.ethereumAddress,
+              bnbAddress: userData.bnbAddress,
+              usdtTrc20Address: userData.usdtTrc20Address,
+              verificationToken: userData.verificationToken,
+              verificationTokenExpiry:
+                userData.verificationTokenExpiry?.toISOString(),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as any)
+            .select()
+            .single();
+          data = (retry as any).data as any;
+          error = (retry as any).error as any;
+        }
+      }
+
       if (error || !data) {
-        console.error("Failed to create user:", error);
+        const errObj: any = error || {};
+        console.error(
+          "Failed to create user (attempt=" +
+            attempt +
+            ") code=" +
+            (errObj.code || "?") +
+            " message=",
+          errObj.message || errObj.error || errObj
+        );
+        if (errObj.details) console.error(" details:", errObj.details);
+        if (errObj.hint) console.error(" hint:", errObj.hint);
         return undefined;
       }
 

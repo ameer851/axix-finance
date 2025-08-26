@@ -49,7 +49,7 @@ export const adminService = {
         params.set("amountMin", String(filters.amountMin));
       if (filters?.amountMax)
         params.set("amountMax", String(filters.amountMax));
-      const url = `/api/admin/deposits${params.toString() ? `?${params.toString()}` : ""}`;
+      const url = `/admin/deposits${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await api.get<any>(url);
       // Normalize to PaginatedResponse shape
       const list = Array.isArray(res?.deposits)
@@ -69,10 +69,10 @@ export const adminService = {
       };
     },
     approve: async (depositId: string) => {
-      return api.post(`/api/admin/deposits/${depositId}/approve`, {});
+      return api.post(`/admin/deposits/${depositId}/approve`, {});
     },
     reject: async (depositId: string) => {
-      return api.post(`/api/admin/deposits/${depositId}/reject`, {});
+      return api.post(`/admin/deposits/${depositId}/reject`, {});
     },
     delete: async (depositId: string) => {
       throw new Error("Delete operation not supported");
@@ -91,7 +91,7 @@ export const adminService = {
         params.set("amountMin", String(filters.amountMin));
       if (filters?.amountMax)
         params.set("amountMax", String(filters.amountMax));
-      const url = `/api/admin/withdrawals${params.toString() ? `?${params.toString()}` : ""}`;
+      const url = `/admin/withdrawals${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await api.get<any>(url);
       const list = Array.isArray(res?.withdrawals)
         ? res.withdrawals
@@ -110,10 +110,10 @@ export const adminService = {
       };
     },
     approve: async (withdrawalId: string) => {
-      return api.post(`/api/admin/withdrawals/${withdrawalId}/approve`, {});
+      return api.post(`/admin/withdrawals/${withdrawalId}/approve`, {});
     },
     reject: async (withdrawalId: string) => {
-      return api.post(`/api/admin/withdrawals/${withdrawalId}/reject`, {});
+      return api.post(`/admin/withdrawals/${withdrawalId}/reject`, {});
     },
     delete: async (withdrawalId: string) => {
       throw new Error("Delete operation not supported");

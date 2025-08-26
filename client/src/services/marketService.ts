@@ -16,7 +16,7 @@ export interface MarketNews {
  */
 export async function getMarketNews(): Promise<MarketNews[]> {
   try {
-    return await api.get<MarketNews[]>("/api/market/news");
+    return await api.get<MarketNews[]>("/market/news");
   } catch (error: any) {
     console.error("Error fetching market news:", error);
 
@@ -36,7 +36,7 @@ export async function getMarketNews(): Promise<MarketNews[]> {
  */
 export async function getMarketGlobalData() {
   try {
-    return await api.get("/api/market/global");
+    return await api.get("/market/global");
   } catch (error: any) {
     console.error("Error fetching global market data:", error);
 
@@ -66,7 +66,7 @@ export async function searchMarketSymbols(query: string) {
       return [];
     }
 
-    return await api.get(`/api/market/search?q=${encodeURIComponent(query)}`);
+    return await api.get(`/market/search?q=${encodeURIComponent(query)}`);
   } catch (error: any) {
     console.error("Error searching market symbols:", error);
 

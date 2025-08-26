@@ -312,7 +312,8 @@ export async function apiRequest<T>(
   body?: any,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${config.apiUrl}${endpoint}`;
+  // Join base and endpoint safely, avoiding double "/api" and duplicate slashes
+  const url = joinBaseAndEndpoint(config.apiUrl, endpoint);
 
   const headers = {
     "Content-Type": "application/json",
@@ -332,6 +333,30 @@ export async function apiRequest<T>(
 
   // Use apiFetch for consistent error handling
   return await apiFetch<T>(url, requestConfig);
+}
+
+/**
+ * Safely joins an API base and endpoint, stripping a duplicate leading "/api"
+ * in the endpoint when the base already ends with "/api".
+ */
+function joinBaseAndEndpoint(base: string, endpoint: string): string {
+  // Absolute endpoints bypass base
+  if (/^https?:\/\//i.test(endpoint)) return endpoint;
+
+  const cleanBase = String(base || "").replace(/\/$/, "");
+  let cleanEndpoint = String(endpoint || "");
+
+  // Ensure endpoint starts with a single leading slash
+  if (!cleanEndpoint.startsWith("/")) cleanEndpoint = `/${cleanEndpoint}`;
+
+  // If base already ends with /api and endpoint also starts with /api, drop one
+  if (/\/api$/i.test(cleanBase) && cleanEndpoint.startsWith("/api/")) {
+    cleanEndpoint = cleanEndpoint.slice(4); // remove leading "/api"
+  }
+
+  // Collapse any accidental double slashes (except protocol)
+  const combined = `${cleanBase}${cleanEndpoint}`.replace(/([^:])\/\/+/, "$1/");
+  return combined;
 }
 
 export interface FetchWithTimeoutOptions extends RequestInit {
@@ -394,11 +419,14 @@ export async function fetchWithTimeout<T>(
 
 // Shorthand methods for common HTTP methods
 export const api = {
-  get: <T = any>(url: string, options: FetchOptions = {}) =>
-    apiFetch<T>(url, { ...options, method: "GET" }),
+  get: <T = any>(url: string, options: FetchOptions = {}) => {
+    const joined = joinBaseAndEndpoint(config.apiUrl, url);
+    return apiFetch<T>(joined, { ...options, method: "GET" });
+  },
 
-  post: <T = any>(url: string, data: any, options: FetchOptions = {}) =>
-    apiFetch<T>(url, {
+  post: <T = any>(url: string, data: any, options: FetchOptions = {}) => {
+    const joined = joinBaseAndEndpoint(config.apiUrl, url);
+    return apiFetch<T>(joined, {
       ...options,
       method: "POST",
       headers: {
@@ -406,10 +434,12 @@ export const api = {
         ...(options.headers || {}),
       },
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  put: <T = any>(url: string, data: any, options: FetchOptions = {}) =>
-    apiFetch<T>(url, {
+  put: <T = any>(url: string, data: any, options: FetchOptions = {}) => {
+    const joined = joinBaseAndEndpoint(config.apiUrl, url);
+    return apiFetch<T>(joined, {
       ...options,
       method: "PUT",
       headers: {
@@ -417,10 +447,12 @@ export const api = {
         ...(options.headers || {}),
       },
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  patch: <T = any>(url: string, data: any, options: FetchOptions = {}) =>
-    apiFetch<T>(url, {
+  patch: <T = any>(url: string, data: any, options: FetchOptions = {}) => {
+    const joined = joinBaseAndEndpoint(config.apiUrl, url);
+    return apiFetch<T>(joined, {
       ...options,
       method: "PATCH",
       headers: {
@@ -428,8 +460,11 @@ export const api = {
         ...(options.headers || {}),
       },
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  delete: <T = any>(url: string, options: FetchOptions = {}) =>
-    apiFetch<T>(url, { ...options, method: "DELETE" }),
+  delete: <T = any>(url: string, options: FetchOptions = {}) => {
+    const joined = joinBaseAndEndpoint(config.apiUrl, url);
+    return apiFetch<T>(joined, { ...options, method: "DELETE" });
+  },
 };

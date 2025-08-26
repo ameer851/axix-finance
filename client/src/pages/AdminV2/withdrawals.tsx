@@ -26,7 +26,7 @@ export default function WithdrawalsPageV2() {
     setError(null);
     try {
       const json = await fetchWithAuth(
-        `/api/admin/transactions?page=${page}&limit=20&type=withdrawal`
+        `/admin/transactions?page=${page}&limit=20&type=withdrawal`
       );
       setRows(json.data || []);
       setTotalPages(json.pagination?.totalPages || 1);
@@ -43,7 +43,7 @@ export default function WithdrawalsPageV2() {
   async function approve(id: number) {
     try {
       setLoading(true);
-      const res = await fetchWithAuth(`/api/admin/withdrawals/${id}/approve`, {
+      const res = await fetchWithAuth(`/admin/withdrawals/${id}/approve`, {
         method: "POST",
       });
       if (res && res.emailSent === false) {
@@ -83,7 +83,7 @@ export default function WithdrawalsPageV2() {
     const reason = prompt("Optional rejection reason:") || undefined;
     try {
       setLoading(true);
-      await fetchWithAuth(`/api/admin/withdrawals/${id}/reject`, {
+      await fetchWithAuth(`/admin/withdrawals/${id}/reject`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       });

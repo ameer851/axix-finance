@@ -55,13 +55,13 @@ export const financialAPI = {
   // Deposits
   getDeposits: async (filters?: any) => {
     const params = new URLSearchParams(filters).toString();
-    const endpoint = `/api/deposits${params ? `?${params}` : ""}`;
+    const endpoint = `/deposits${params ? `?${params}` : ""}`;
     const response = await fetchWithAuth(endpoint);
     return response;
   },
 
   createDeposit: async (data: { amount: number; currency: string }) => {
-    const response = await fetchWithAuth("/api/deposits", {
+    const response = await fetchWithAuth("/deposits", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -69,21 +69,21 @@ export const financialAPI = {
   },
 
   approveDeposit: async (depositId: string) => {
-    const response = await fetchWithAuth(`/api/deposits/${depositId}/approve`, {
+    const response = await fetchWithAuth(`/deposits/${depositId}/approve`, {
       method: "POST",
     });
     return response;
   },
 
   rejectDeposit: async (depositId: string) => {
-    const response = await fetchWithAuth(`/api/deposits/${depositId}/reject`, {
+    const response = await fetchWithAuth(`/deposits/${depositId}/reject`, {
       method: "POST",
     });
     return response;
   },
 
   deleteDeposit: async (depositId: string) => {
-    const response = await fetchWithAuth(`/api/deposits/${depositId}`, {
+    const response = await fetchWithAuth(`/deposits/${depositId}`, {
       method: "DELETE",
     });
     return response;
@@ -92,7 +92,7 @@ export const financialAPI = {
   // Withdrawals
   getWithdrawals: async (filters?: any) => {
     const params = new URLSearchParams(filters).toString();
-    const endpoint = `/api/withdrawals${params ? `?${params}` : ""}`;
+    const endpoint = `/withdrawals${params ? `?${params}` : ""}`;
     const response = await fetchWithAuth(endpoint);
     return response;
   },
@@ -102,7 +102,7 @@ export const financialAPI = {
     currency: string;
     address: string;
   }) => {
-    const response = await fetchWithAuth("/api/withdrawals", {
+    const response = await fetchWithAuth("/withdrawals", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -111,7 +111,7 @@ export const financialAPI = {
 
   approveWithdrawal: async (withdrawalId: string) => {
     const response = await fetchWithAuth(
-      `/api/withdrawals/${withdrawalId}/approve`,
+      `/withdrawals/${withdrawalId}/approve`,
       {
         method: "POST",
       }
@@ -121,7 +121,7 @@ export const financialAPI = {
 
   rejectWithdrawal: async (withdrawalId: string) => {
     const response = await fetchWithAuth(
-      `/api/withdrawals/${withdrawalId}/reject`,
+      `/withdrawals/${withdrawalId}/reject`,
       {
         method: "POST",
       }
@@ -130,7 +130,7 @@ export const financialAPI = {
   },
 
   deleteWithdrawal: async (withdrawalId: string) => {
-    const response = await fetchWithAuth(`/api/withdrawals/${withdrawalId}`, {
+    const response = await fetchWithAuth(`/withdrawals/${withdrawalId}`, {
       method: "DELETE",
     });
     return response;
@@ -138,24 +138,24 @@ export const financialAPI = {
 
   // Balance
   getBalance: async (userId?: string) => {
-    const endpoint = userId ? `/api/users/${userId}/balance` : "/api/balance";
+    const endpoint = userId ? `/users/${userId}/balance` : "/balance";
     const response = await fetchWithAuth(endpoint);
     return response;
   },
 
   // User Management
   getUsers: async () => {
-    const response = await fetchWithAuth("/api/users");
+    const response = await fetchWithAuth("/users");
     return response;
   },
 
   getUser: async (userId: string) => {
-    const response = await fetchWithAuth(`/api/users/${userId}`);
+    const response = await fetchWithAuth(`/users/${userId}`);
     return response;
   },
 
   updateUser: async (userId: string, data: any) => {
-    const response = await fetchWithAuth(`/api/users/${userId}`, {
+    const response = await fetchWithAuth(`/users/${userId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
@@ -163,7 +163,7 @@ export const financialAPI = {
   },
 
   deleteUser: async (userId: string) => {
-    const response = await fetchWithAuth(`/api/users/${userId}`, {
+    const response = await fetchWithAuth(`/users/${userId}`, {
       method: "DELETE",
     });
     return response;
@@ -176,7 +176,7 @@ export const authAPI = {
   // login(): use authService.login instead
 
   register: async (userData: Partial<User>) => {
-    return fetchWithAuth("/api/register", {
+    return fetchWithAuth("/register", {
       method: "POST",
       body: JSON.stringify(userData),
     });

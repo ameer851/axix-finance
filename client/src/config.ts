@@ -4,7 +4,9 @@ function resolveApiUrl(): string {
   const envAny = (import.meta.env as any) ?? {};
   const raw = envAny?.VITE_API_URL as string | undefined;
   const s = String(raw ?? "").trim();
-  const allowCross = String(envAny?.VITE_ALLOW_CROSS_ORIGIN ?? "").toLowerCase();
+  const allowCross = String(
+    envAny?.VITE_ALLOW_CROSS_ORIGIN ?? ""
+  ).toLowerCase();
   if (!s) return "/api";
 
   // Reject obvious bad inputs: spaces, semicolons, or encoded spaces that indicate pasted commands
@@ -20,7 +22,10 @@ function resolveApiUrl(): string {
   if (/^https?:\/\/[^\/]+\/?$/i.test(s)) {
     const enabled = allowCross === "1" || allowCross === "true";
     if (enabled) return s.replace(/\/$/, "");
-    console.warn("VITE_API_URL is absolute but cross-origin is disabled; using /api", s);
+    console.warn(
+      "VITE_API_URL is absolute but cross-origin is disabled; using /api",
+      s
+    );
     return "/api";
   }
 
@@ -49,7 +54,7 @@ const config = {
   },
 
   // Health check endpoint
-  healthCheckEndpoint: "/api/health",
+  healthCheckEndpoint: "/health",
 
   // Other configuration settings
   appName: "Axix Finance",

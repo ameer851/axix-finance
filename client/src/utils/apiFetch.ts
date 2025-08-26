@@ -23,7 +23,26 @@ export async function apiFetch(
     Pragma: "no-cache",
     ...(options.headers || {}),
   };
-  const body = options.body ? JSON.stringify(options.body) : undefined;
+  // Avoid double JSON encoding: if caller already passed a string, send as-is
+  let body: any = undefined;
+  if (options.body !== undefined) {
+    if (typeof options.body === "string") {
+      // Heuristic: if it looks like already JSON (starts with {,[, or "), don't stringify again
+      const trimmed = options.body.trim();
+      if (
+        trimmed.startsWith("{") ||
+        trimmed.startsWith("[") ||
+        trimmed.startsWith('"')
+      ) {
+        body = options.body;
+      } else {
+        // Non-JSON string payload; still send raw
+        body = options.body;
+      }
+    } else {
+      body = JSON.stringify(options.body);
+    }
+  }
   try {
     const response = await fetch(url, {
       cache: "no-store",

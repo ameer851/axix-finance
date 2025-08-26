@@ -28,16 +28,16 @@ export default function AdminDashboardV2() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchWithAuth(`/api/admin/stats/summary`);
+      const res = await fetchWithAuth(`/admin/stats/summary`);
       if (res?.success) setSummary(res.data);
       else setError(res?.message || "Failed to load stats");
       // Load simple time series for the charts
       const [dep, wd] = await Promise.all([
         fetchWithAuth(
-          `/api/admin/stats/timeseries?type=deposit&interval=daily&days=14`
+          `/admin/stats/timeseries?type=deposit&interval=daily&days=14`
         ),
         fetchWithAuth(
-          `/api/admin/stats/timeseries?type=withdrawal&interval=daily&days=14`
+          `/admin/stats/timeseries?type=withdrawal&interval=daily&days=14`
         ),
       ]);
       if (dep?.success) setDepSeries(dep.data.series || []);

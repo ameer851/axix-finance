@@ -120,8 +120,8 @@ export function initGlobalErrorHandling() {
           const u = new URL(urlString);
           const qs = u.search ? u.search.substring(1) : "";
           const proxied = qs
-            ? `/api/translate-log?${qs}`
-            : "/api/translate-log";
+            ? `/translate-log?${qs}`
+            : "/translate-log";
           return originalFetch(proxied, init);
         }
       } catch {}

@@ -24,7 +24,7 @@ const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
   try {
-    const response: any = await api.get(`/api/users/${userId}/balance`);
+    const response: any = await api.get(`/users/${userId}/balance`);
     // Support both flat object and { data: { ... } } shapes
     const data =
       response && typeof response === "object" && "data" in response
@@ -67,7 +67,7 @@ const fetchUserTransactions = async (userId: number) => {
 
   try {
     const response: any = await api.get(
-      `/api/users/${userId}/transactions?limit=10`
+      `/users/${userId}/transactions?limit=10`
     );
     const data =
       response && typeof response === "object" && "data" in response

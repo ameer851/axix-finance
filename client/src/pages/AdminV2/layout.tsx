@@ -16,7 +16,7 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
             className="h-8 w-8 rounded-full"
           />
           <h1 className="font-semibold flex items-center gap-2">
-            Admin Panel v2
+            Admin Panel
             {isOwner && (
               <span
                 className="text-[10px] leading-none px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200"
