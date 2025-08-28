@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeftRight,
+  Calculator,
   ChevronLeft,
   ChevronRight,
   DollarSign,
@@ -112,6 +113,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       path: "/marketing",
       label: "Marketing",
       icon: <TrendingUp className="h-5 w-5" />,
+    },
+    {
+      path: "/investment-calculator",
+      label: "Investment Calculator",
+      icon: <Calculator className="h-5 w-5" />,
     },
     {
       path: "/edit-account",

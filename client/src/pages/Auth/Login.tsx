@@ -113,7 +113,7 @@ const Login: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (userData.role === "admin") {
-        navigate("/admin");
+        navigate("/adminv2/users");
       } else {
         navigate("/dashboard");
       }

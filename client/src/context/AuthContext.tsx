@@ -38,59 +38,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  // Verify authentication on mount and periodically
-  useEffect(() => {
-    const initAuth = async () => {
-      setIsLoading(true);
-      try {
-        // Check for user in local storage
-        const storedUser = getCurrentUser();
-        if (storedUser) {
-          // Validate the stored user by checking the server connection
-          const isServerAvailable = await checkServerConnection();
-          if (isServerAvailable) {
-            // Refresh user data from server
-            await refreshUserData();
-          } else {
-            setUser(storedUser); // Use stored data when offline
-          }
-        }
-      } catch (err) {
-        console.error("Auth initialization error:", err);
-        // Clear invalid session
-        localStorage.removeItem("user");
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initAuth();
-
-    // Set up periodic session validation (every 15 minutes)
-    const intervalId = setInterval(
-      async () => {
-        if (user) {
-          const isValid = await checkServerConnection();
-          if (!isValid) {
-            toast({
-              title: "Session expired",
-              description: "Your session has expired. Please log in again.",
-              variant: "destructive",
-            });
-            await logout();
-          }
-        }
-      },
-      15 * 60 * 1000
-    );
-
-    return () => clearInterval(intervalId);
-  }, []);
   const refreshUserData = async () => {
     try {
       // Import api at the top of the file to use our improved client
       const { api } = await import("@/lib/api");
+
+      // First, ensure we have a valid Supabase session
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw new Error("Session error: " + sessionError.message);
+      }
+
+      if (!session) {
+        // Try to refresh the session
+        const { data: refreshData, error: refreshError } =
+          await supabase.auth.refreshSession();
+
+        if (refreshError || !refreshData.session) {
+          console.warn("No active session and refresh failed");
+          throw new Error("No active session available");
+        }
+      }
 
       // First get the user profile with our enhanced API client
       try {
@@ -187,6 +160,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Don't clear user data on network errors to support offline mode
     }
   };
+
+  // Verify authentication on mount and periodically
+  useEffect(() => {
+    const initAuth = async () => {
+      setIsLoading(true);
+      try {
+        // Check for user in local storage
+        const storedUser = getCurrentUser();
+        if (storedUser) {
+          // Validate the stored user by checking the server connection
+          const isServerAvailable = await checkServerConnection();
+          if (isServerAvailable) {
+            // Refresh user data from server
+            await refreshUserData();
+          } else {
+            setUser(storedUser); // Use stored data when offline
+          }
+        }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
+        // Clear invalid session
+        localStorage.removeItem("user");
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+
+    // Set up periodic session validation (every 15 minutes)
+    const intervalId = setInterval(
+      async () => {
+        if (user) {
+          const isValid = await checkServerConnection();
+          if (!isValid) {
+            toast({
+              title: "Session expired",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive",
+            });
+            await logout();
+          }
+        }
+      },
+      15 * 60 * 1000
+    );
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   const login = async (identifier: string, password: string): Promise<User> => {
     setIsLoading(true);

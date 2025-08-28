@@ -141,15 +141,15 @@ export default function DepositsPageV2() {
       </div>
       {error && <div className="text-red-600 mb-2 text-sm">Error: {error}</div>}
       <div className="border rounded bg-white overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2">ID</th>
-              <th className="p-2">User</th>
-              <th className="p-2">Amount</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Type</th>
-              <th className="p-2">Actions</th>
+              <th className="p-2 min-w-[60px]">ID</th>
+              <th className="p-2 min-w-[80px]">User</th>
+              <th className="p-2 min-w-[100px]">Amount</th>
+              <th className="p-2 min-w-[100px]">Status</th>
+              <th className="p-2 min-w-[100px]">Type</th>
+              <th className="p-2 min-w-[150px]">Actions</th>
             </tr>
           </thead>
           <tbody>

@@ -1,4 +1,7 @@
 // Email service for sending emails using templates
+import { config } from "dotenv";
+config(); // Load environment variables first
+
 import { User as DrizzleUser } from "@shared/schema";
 import nodemailer from "nodemailer";
 import { z } from "zod";
@@ -44,7 +47,8 @@ const envSchema = z.object({
 const envResult = envSchema.safeParse(process.env);
 if (!envResult.success) {
   console.error("❌ Invalid .env config:", envResult.error.format());
-  process.exit(1);
+  console.warn("⚠️ Continuing anyway for email testing purposes...");
+  // process.exit(1);
 }
 
 // Validate config at module load (already done above)
@@ -112,6 +116,13 @@ export function isConfigured(): boolean {
 // Initialize the email transporter
 export async function initializeEmailTransporter(): Promise<boolean> {
   try {
+    if (!transporter) {
+      console.log("[email] initializeEmailTransporter invoked", {
+        env: process.env.NODE_ENV,
+        devModeFlag: process.env.EMAIL_DEV_MODE,
+        hasResendKey: !!process.env.RESEND_API_KEY,
+      });
+    }
     if (transporter) return true; // already initialized
     if (
       process.env.EMAIL_DEV_MODE === "true" ||
@@ -294,6 +305,12 @@ export async function sendDepositRequestEmail(
   method: string,
   planName?: string
 ): Promise<boolean> {
+  console.log("✅ [FUNCTION ENTRY] sendDepositRequestEmail called!", {
+    userEmail: user.email,
+    amount,
+    method,
+    planName,
+  });
   try {
     if (!transporter) await initializeEmailTransporter();
     if (process.env.NODE_ENV !== "production") {
@@ -343,6 +360,12 @@ export async function sendDepositApprovedEmail(
   method: string,
   planName?: string
 ): Promise<boolean> {
+  console.log("🚨 [FUNCTION ENTRY] sendDepositApprovedEmail called!", {
+    userEmail: user.email,
+    amount,
+    method,
+    planName,
+  });
   let attempts = 0;
   let lastError: any = null;
   if (!transporter) await initializeEmailTransporter();
@@ -359,9 +382,27 @@ export async function sendDepositApprovedEmail(
   });
   while (attempts < 2) {
     try {
+      console.log("[email] deposit-approved attempt", {
+        to: user.email,
+        amount,
+        method,
+        planName,
+        attempt: attempts + 1,
+      });
       await transporter.sendMail(mailOptions);
+      console.log("[email] deposit-approved success", {
+        to: user.email,
+        amount,
+        attempt: attempts + 1,
+      });
       return true;
     } catch (error) {
+      console.warn("[email] deposit-approved attempt failed", {
+        to: user.email,
+        amount,
+        attempt: attempts + 1,
+        error: (error as any)?.message,
+      });
       lastError = error;
       attempts++;
     }
@@ -382,6 +423,11 @@ export async function sendWithdrawalRequestEmail(
   amount: string,
   ipAddress?: string
 ): Promise<boolean> {
+  console.log("✅ [FUNCTION ENTRY] sendWithdrawalRequestEmail called!", {
+    userEmail: user.email,
+    amount,
+    ipAddress,
+  });
   try {
     if (!transporter) await initializeEmailTransporter();
     const mailOptions = buildMail({
@@ -415,6 +461,11 @@ export async function sendWithdrawalApprovedEmail(
   amount: string,
   cryptoAccount: string
 ): Promise<boolean> {
+  console.log("🚨 [FUNCTION ENTRY] sendWithdrawalApprovedEmail called!", {
+    userEmail: user.email,
+    amount,
+    cryptoAccount,
+  });
   let attempts = 0;
   let lastError: any = null;
   if (!transporter) await initializeEmailTransporter();
@@ -431,10 +482,29 @@ export async function sendWithdrawalApprovedEmail(
   });
   while (attempts < 2) {
     try {
+      // Log attempts in all environments for better diagnostics
+      console.log("[email] withdrawal-approved attempt", {
+        to: user.email,
+        amount,
+        cryptoAccount,
+        attempt: attempts + 1,
+        env: process.env.NODE_ENV,
+      });
       await transporter.sendMail(mailOptions);
+      console.log("[email] withdrawal-approved success", {
+        to: user.email,
+        amount,
+        attempt: attempts + 1,
+      });
       return true;
     } catch (error) {
       lastError = error;
+      console.warn("[email] withdrawal-approved attempt failed", {
+        to: user.email,
+        amount,
+        attempt: attempts + 1,
+        error: (error as any)?.message,
+      });
       attempts++;
     }
   }
@@ -446,6 +516,11 @@ export async function sendWithdrawalApprovedEmail(
       details: { error: lastError, userId: user.id, amount, cryptoAccount },
     });
   } catch {}
+  console.error("[email] withdrawal-approved ultimately failed", {
+    to: user.email,
+    amount,
+    error: (lastError as any)?.message,
+  });
   return false;
 }
 

@@ -1,6 +1,19 @@
 import cors from "cors";
+import { config } from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+
+// Load environment variables
+config();
+
+// Debug environment variables
+console.log("🔍 ENV DEBUG:", {
+  NODE_ENV: process.env.NODE_ENV,
+  SUPABASE_URL: process.env.SUPABASE_URL ? "SET" : "MISSING",
+  EMAIL_FROM: process.env.EMAIL_FROM ? "SET" : "MISSING",
+  RESEND_API_KEY: process.env.RESEND_API_KEY ? "SET" : "MISSING",
+});
+
 import { setupAdminApi } from "./admin-api";
 import { setupAuth } from "./auth";
 // Legacy admin panel disabled (replaced by modular admin API)
@@ -33,6 +46,10 @@ declare global {
 // Initialize Express app
 const app = express();
 
+// Trust reverse proxy (Fly.io / Vercel / Nginx) so secure cookies & IP rate-limits work properly
+// Without this, Express may treat all requests as coming from 127.0.0.1 and may not set secure cookies
+app.set("trust proxy", 1);
+
 // Warn early if JWT secret missing (affects bearer mapping for admin & transactions)
 if (!process.env.SUPABASE_JWT_SECRET) {
   console.warn(
@@ -62,10 +79,21 @@ declare global {
 const storage = new DatabaseStorage();
 
 // Configure rate limiters
+// General limiter: configurable via env, skips extremely common lightweight GET endpoints
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
-  message: "Too many requests, please try again later.",
+  max: parseInt(process.env.API_RATE_LIMIT_MAX || "600", 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests, slow down.",
+  keyGenerator: (req) =>
+    `${req.ip || ""}|${(req.headers["x-forwarded-for"] as string) || ""}`.slice(
+      0,
+      200
+    ),
+  skip: (req) =>
+    req.method === "GET" &&
+    (req.path === "/api/ping" || req.path === "/api/profile"),
 });
 
 const authLimiter = rateLimit({
@@ -100,17 +128,25 @@ app.use(
         return callback(null, true); // Allow all origins in development
       }
 
+      // Split comma-delimited env var lists into individual origins
+      const splitEnv = (val?: string) =>
+        (val || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
       const allowedOrigins = [
-        // Production domains
+        // Production domains (hard-coded)
         "https://axix-finance.vercel.app",
         "https://www.axixfinance.com",
-        process.env.CORS_ORIGIN,
-        process.env.CLIENT_URL,
-        process.env.FRONTEND_URL,
+        "https://axixfinance.com",
+        // From env (may include comma separated values)
+        ...splitEnv(process.env.CORS_ORIGIN),
+        ...splitEnv(process.env.CLIENT_URL),
+        ...splitEnv(process.env.FRONTEND_URL),
         // Specific domains that need access
         "https://translate.googleapis.com",
         "https://translate.google.com",
-      ].filter(Boolean); // Remove undefined/null values
+      ].filter(Boolean);
 
       // Check if the origin is in our allowed origins
       if (
@@ -152,6 +188,35 @@ app.use(setupCookiePolicy);
 // Apply our custom middleware for better auth handling and stability
 app.use(routeDelay);
 // app.use(gracefulAuth); // Temporarily disabled to fix authentication issues
+
+// Lightweight login telemetry endpoint to debug intermittent login issues
+// Captures origin, cookie presence, and basic session state prior to actual credential verification
+app.get("/api/auth/login-telemetry", (req: Request, res: Response) => {
+  try {
+    const origin = req.headers.origin;
+    const cookieHeader = req.headers.cookie;
+    const hasSessionCookie = (cookieHeader || "").includes("connect.sid=");
+    const forwardedFor = req.headers["x-forwarded-for"]; // potential comma-separated list
+    const proto = req.headers["x-forwarded-proto"]; // ensure https in production
+    const corsDebug = {
+      origin,
+      allowed: !!origin,
+    };
+    res.json({
+      ok: true,
+      origin,
+      hasSessionCookie,
+      cookieLength: cookieHeader ? cookieHeader.length : 0,
+      forwardedFor,
+      proto,
+      sessionUser: (req as any).user?.id || null,
+      corsDebug,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
 
 // Rate limiting to prevent brute force attacks (general)
 const apiLimiter = rateLimit({

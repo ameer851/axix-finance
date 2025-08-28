@@ -879,16 +879,30 @@ export class DatabaseStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const { data, error } = await supabase
+      // First attempt exact match (fast)
+      let { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("username", username)
         .single();
-
-      if (error || !data) {
-        return undefined;
+      if (!data || error) {
+        // Fallback: case-insensitive exact match (ilike) if initial attempt fails
+        const lowered = username.toLowerCase();
+        const { data: ciData } = await supabase
+          .from("users")
+          .select("*")
+          .ilike("username", lowered);
+        if (Array.isArray(ciData) && ciData.length === 1) {
+          data = ciData[0];
+        } else if (Array.isArray(ciData) && ciData.length > 1) {
+          // If multiple case-insensitive matches (rare), choose exact lower-case or first
+          const exactLower = ciData.find(
+            (u: any) => (u.username || "").toLowerCase() === lowered
+          );
+          data = exactLower || ciData[0];
+        }
       }
-
+      if (!data) return undefined;
       return data as User;
     } catch (error) {
       console.error("Failed to get user by username:", error);

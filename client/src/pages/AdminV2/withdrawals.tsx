@@ -96,27 +96,27 @@ export default function WithdrawalsPageV2() {
   }
   return (
     <AdminV2Layout>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-semibold">Withdrawals</h2>
         <button
           onClick={load}
           disabled={loading}
-          className="text-sm px-3 py-1 bg-blue-600 text-white rounded"
+          className="text-sm px-3 py-1 bg-blue-600 text-white rounded whitespace-nowrap"
         >
           Reload
         </button>
       </div>
       {error && <div className="text-red-600 mb-2 text-sm">Error: {error}</div>}
       <div className="border rounded bg-white overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2">ID</th>
-              <th className="p-2">User</th>
-              <th className="p-2">Amount</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Type</th>
-              <th className="p-2">Actions</th>
+              <th className="p-2 min-w-[60px]">ID</th>
+              <th className="p-2 min-w-[80px]">User</th>
+              <th className="p-2 min-w-[100px]">Amount</th>
+              <th className="p-2 min-w-[100px]">Status</th>
+              <th className="p-2 min-w-[100px]">Type</th>
+              <th className="p-2 min-w-[150px]">Actions</th>
             </tr>
           </thead>
           <tbody>

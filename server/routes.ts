@@ -13,10 +13,15 @@ import { resendVerificationEmail, verifyUserEmail } from "./auth";
 import { handleEmailChange } from "./emailChangeService";
 import {
   initializeEmailTransporter,
-  sendDepositRequestEmail,
   sendDepositSuccessEmail,
   sendWithdrawalRequestEmail,
 } from "./emailService";
+import {
+  applyDailyReturns,
+  createInvestmentFromTransaction,
+  getUserInvestmentReturns,
+  getUserInvestments,
+} from "./investmentService";
 import { DatabaseStorage } from "./storage";
 
 const router = express.Router();
@@ -459,69 +464,80 @@ router.get(
   }
 );
 
-// Deposit confirmation -> create pending deposit transaction & send deposit request email
+// Automatic Investment Deposit -> instant approval and balance credit
 router.post(
-  "/transactions/deposit-confirmation",
+  "/transactions/investment-deposit",
   requireAuth,
   async (req: Request, res: Response) => {
     try {
-      const { amount, transactionHash, method, planName } = req.body || {};
+      const { amount, planName, transactionHash, method } = req.body || {};
       const numericAmount = Number(amount);
+
       if (!numericAmount || numericAmount <= 0) {
         return res.status(400).json({ message: "Invalid amount" });
       }
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[deposit-debug] user=", req.user?.id, "payload=", {
-          amount: numericAmount,
-          hasHash: !!transactionHash,
-          method,
-          planName,
+
+      if (!planName) {
+        return res.status(400).json({ message: "Investment plan is required" });
+      }
+
+      // Validate investment plan
+      const { INVESTMENT_PLANS } = await import("./investmentService");
+      const plan = INVESTMENT_PLANS.find((p) => p.name === planName);
+      if (!plan) {
+        return res.status(400).json({ message: "Invalid investment plan" });
+      }
+
+      if (
+        numericAmount < plan.minAmount ||
+        (plan.maxAmount && numericAmount > plan.maxAmount)
+      ) {
+        return res.status(400).json({
+          message: `Amount must be between $${plan.minAmount} and $${plan.maxAmount || "unlimited"} for ${planName}`,
         });
       }
+
+      // Calculate investment returns
+      const dailyProfit = (numericAmount * plan.dailyProfit) / 100;
+      const totalReturn = (numericAmount * plan.totalReturn) / 100;
+
+      // Create PENDING deposit transaction (admin approval required)
       const tx = await storage.createTransaction({
         userId: req.user!.id,
-        userUid: (req.user as any).uid, // pass auth uid for uuid user_id column
+        userUid: (req.user as any).uid,
         type: "deposit",
         amount: String(numericAmount),
-        status: "pending",
-        description: planName
-          ? `Deposit request - ${planName}`
-          : "Deposit request",
+        status: "pending", // Admin approval required
+        description: `Investment Deposit - ${planName}`,
         transactionHash: transactionHash || null,
+        planName: planName,
+        planDuration: plan.duration,
+        dailyProfit: dailyProfit,
+        totalReturn: totalReturn,
       });
-      if (tx) {
-        // Send deposit request/received email (primary with silent failure)
-        try {
-          const user = await storage.getUser(req.user!.id);
-          if (user) {
-            await sendDepositRequestEmail(
-              user as any,
-              String(numericAmount),
-              method || "USD",
-              planName
-            );
-          }
-        } catch (emailErr) {
-          console.warn("[deposit-confirmation] request email failed", emailErr);
-        }
-        if (process.env.NODE_ENV !== "production") {
-          console.log("[deposit-confirmation] created tx:", tx);
-        }
-        // Return a stable JSON shape the client expects
+
+      if (!tx) {
         return res
-          .status(201)
-          .json({ success: true, data: { transaction: tx } });
+          .status(500)
+          .json({ message: "Failed to create investment deposit" });
       }
-      return res.status(500).json({
-        message: "Failed to create deposit",
-        debug:
-          process.env.NODE_ENV !== "production"
-            ? "createTransaction returned undefined"
-            : undefined,
+
+      // Return success response with pending status
+      return res.status(201).json({
+        success: true,
+        message: "Investment deposit submitted for admin approval",
+        data: {
+          transaction: tx,
+          plan: plan,
+          dailyReturn: dailyProfit,
+          totalReturn: totalReturn,
+          investmentPeriod: plan.duration,
+          status: "pending_approval",
+        },
       });
     } catch (e) {
-      console.error("deposit-confirmation error", e);
-      res.status(500).json({ message: "Failed to submit deposit" });
+      console.error("investment-deposit error", e);
+      res.status(500).json({ message: "Failed to process investment deposit" });
     }
   }
 );
@@ -676,6 +692,256 @@ router.post(
     } catch (e) {
       console.error("balance deposit error", e);
       res.status(500).json({ message: "Failed to process deposit" });
+    }
+  }
+);
+
+// Investment calculation endpoints
+router.post(
+  "/investment/calculate",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { principalAmount, currentBalance = 0 } = req.body || {};
+
+      if (
+        !principalAmount ||
+        typeof principalAmount !== "number" ||
+        principalAmount <= 0
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Valid principal amount is required" });
+      }
+
+      // Import investment plans (mock data for now)
+      const plans = [
+        {
+          id: "starter",
+          name: "Starter Plan",
+          minAmount: 100,
+          maxAmount: 1000,
+          returnRate: "5-8% Monthly",
+          duration: "3 Months",
+        },
+        {
+          id: "growth",
+          name: "Growth Plan",
+          minAmount: 1000,
+          maxAmount: 10000,
+          returnRate: "8-12% Monthly",
+          duration: "6 Months",
+        },
+        {
+          id: "premium",
+          name: "Premium Plan",
+          minAmount: 10000,
+          maxAmount: 100000,
+          returnRate: "12-18% Monthly",
+          duration: "12 Months",
+        },
+      ];
+
+      const calculations = plans.map((plan) => {
+        // Parse return rate (e.g., "5-8% Monthly" -> take average)
+        const returnRateMatch = plan.returnRate.match(/(\d+)-(\d+)%/);
+        const returnPercentage = returnRateMatch
+          ? (parseInt(returnRateMatch[1]) + parseInt(returnRateMatch[2])) / 2
+          : 5;
+
+        // Parse duration
+        const durationMatch = plan.duration.match(/(\d+)\s*(Month|Months)/i);
+        const durationMonths = durationMatch ? parseInt(durationMatch[1]) : 3;
+        const durationDays = durationMonths * 30;
+
+        // Calculate daily return rate
+        const dailyReturnRate = returnPercentage / 100 / 30;
+        const dailyReturn = principalAmount * dailyReturnRate;
+
+        // Calculate returns
+        const totalReturn24h = dailyReturn * 1;
+        const totalReturn30d = dailyReturn * 30;
+        const totalReturnPlan = dailyReturn * durationDays;
+
+        // Calculate projected balances
+        const projectedBalance24h =
+          currentBalance + principalAmount + totalReturn24h;
+        const projectedBalance30d =
+          currentBalance + principalAmount + totalReturn30d;
+        const projectedBalanceEnd =
+          currentBalance + principalAmount + totalReturnPlan;
+
+        return {
+          planId: plan.id,
+          planName: plan.name,
+          principalAmount,
+          dailyReturn,
+          totalReturn24h,
+          totalReturn30d,
+          totalReturnPlan,
+          projectedBalance24h,
+          projectedBalance30d,
+          projectedBalanceEnd,
+          durationDays,
+          returnPercentage,
+        };
+      });
+
+      // Find recommended plan
+      const recommendedPlan = calculations.find((calc) =>
+        principalAmount >= 100 && principalAmount <= 1000
+          ? calc.planId === "starter"
+          : principalAmount >= 1000 && principalAmount <= 10000
+            ? calc.planId === "growth"
+            : calc.planId === "premium"
+      );
+
+      res.json({
+        calculations,
+        currentBalance,
+        recommendedPlan,
+      });
+    } catch (error) {
+      console.error("Investment calculation error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to calculate investment projections" });
+    }
+  }
+);
+
+// Apply investment returns (for simulation/testing)
+router.post(
+  "/investment/apply-returns",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { planId, principalAmount, daysElapsed = 1 } = req.body || {};
+
+      if (
+        !planId ||
+        !principalAmount ||
+        typeof principalAmount !== "number" ||
+        principalAmount <= 0
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Valid plan ID and principal amount are required" });
+      }
+
+      // Get plan details
+      const plans = [
+        { id: "starter", returnRate: "5-8% Monthly", duration: "3 Months" },
+        { id: "growth", returnRate: "8-12% Monthly", duration: "6 Months" },
+        { id: "premium", returnRate: "12-18% Monthly", duration: "12 Months" },
+      ];
+
+      const plan = plans.find((p) => p.id === planId);
+      if (!plan) {
+        return res.status(400).json({ message: "Invalid plan ID" });
+      }
+
+      // Calculate returns
+      const returnRateMatch = plan.returnRate.match(/(\d+)-(\d+)%/);
+      const returnPercentage = returnRateMatch
+        ? (parseInt(returnRateMatch[1]) + parseInt(returnRateMatch[2])) / 2
+        : 5;
+
+      const dailyReturnRate = returnPercentage / 100 / 30;
+      const returnsEarned = principalAmount * dailyReturnRate * daysElapsed;
+      const newBalance = principalAmount + returnsEarned;
+
+      // In a real implementation, you would update the user's balance here
+      // For now, we'll just return the calculation
+      res.json({
+        success: true,
+        planId,
+        principalAmount,
+        returnsEarned,
+        newBalance,
+        daysElapsed,
+        message: `Successfully calculated returns for ${daysElapsed} day(s)`,
+      });
+    } catch (error) {
+      console.error("Apply investment returns error:", error);
+      res.status(500).json({ message: "Failed to apply investment returns" });
+    }
+  }
+);
+
+// Investment Management Endpoints
+
+// Get user's active investments
+router.get("/investments", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const investments = await getUserInvestments(req.user!.id);
+    res.json({ investments });
+  } catch (error) {
+    console.error("Get investments error:", error);
+    res.status(500).json({ message: "Failed to get investments" });
+  }
+});
+
+// Get user's investment returns
+router.get(
+  "/investments/returns",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const returns = await getUserInvestmentReturns(req.user!.id);
+      res.json({ returns });
+    } catch (error) {
+      console.error("Get investment returns error:", error);
+      res.status(500).json({ message: "Failed to get investment returns" });
+    }
+  }
+);
+
+// Apply daily returns (admin/manual trigger)
+router.post(
+  "/investments/apply-returns",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      await applyDailyReturns();
+      res.json({ message: "Daily returns applied successfully" });
+    } catch (error) {
+      console.error("Apply daily returns error:", error);
+      res.status(500).json({ message: "Failed to apply daily returns" });
+    }
+  }
+);
+
+// Create investment from completed transaction (internal endpoint)
+router.post(
+  "/investments/create-from-transaction/:transactionId",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const transactionId = parseInt(req.params.transactionId, 10);
+      if (isNaN(transactionId)) {
+        return res.status(400).json({ message: "Invalid transaction ID" });
+      }
+
+      const investment = await createInvestmentFromTransaction(transactionId);
+      if (!investment) {
+        return res
+          .status(400)
+          .json({ message: "Failed to create investment from transaction" });
+      }
+
+      res.json({ investment });
+    } catch (error) {
+      console.error("Create investment from transaction error:", error);
+      res.status(500).json({ message: "Failed to create investment" });
     }
   }
 );

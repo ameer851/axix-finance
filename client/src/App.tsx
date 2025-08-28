@@ -15,15 +15,6 @@ import { Route, Switch, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 
 // Client pages
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminLayout from "@/pages/admin/AdminLayout";
-import AuditLogsPageStatic from "@/pages/admin/AuditLogsPageStatic";
-import DepositsPage from "@/pages/admin/DepositsPage";
-import MaintenancePageStatic from "@/pages/admin/MaintenancePageStatic";
-import SettingsPageStatic from "@/pages/admin/SettingsPageStatic";
-import UsersPageSimple from "@/pages/admin/UsersPageSimple";
-// VisitorsPage removed
-import WithdrawalsPage from "@/pages/admin/WithdrawalsPage";
 import Deposit from "@/pages/Client/Deposit";
 import DepositConfirmation from "@/pages/Client/DepositConfirmation";
 import DepositsHistoryPage from "@/pages/Client/DepositsHistoryPage";
@@ -39,9 +30,8 @@ import SimpleEditAccount from "@/pages/Client/SimpleEditAccount";
 import Withdraw from "@/pages/Client/Withdraw";
 import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
 
-// Admin pages
-// Legacy Admin (will be deprecated) - guarded by feature flag
-const ENABLE_LEGACY_ADMIN = false;
+// Investment Calculator
+import InvestmentCalculatorPage from "@/pages/Client/InvestmentCalculatorPage";
 
 // AdminV2 components
 import AdminDashboardV2 from "@/pages/AdminV2/dashboard";
@@ -68,17 +58,6 @@ function LoadingSpinner() {
   );
 }
 
-function AdminRedirect() {
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    // Redirect legacy admin entrypoint to new Admin V2 Users page
-    setLocation("/adminv2/users");
-  }, [setLocation]);
-
-  return <LoadingSpinner />;
-}
-
 function Router() {
   const { isAuthenticated, user } = useAuth();
   const [location, setLocation] = useLocation();
@@ -103,7 +82,7 @@ function Router() {
         }
       }
     }
-  }, [isAuthenticated, user, location, setLocation]);
+  }, [isAuthenticated, user, setLocation]);
 
   return (
     <Switch>
@@ -276,6 +255,15 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/investment-calculator">
+        {() => (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <InvestmentCalculatorPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       {/* Client prefixed routes for routing consistency */}
       <Route path="/client/withdraw">
         {() => (
@@ -367,84 +355,16 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      {/* Admin Routes (legacy optionally enabled) */}
-      {ENABLE_LEGACY_ADMIN && (
-        <>
-          <Route path="/admin">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <AdminDashboard />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/admin/users">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <UsersPageSimple />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/admin/settings">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <SettingsPageStatic />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/admin/maintenance">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <MaintenancePageStatic />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/admin/deposits">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <DepositsPage />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/admin/withdrawals">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <WithdrawalsPage />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/admin/audit-logs">
-            {() => (
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <AuditLogsPageStatic />
-                </AdminLayout>
-              </ProtectedRoute>
-            )}
-          </Route>
-          {/* Visitors page removed */}
-        </>
-      )}
-      {!ENABLE_LEGACY_ADMIN && (
-        <Route path="/admin">
-          {() => (
-            <ProtectedRoute requireAdmin>
-              <AdminRedirect />
-            </ProtectedRoute>
-          )}
-        </Route>
-      )}
+      {/* Admin Routes */}
+      <Route path="/admin">
+        {() => {
+          const [, setLocation] = useLocation();
+          useEffect(() => {
+            setLocation("/adminv2/users");
+          }, [setLocation]);
+          return <LoadingSpinner />;
+        }}
+      </Route>
       <Route path="/adminv2">
         {() => (
           <ProtectedRoute requireAdmin>

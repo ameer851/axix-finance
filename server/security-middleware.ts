@@ -13,6 +13,9 @@ export const securityMiddleware = helmet({
         "https://*.supabase.co",
         "https://oyqanlnqfyyaqheehsmw.supabase.co",
         "https://co-in.io",
+        // Needed for price list / crypto widgets
+        "https://min-api.cryptocompare.com",
+        "wss://ws.coincap.io",
         ...(process.env.NODE_ENV === "development"
           ? ["http://localhost:*", "ws://localhost:*"]
           : []),
@@ -36,6 +39,8 @@ export const securityMiddleware = helmet({
         "blob:",
         "https://www.tradingview.com",
         "https://co-in.io",
+        // Allow lightweight analytics (ga-lite) / other libs served via jsdelivr CDN
+        "https://cdn.jsdelivr.net",
       ],
       styleSrc: [
         "'self'",

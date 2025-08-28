@@ -55,12 +55,12 @@ export default function AdminDashboardV2() {
 
   return (
     <AdminV2Layout>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-semibold">Dashboard Overview</h2>
         <button
           onClick={load}
           disabled={loading}
-          className="text-sm px-3 py-1 bg-blue-600 text-white rounded"
+          className="text-sm px-3 py-1 bg-blue-600 text-white rounded whitespace-nowrap"
         >
           Reload
         </button>

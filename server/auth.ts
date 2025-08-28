@@ -2,6 +2,9 @@
 // storage return shape and session/user DTO we expose to the client. We create a lightweight
 // SessionUser below.
 
+import { config } from "dotenv";
+config(); // Load environment variables first
+
 import { createClient } from "@supabase/supabase-js";
 import connectPg from "connect-pg-simple";
 import { randomBytes, scrypt, timingSafeEqual } from "crypto"; // retained for legacy admin reset & potential future use
@@ -468,10 +471,17 @@ export function setupAuth(app: Express) {
   // Emergency admin login endpoint for troubleshooting
   app.post("/api/direct-admin-login", async (req, res) => {
     try {
-      console.log("Direct admin login attempt");
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Direct admin login attempt");
+      }
 
       const { username, password } = req.body;
-      console.log("Login credentials:", { username, password });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Login credentials (sanitized):", {
+          username,
+          passwordLength: password?.length || 0,
+        });
+      }
 
       // Only allow admin login via this endpoint
       if (username !== "admin") {
@@ -483,7 +493,9 @@ export function setupAuth(app: Express) {
 
       const adminUser = await storage.getUserByUsername("admin");
       if (!adminUser) {
-        console.log("Admin user not found, creating one...");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("Admin user not found, creating one...");
+        }
 
         // Create admin user if it doesn't exist
         const hashedPassword = await hashPassword("Axix-Admin@123");
@@ -507,7 +519,9 @@ export function setupAuth(app: Express) {
           });
         }
 
-        console.log("New admin user created successfully");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("New admin user created successfully");
+        }
 
         // Log in the new admin user
         req.login(

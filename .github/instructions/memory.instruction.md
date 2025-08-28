@@ -35,9 +35,9 @@ applyTo: "**"
 
 ## Conversation History
 
-- Important decisions made: Consolidated to single Express function; removed deprecated auth helper endpoints; added create-profile route; tightened CORS
+- Important decisions made: Consolidated to single Express function; removed deprecated auth helper endpoints; added create-profile route; tightened CORS; **COMPLETELY REMOVED LEGACY ADMIN PANEL** - migrated to AdminV2 only
 - Recurring questions or topics: Signup JSON parse errors; Vercel function limits; visitors feature removal
-- Solutions that worked well: JSON 404 for /api; server-side profile creation; exact /api rewrite
+- Solutions that worked well: JSON 404 for /api; server-side profile creation; exact /api rewrite; **successful legacy admin cleanup** with proper redirects maintained
 - Things to avoid or that didn't work: Client anon inserts into RLS tables; hard-coding cross-origin API base to preview domain
 
 ## Notes

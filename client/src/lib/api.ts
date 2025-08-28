@@ -467,4 +467,27 @@ export const api = {
     const joined = joinBaseAndEndpoint(config.apiUrl, url);
     return apiFetch<T>(joined, { ...options, method: "DELETE" });
   },
+
+  // Investment calculation methods
+  calculateInvestment: async (
+    principalAmount: number,
+    currentBalance?: number
+  ) => {
+    return apiRequest("POST", "/investment/calculate", {
+      principalAmount,
+      currentBalance,
+    });
+  },
+
+  applyInvestmentReturns: async (
+    planId: string,
+    principalAmount: number,
+    daysElapsed?: number
+  ) => {
+    return apiRequest("POST", "/investment/apply-returns", {
+      planId,
+      principalAmount,
+      daysElapsed,
+    });
+  },
 };

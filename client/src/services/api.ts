@@ -68,6 +68,19 @@ export const financialAPI = {
     return response;
   },
 
+  createInvestmentDeposit: async (data: {
+    amount: number;
+    planName: string;
+    transactionHash?: string;
+    method?: string;
+  }) => {
+    const response = await fetchWithAuth("/transactions/investment-deposit", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response;
+  },
+
   approveDeposit: async (depositId: string) => {
     const response = await fetchWithAuth(`/deposits/${depositId}/approve`, {
       method: "POST",

@@ -35,6 +35,9 @@ export function applyRoutePatches(app: Express) {
 
   // Also support /admin/... -> /api/admin/... for other actions
   app.post("/admin/withdrawals/:id/approve", (req, res) => {
+    console.log(
+      "⚠️ Route compatibility patch: redirecting /admin/withdrawals/:id/approve to /api/admin/withdrawals/:id/approve"
+    );
     req.url = `/api/admin/withdrawals/${req.params.id}/approve`;
     app._router.handle(req, res);
   });

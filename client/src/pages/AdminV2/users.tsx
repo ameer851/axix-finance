@@ -137,16 +137,19 @@ export default function UsersPageV2() {
     <AdminV2Layout>
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
         <h2 className="text-xl font-semibold">Users</h2>
-        <form onSubmit={onSearchSubmit} className="flex items-center gap-2">
+        <form
+          onSubmit={onSearchSubmit}
+          className="flex items-center gap-2 flex-wrap"
+        >
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search email, username, name"
-            className="border rounded px-2 py-1 text-sm w-64"
+            className="border rounded px-2 py-1 text-sm w-full sm:w-64"
           />
           <select
-            className="border rounded px-2 py-1 text-sm"
+            className="border rounded px-2 py-1 text-sm w-full sm:w-auto"
             value={status}
             aria-label="Filter by status"
             onChange={(e) => {
@@ -160,46 +163,48 @@ export default function UsersPageV2() {
             <option value="verified">Verified</option>
             <option value="unverified">Unverified</option>
           </select>
-          <button
-            type="submit"
-            className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={!canSearch}
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSearch("");
-              setStatus("all");
-              setPage(1);
-              load();
-            }}
-            className="text-sm px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
-            disabled={loading}
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={load}
-            className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={loading}
-          >
-            Reload
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50 whitespace-nowrap"
+              disabled={!canSearch}
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setStatus("all");
+                setPage(1);
+                load();
+              }}
+              className="text-sm px-3 py-1 rounded bg-gray-200 disabled:opacity-50 whitespace-nowrap"
+              disabled={loading}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={load}
+              className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50 whitespace-nowrap"
+              disabled={loading}
+            >
+              Reload
+            </button>
+          </div>
         </form>
       </div>
       {error && <div className="text-red-600 text-sm mb-2">Error: {error}</div>}
       <div className="border rounded bg-white overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-gray-100 text-left">
             <tr>
-              <th className="p-2">ID</th>
-              <th className="p-2">Email</th>
-              <th className="p-2">Role</th>
-              <th className="p-2">Username</th>
-              <th className="p-2">Actions</th>
+              <th className="p-2 min-w-[60px]">ID</th>
+              <th className="p-2 min-w-[200px]">Email</th>
+              <th className="p-2 min-w-[80px]">Role</th>
+              <th className="p-2 min-w-[120px]">Username</th>
+              <th className="p-2 min-w-[100px]">Actions</th>
             </tr>
           </thead>
           <tbody>

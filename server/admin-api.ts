@@ -15,6 +15,8 @@ import { DatabaseStorage } from "./storage";
 //  GET    /api/admin/users
 //  POST   /api/admin/deposits/:id/approve
 //  POST   /api/admin/withdrawals/:id/approve
+//  DELETE /api/admin/deposits/:id
+//  DELETE /api/admin/withdrawals/:id
 // All require admin role. Safe to extend incrementally.
 
 const storage = new DatabaseStorage();
@@ -44,7 +46,6 @@ function routeAlreadyRegistered(
     return false;
   }
 }
-
 export function createAdminApiRouter(app: express.Express): Router {
   const router = Router();
   // Debug middleware to inspect auth context before role check
@@ -758,29 +759,79 @@ export function createAdminApiRouter(app: express.Express): Router {
               );
             }
             let emailSent: boolean | undefined = undefined;
+            let emailOutcome: string | undefined = undefined;
             try {
-              // Attempt to resolve the same user record for email sending as well
+              console.log("[email-debug] deposit approval route hit", {
+                txId: id,
+              });
+              // Attempt to resolve the user
               let userRaw: any = null;
               try {
-                const maybeUid = (tx as any).userId;
-                if (typeof maybeUid === "string" && maybeUid.length > 16) {
-                  userRaw = await (storage as any).getUserByUid?.(maybeUid);
+                const maybeUid =
+                  (tx as any).userUid ||
+                  (tx as any).user_uid ||
+                  (tx as any).userId ||
+                  (tx as any).user_id;
+                console.log(
+                  "🔍 [USER LOOKUP DEBUG] Deposit approval user lookup",
+                  {
+                    txId: id,
+                    txUserId: (tx as any).userId,
+                    txUser_id: (tx as any).user_id,
+                    txUserUid: (tx as any).userUid || (tx as any).user_uid,
+                    maybeUid,
+                    maybeUidType: typeof maybeUid,
+                    maybeUidLength:
+                      typeof maybeUid === "string" ? maybeUid.length : "N/A",
+                    hasGetUserByUid: (storage as any).getUserByUid
+                      ? "YES"
+                      : "NO",
+                  }
+                );
+                if (
+                  typeof maybeUid === "string" &&
+                  maybeUid.length > 16 &&
+                  (storage as any).getUserByUid
+                ) {
+                  userRaw = await (storage as any).getUserByUid(maybeUid);
                 }
               } catch (uidErr) {
-                console.warn("User lookup by uid threw:", uidErr);
+                console.warn(
+                  "[email-debug] deposit approval uid lookup threw",
+                  uidErr
+                );
               }
               if (!userRaw) {
-                const numericId = Number((tx as any).userId);
+                const numericId = Number(
+                  (tx as any).userId || (tx as any).user_id
+                );
+                console.log(
+                  "🔍 [USER LOOKUP DEBUG] Deposit approval fallback to numeric ID",
+                  {
+                    txId: id,
+                    numericId,
+                    isNaN: Number.isNaN(numericId),
+                  }
+                );
                 if (!Number.isNaN(numericId)) {
                   userRaw = await storage.getUser(numericId);
                 }
               }
-              if (userRaw) {
+              console.log("🔍 [USER LOOKUP RESULT] Deposit approval", {
+                txId: id,
+                userRaw: userRaw ? "FOUND" : "NULL",
+                userRawId: userRaw?.id,
+                userRawEmail: userRaw?.email,
+              });
+              if (!userRaw) {
+                emailOutcome = "user-lookup-failed";
+                emailSent = false;
+              } else {
                 const user: DrizzleUser = {
                   id: userRaw.id,
                   uid: (userRaw as any).uid || "",
                   email: userRaw.email,
-                  username: null,
+                  username: (userRaw as any).username || null,
                   password: null,
                   firstName: null,
                   lastName: null,
@@ -806,45 +857,106 @@ export function createAdminApiRouter(app: express.Express): Router {
                   usdtTrc20Address: null,
                   bnbAddress: null,
                 };
-                // Derive method/plan for email template
                 const methodForEmail =
                   (tx as any).cryptoType || (tx as any).method || "Investment";
                 const planForEmail =
                   (tx as any).planName || (tx as any).plan_name;
-                // Try primary email sender
-                emailSent = await sendDepositApprovedEmail(
-                  user,
-                  tx.amount,
-                  methodForEmail,
-                  planForEmail
-                );
-                // Fallback to emailManager if primary failed
-                if (!emailSent) {
-                  try {
-                    const { sendDepositApprovedEmail: mgrSend } = await import(
-                      "./emailManager"
-                    );
-                    emailSent = await mgrSend(
-                      user,
-                      tx.amount,
-                      methodForEmail,
-                      planForEmail
-                    );
-                  } catch (mgrErr) {
-                    console.warn(
-                      "Deposit approval email fallback failed",
-                      mgrErr
-                    );
+                try {
+                  const primaryOk = await sendDepositApprovedEmail(
+                    user,
+                    tx.amount,
+                    methodForEmail,
+                    planForEmail
+                  );
+                  emailSent = primaryOk;
+                  emailOutcome = primaryOk
+                    ? "primary-success"
+                    : "primary-failed";
+                  if (!primaryOk) {
+                    try {
+                      const { sendDepositApprovedEmail: mgrSend } =
+                        await import("./emailManager");
+                      const fallbackOk = await mgrSend(
+                        user,
+                        tx.amount,
+                        methodForEmail,
+                        planForEmail
+                      );
+                      emailSent = fallbackOk;
+                      emailOutcome = fallbackOk
+                        ? "fallback-success"
+                        : "fallback-failed";
+                    } catch (mgrErr) {
+                      console.warn(
+                        "[email-debug] deposit approval fallback threw",
+                        mgrErr
+                      );
+                      emailOutcome = "fallback-exception";
+                    }
                   }
+                } catch (primaryErr) {
+                  console.warn(
+                    "[email-debug] deposit approval primary threw",
+                    primaryErr
+                  );
+                  emailOutcome = "primary-exception";
+                  emailSent = false;
                 }
               }
             } catch (emailErr) {
-              console.error(
-                "Deposit approval email failed (non-fatal):",
-                emailErr
-              );
+              console.error("Deposit approval email block exception", emailErr);
               emailSent = false;
+              if (!emailOutcome) emailOutcome = "exception";
             }
+
+            // Create investment record if this deposit has investment plan data
+            let investmentCreated = false;
+            let firstProfitScheduled = false;
+            try {
+              if (
+                normalizedUserId &&
+                ((tx as any).plan_name || (tx as any).planName) &&
+                ((tx as any).daily_profit || (tx as any).dailyProfit)
+              ) {
+                const { createInvestmentFromTransaction } = await import(
+                  "./investmentService"
+                );
+                const investment = await createInvestmentFromTransaction(id);
+                if (investment) {
+                  investmentCreated = true;
+                  console.log(
+                    `[admin] Created investment ${investment.id} for deposit ${id}`
+                  );
+
+                  // Schedule first profit for 24 hours from now
+                  try {
+                    const { scheduleFirstProfit } = await import(
+                      "./investmentService"
+                    );
+                    const scheduled = await scheduleFirstProfit(investment.id);
+                    if (scheduled) {
+                      firstProfitScheduled = true;
+                      console.log(
+                        `[admin] Scheduled first profit for investment ${investment.id} in 24 hours`
+                      );
+                    }
+                  } catch (scheduleErr) {
+                    console.error(
+                      "Failed to schedule first profit:",
+                      scheduleErr
+                    );
+                    // Don't fail the deposit approval if scheduling fails
+                  }
+                }
+              }
+            } catch (investmentErr) {
+              console.error(
+                "Failed to create investment from deposit:",
+                investmentErr
+              );
+              // Don't fail the deposit approval if investment creation fails
+            }
+
             res.json({
               success: true,
               message: "Deposit approved",
@@ -856,7 +968,10 @@ export function createAdminApiRouter(app: express.Express): Router {
                   (updated as any)?.user_id,
               },
               emailSent,
+              emailOutcome,
               balanceCredited,
+              investmentCreated,
+              firstProfitScheduled,
             });
           } catch (error) {
             console.error("Error approving deposit:", error);
@@ -884,7 +999,12 @@ export function createAdminApiRouter(app: express.Express): Router {
                   .status(400)
                   .json({ error: "Not a withdrawal transaction" });
               if (tx.status === "completed")
-                return res.json({ success: true, message: "Already approved" });
+                return res.json({
+                  success: true,
+                  message: "Already approved",
+                  emailSent: false,
+                  emailReason: "already_completed",
+                });
               const updated = await storage.updateTransactionStatus(
                 id,
                 "completed"
@@ -926,16 +1046,37 @@ export function createAdminApiRouter(app: express.Express): Router {
                 );
               }
               let emailSent: boolean | undefined = undefined;
+              let emailReason: string | undefined = undefined;
+              let emailOutcome: string | undefined = undefined;
               try {
                 // Re-fetch user similarly after debit to email the correct recipient
                 const numericUserId = Number(
                   (tx as any).userId || (tx as any).user_id
                 );
+                console.log(
+                  "🔍 [USER LOOKUP DEBUG] Withdrawal approval user lookup",
+                  {
+                    txId: id,
+                    txUserId: (tx as any).userId,
+                    txUser_id: (tx as any).user_id,
+                    txUserUid: (tx as any).userUid || (tx as any).user_uid,
+                    numericUserId,
+                    isNaN: Number.isNaN(numericUserId),
+                  }
+                );
                 const userRaw = !Number.isNaN(numericUserId)
                   ? await storage.getUser(numericUserId)
                   : (await (storage as any).getUserByUid?.(
-                      (tx as any).userUid || (tx as any).user_uid
+                      (tx as any).userUid ||
+                        (tx as any).user_uid ||
+                        (tx as any).user_id
                     )) || null;
+                console.log("🔍 [USER LOOKUP RESULT] Withdrawal approval", {
+                  txId: id,
+                  userRaw: userRaw ? "FOUND" : "NULL",
+                  userRawId: userRaw?.id,
+                  userRawEmail: userRaw?.email,
+                });
                 if (userRaw) {
                   const user: DrizzleUser = {
                     id: userRaw.id,
@@ -967,27 +1108,64 @@ export function createAdminApiRouter(app: express.Express): Router {
                     usdtTrc20Address: null,
                     bnbAddress: null,
                   };
-                  emailSent = await sendWithdrawalApprovedEmail(
-                    user,
-                    tx.amount,
-                    tx.description || "Your crypto wallet"
-                  );
-                  if (!emailSent) {
-                    try {
-                      const { sendWithdrawalApprovedEmail: mgrSend } =
-                        await import("./emailManager");
-                      emailSent = await mgrSend(
-                        user,
-                        tx.amount,
-                        tx.description || "Your crypto wallet"
-                      );
-                    } catch (mgrErr) {
-                      console.warn(
-                        "Withdrawal approval email fallback failed",
-                        mgrErr
-                      );
+                  try {
+                    const primaryOk = await sendWithdrawalApprovedEmail(
+                      user,
+                      tx.amount,
+                      tx.description || "Your crypto wallet"
+                    );
+                    emailSent = primaryOk;
+                    emailOutcome = primaryOk
+                      ? "primary-success"
+                      : "primary-failed";
+                    if (primaryOk) {
+                      console.log("📧 Withdrawal approval email sent", {
+                        txId: id,
+                        to: user.email,
+                        amount: tx.amount,
+                      });
                     }
+                    if (!primaryOk) {
+                      try {
+                        const { sendWithdrawalApprovedEmail: mgrSend } =
+                          await import("./emailManager");
+                        const fallbackOk = await mgrSend(
+                          user,
+                          tx.amount,
+                          tx.description || "Your crypto wallet"
+                        );
+                        emailSent = fallbackOk;
+                        emailOutcome = fallbackOk
+                          ? "fallback-success"
+                          : "fallback-failed";
+                        if (fallbackOk) {
+                          console.log(
+                            "📧 Withdrawal approval email sent (fallback)",
+                            { txId: id, to: user.email, amount: tx.amount }
+                          );
+                        } else if (!emailReason) {
+                          emailReason = "primary_and_fallback_failed";
+                        }
+                      } catch (mgrErr) {
+                        console.warn(
+                          "Withdrawal approval email fallback failed",
+                          mgrErr
+                        );
+                        emailReason = "fallback_exception";
+                        emailOutcome = "fallback-exception";
+                      }
+                    }
+                  } catch (primaryErr) {
+                    console.warn(
+                      "Withdrawal approval primary email threw",
+                      primaryErr
+                    );
+                    emailSent = false;
+                    emailOutcome = "primary-exception";
                   }
+                } else {
+                  emailReason = "user_lookup_failed";
+                  emailOutcome = "user-lookup-failed";
                 }
               } catch (emailErr) {
                 console.error(
@@ -995,12 +1173,31 @@ export function createAdminApiRouter(app: express.Express): Router {
                   emailErr
                 );
                 emailSent = false;
+                emailReason = "exception";
+                if (!emailOutcome) emailOutcome = "exception";
+              }
+              if (emailSent === false && !emailReason)
+                emailReason = "unknown_failure";
+              try {
+                await storage.createLog({
+                  type: emailSent ? "info" : "error",
+                  message: "withdrawal_approval_email_result",
+                  details: { txId: id, emailSent, emailReason, emailOutcome },
+                  userId: (tx as any).userId || (tx as any).user_id || null,
+                });
+              } catch (logErr) {
+                console.warn(
+                  "Failed to persist withdrawal email result log",
+                  logErr
+                );
               }
               res.json({
                 success: true,
                 message: "Withdrawal approved",
                 data: { ...updated, newBalance },
                 emailSent,
+                emailReason,
+                emailOutcome,
               });
             } catch (error) {
               console.error("Error approving withdrawal:", error);
@@ -1090,6 +1287,42 @@ export function createAdminApiRouter(app: express.Express): Router {
             res.json({ success: true });
           } catch (error) {
             console.error("Error deleting deposit:", error);
+            res.status(500).json({ error: "Internal server error" });
+          }
+        });
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/withdrawals/:id",
+      registrar: (r) => {
+        r.delete("/withdrawals/:id", async (req: Request, res: Response) => {
+          try {
+            const id = parseInt(req.params.id, 10);
+            if (Number.isNaN(id))
+              return res.status(400).json({ error: "Invalid ID" });
+            const tx = await storage.getTransaction(id);
+            if (!tx)
+              return res.status(404).json({ error: "Transaction not found" });
+            if (tx.type !== "withdrawal")
+              return res
+                .status(400)
+                .json({ error: "Not a withdrawal transaction" });
+            const status = (tx.status || "").toLowerCase();
+            if (status !== "completed" && status !== "approved") {
+              return res.status(409).json({
+                error:
+                  "Only completed/approved withdrawals can be deleted by admin",
+              });
+            }
+            const ok = await storage.deleteTransaction(id);
+            if (!ok)
+              return res
+                .status(500)
+                .json({ error: "Failed to delete transaction" });
+            res.json({ success: true });
+          } catch (error) {
+            console.error("Error deleting withdrawal:", error);
             res.status(500).json({ error: "Internal server error" });
           }
         });

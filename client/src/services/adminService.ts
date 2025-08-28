@@ -116,7 +116,7 @@ export const adminService = {
       return api.post(`/admin/withdrawals/${withdrawalId}/reject`, {});
     },
     delete: async (withdrawalId: string) => {
-      throw new Error("Delete operation not supported");
+      return api.delete(`/admin/withdrawals/${withdrawalId}`);
     },
   },
 

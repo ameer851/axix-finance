@@ -1,5 +1,6 @@
 import CryptoPriceWidget from "@/components/CryptoPriceWidget";
 import DepositThankYou from "@/components/DepositThankYou";
+import { InvestmentDashboard } from "@/components/InvestmentDashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -581,6 +582,16 @@ const NewDashboard: React.FC = () => {
         <div>
           <CryptoPriceWidget />
         </div>
+      </div>
+
+      {/* Investment Dashboard */}
+      <div className="mt-8">
+        <InvestmentDashboard
+          onDepositClick={() => {
+            // Navigate to deposit page or open deposit modal
+            window.location.href = "/client/deposit";
+          }}
+        />
       </div>
 
       {/* Last Updated */}

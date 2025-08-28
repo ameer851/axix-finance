@@ -259,34 +259,104 @@ adminRouter.patch(
           .json({ message: "Failed to update transaction status" });
       }
 
+      // Track whether an approval email was sent (surface to client for observability)
+      let emailSent: boolean | undefined = undefined;
+      let emailOutcome: string | undefined = undefined;
+
       // Send email notifications when transactions are approved
       if (status === "completed") {
         const user = transaction.users;
         const amount = transaction.amount;
-
         try {
           if (transaction.type === "deposit") {
-            await sendDepositApprovedEmail(
-              user,
-              amount,
-              transaction.description || "Investment Deposit"
-            );
-            console.log(`📧 Deposit approval email sent to ${user.email}`);
+            try {
+              const primaryOk = await sendDepositApprovedEmail(
+                user,
+                amount,
+                transaction.description || "Investment Deposit"
+              );
+              emailSent = primaryOk;
+              emailOutcome = primaryOk ? "primary-success" : "primary-failed";
+              if (!primaryOk) {
+                try {
+                  const { sendDepositApprovedEmail: mgrSend } = await import(
+                    "./emailManager"
+                  );
+                  const fallbackOk = await mgrSend(
+                    user,
+                    amount,
+                    transaction.description || "Investment Deposit"
+                  );
+                  emailSent = fallbackOk;
+                  emailOutcome = fallbackOk
+                    ? "fallback-success"
+                    : "fallback-failed";
+                } catch (mgrErr) {
+                  console.warn(
+                    "[email-debug] legacy deposit approval fallback threw",
+                    mgrErr
+                  );
+                  emailOutcome = "fallback-exception";
+                }
+              }
+            } catch (primaryErr) {
+              console.warn(
+                "[email-debug] legacy deposit approval primary threw",
+                primaryErr
+              );
+              emailSent = false;
+              emailOutcome = "primary-exception";
+            }
           } else if (transaction.type === "withdrawal") {
-            await sendWithdrawalApprovedEmail(
-              user,
-              amount,
-              transaction.destination || "Your Crypto Wallet"
-            );
-            console.log(`📧 Withdrawal approval email sent to ${user.email}`);
+            try {
+              const primaryOk = await sendWithdrawalApprovedEmail(
+                user,
+                amount,
+                transaction.destination || "Your Crypto Wallet"
+              );
+              emailSent = primaryOk;
+              emailOutcome = primaryOk ? "primary-success" : "primary-failed";
+              if (!primaryOk) {
+                try {
+                  const { sendWithdrawalApprovedEmail: mgrSend } = await import(
+                    "./emailManager"
+                  );
+                  const fallbackOk = await mgrSend(
+                    user,
+                    amount,
+                    transaction.destination || "Your Crypto Wallet"
+                  );
+                  emailSent = fallbackOk;
+                  emailOutcome = fallbackOk
+                    ? "fallback-success"
+                    : "fallback-failed";
+                } catch (mgrErr) {
+                  console.warn(
+                    "[email-debug] legacy withdrawal approval fallback threw",
+                    mgrErr
+                  );
+                  emailOutcome = "fallback-exception";
+                }
+              }
+            } catch (primaryErr) {
+              console.warn(
+                "[email-debug] legacy withdrawal approval primary threw",
+                primaryErr
+              );
+              emailSent = false;
+              emailOutcome = "primary-exception";
+            }
           }
-        } catch (emailError) {
-          console.error("Failed to send notification email:", emailError);
-          // Don't fail the transaction update if email fails
+        } catch (outerErr) {
+          console.error("Failed to send notification email:", outerErr);
+          emailSent = false;
+          if (!emailOutcome) emailOutcome = "exception";
         }
       }
-
-      return res.status(200).json(data);
+      // Attach emailSent + outcome if defined for frontend/admin UI diagnostics
+      const responsePayload =
+        emailSent === undefined ? data : { ...data, emailSent, emailOutcome };
+      return res.status(200).json(responsePayload);
     } catch (error) {
       console.error("Update transaction status error:", error);
       return res

@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 import { getCryptoExchangeRates as getTradingViewRates } from "./tradingViewService";
 
 // Bank transfer details
@@ -281,10 +282,151 @@ export async function getUserInvestments(
   }
 }
 
+// Investment Management Types
+export interface Investment {
+  id: number;
+  userId: number;
+  transactionId: number;
+  planName: string;
+  planDuration: string;
+  dailyProfit: number;
+  totalReturn: number;
+  principalAmount: number;
+  startDate: string;
+  endDate: string;
+  status: "active" | "completed" | "cancelled";
+  daysElapsed: number;
+  totalEarned: number;
+  lastReturnApplied?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvestmentReturn {
+  id: number;
+  investmentId: number;
+  userId: number;
+  amount: number;
+  returnDate: string;
+  createdAt: string;
+}
+
+/**
+ * Get user's active investments
+ */
+export async function getUserActiveInvestments(): Promise<Investment[]> {
+  try {
+    const response = (await api.get("/investments")) as { investments: any[] };
+    return response.investments.map((inv) => ({
+      id: inv.id,
+      userId: inv.userId,
+      transactionId: inv.transactionId,
+      planName: inv.planName,
+      planDuration: inv.planDuration,
+      dailyProfit: inv.dailyProfit,
+      totalReturn: inv.totalReturn,
+      principalAmount: inv.principalAmount,
+      startDate: inv.startDate,
+      endDate: inv.endDate,
+      status: inv.status,
+      daysElapsed: inv.daysElapsed,
+      totalEarned: inv.totalEarned,
+      lastReturnApplied: inv.lastReturnApplied,
+      createdAt: inv.createdAt,
+      updatedAt: inv.updatedAt,
+    }));
+  } catch (error) {
+    console.error("Error fetching user investments:", error);
+    return [];
+  }
+}
+
+/**
+ * Get user's investment returns
+ */
+export async function getUserInvestmentReturns(): Promise<InvestmentReturn[]> {
+  try {
+    const response = (await api.get("/investments/returns")) as {
+      returns: any[];
+    };
+    return response.returns.map((ret) => ({
+      id: ret.id,
+      investmentId: ret.investmentId,
+      userId: ret.userId,
+      amount: ret.amount,
+      returnDate: ret.returnDate,
+      createdAt: ret.createdAt,
+    }));
+  } catch (error) {
+    console.error("Error fetching investment returns:", error);
+    return [];
+  }
+}
+
+/**
+ * Calculate investment progress percentage
+ */
+export function calculateInvestmentProgress(investment: Investment): number {
+  const startDate = new Date(investment.startDate);
+  const endDate = new Date(investment.endDate);
+  const now = new Date();
+
+  if (now >= endDate) return 100;
+  if (now <= startDate) return 0;
+
+  const totalDuration = endDate.getTime() - startDate.getTime();
+  const elapsed = now.getTime() - startDate.getTime();
+
+  return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+}
+
+/**
+ * Format currency amount
+ */
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+/**
+ * Format date for display
+ */
+export function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Get days remaining for investment
+ */
+export function getDaysRemaining(investment: Investment): number {
+  const endDate = new Date(investment.endDate);
+  const now = new Date();
+
+  if (now >= endDate) return 0;
+
+  const diffTime = endDate.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  return Math.max(0, diffDays);
+}
+
 export default {
   getInvestmentPlans,
   getInvestmentPlan,
   getCryptoExchangeRates,
   subscribeToInvestmentPlan,
   getUserInvestments,
+  getUserActiveInvestments,
+  getUserInvestmentReturns,
+  calculateInvestmentProgress,
+  formatCurrency,
+  formatDate,
+  getDaysRemaining,
 };

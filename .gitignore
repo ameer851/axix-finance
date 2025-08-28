@@ -17,6 +17,14 @@ deployment-secrets.txt
 *.secret
 .secrets/
 *.env
+.env.*
+!.env.example
+.envrc
+.envrc.local
+*.env.backup
+*.env.old
+*.env.save
+*.env.temp
 vercel-production.env
 vercel-environment-template.txt
 VERCEL_ENV_SETUP.md
