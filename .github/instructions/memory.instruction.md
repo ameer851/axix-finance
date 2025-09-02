@@ -42,6 +42,15 @@ applyTo: "**"
 
 ## Notes
 
+- **Current Issue (2025-08-29)**: Withdrawal submissions not storing wallet address and crypto type in database
+- **Root Cause**: Backend withdrawal endpoint not extracting `method` from request body and not passing `cryptoType`/`walletAddress` to `createTransaction`
+- **Impact**: Admin panel shows empty wallet address and crypto type columns for withdrawals
+- **Fix Applied**: ✅ Updated `/transactions/withdraw` endpoint to extract `method` and store `cryptoType`/`walletAddress` fields
+- **Build & Deploy**: ✅ Successfully built and deployed to Fly.io
+- **Testing**: Ready for user to test by creating a new withdrawal and checking admin panel
+- **New Task (2025-09-02)**: Complete codebase cleanup - remove unused files, organize structure, improve maintainability
+- **Cleanup Results (2025-09-02)**: ✅ Removed debug/test scripts, backup files, unused directories, outdated docs, unused dependencies; updated build script; build passes successfully
+
 ## Issue (2025-08-20):
 
 - User reports persistent 404 error for `/api/admin/users` and sign-up page cannot connect to server.

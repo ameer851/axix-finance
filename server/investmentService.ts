@@ -203,6 +203,31 @@ export async function getUserInvestments(
 }
 
 /**
+ * Get user's investment returns
+ */
+export async function getUserInvestmentReturns(
+  userId: number
+): Promise<InvestmentReturn[]> {
+  try {
+    const { data: returns, error } = await supabase
+      .from("investment_returns")
+      .select("*")
+      .eq("userId", userId)
+      .order("returnDate", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user investment returns:", error);
+      return [];
+    }
+
+    return returns || [];
+  } catch (error) {
+    console.error("Error fetching user investment returns:", error);
+    return [];
+  }
+}
+
+/**
  * Apply daily returns to active investments
  */
 export async function applyDailyReturns(): Promise<void> {
@@ -344,7 +369,9 @@ export async function applyInvestmentReturn(
 /**
  * Schedule the first profit for 24 hours after deposit approval
  */
-export async function scheduleFirstProfit(investmentId: number): Promise<boolean> {
+export async function scheduleFirstProfit(
+  investmentId: number
+): Promise<boolean> {
   try {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

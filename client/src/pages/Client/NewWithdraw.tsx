@@ -81,7 +81,7 @@ const WITHDRAWAL_METHODS = [
     id: "bitcoin",
     name: "Bitcoin (BTC)",
     icon: "₿",
-    minAmount: 50,
+    minAmount: 10,
     fee: "0.0005 BTC",
     processingTime: "1-3 hours",
   },
@@ -89,7 +89,7 @@ const WITHDRAWAL_METHODS = [
     id: "ethereum",
     name: "Ethereum (ETH)",
     icon: "Ξ",
-    minAmount: 50,
+    minAmount: 10,
     fee: "0.01 ETH",
     processingTime: "10-30 minutes",
   },
@@ -97,7 +97,7 @@ const WITHDRAWAL_METHODS = [
     id: "usdt",
     name: "USDT (TRC20)",
     icon: "₮",
-    minAmount: 50,
+    minAmount: 10,
     fee: "1 USDT",
     processingTime: "5-15 minutes",
   },
@@ -105,7 +105,7 @@ const WITHDRAWAL_METHODS = [
     id: "bnb",
     name: "BNB (BSC)",
     icon: "BNB",
-    minAmount: 50,
+    minAmount: 10,
     fee: "0.001 BNB",
     processingTime: "5-15 minutes",
   },
@@ -205,7 +205,7 @@ const NewWithdraw: React.FC = () => {
     if (Number(amount) < (selectedMethodData?.minAmount || 50)) {
       toast({
         title: "Minimum Amount",
-        description: `Minimum withdrawal amount is $${selectedMethodData?.minAmount || 50}.`,
+        description: `Minimum withdrawal amount is $${selectedMethodData?.minAmount || 10}.`,
         variant: "destructive",
       });
       return;
@@ -383,14 +383,14 @@ const NewWithdraw: React.FC = () => {
                     placeholder="Enter withdrawal amount"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    min="50"
+                    min="10"
                     step="0.01"
                     className="text-lg"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Minimum withdrawal: $
                     {WITHDRAWAL_METHODS.find((m) => m.id === selectedMethod)
-                      ?.minAmount || 50}
+                      ?.minAmount || 10}
                   </p>
                 </div>
 

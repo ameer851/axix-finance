@@ -7,9 +7,12 @@ import AdminV2Layout from "./layout";
 interface TxRow {
   id: number;
   userId: number;
+  username?: string;
   type: string;
   status: string;
   amount: string | number;
+  walletAddress?: string;
+  cryptoType?: string;
 }
 
 export default function WithdrawalsPageV2() {
@@ -94,6 +97,12 @@ export default function WithdrawalsPageV2() {
       setLoading(false);
     }
   }
+  // Copy to clipboard helper
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: text });
+  }
+
   return (
     <AdminV2Layout>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -108,48 +117,68 @@ export default function WithdrawalsPageV2() {
       </div>
       {error && <div className="text-red-600 mb-2 text-sm">Error: {error}</div>}
       <div className="border rounded bg-white overflow-x-auto">
-        <table className="w-full text-sm min-w-[600px]">
+        <table className="w-full text-sm min-w-[900px]">
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2 min-w-[60px]">ID</th>
-              <th className="p-2 min-w-[80px]">User</th>
+              <th className="p-2 min-w-[80px]">User ID</th>
+              <th className="p-2 min-w-[120px]">Username</th>
               <th className="p-2 min-w-[100px]">Amount</th>
               <th className="p-2 min-w-[100px]">Status</th>
               <th className="p-2 min-w-[100px]">Type</th>
-              <th className="p-2 min-w-[150px]">Actions</th>
+              <th className="p-2 min-w-[180px]">Wallet Address</th>
+              <th className="p-2 min-w-[100px]">Crypto Type</th>
+              <th className="p-2 min-w-[180px]">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td className="p-4 text-center" colSpan={6}>
+                <td className="p-4 text-center" colSpan={9}>
                   Loading...
                 </td>
               </tr>
             )}
             {!loading &&
-              rows.map((r) => (
-                <tr key={r.id} className="border-t hover:bg-gray-50">
-                  <td className="p-2">{r.id}</td>
-                  <td className="p-2">{r.userId}</td>
-                  <td className="p-2">{r.amount}</td>
-                  <td className="p-2">{r.status}</td>
-                  <td className="p-2">{r.type}</td>
-                  <td className="p-2 space-x-2">
-                    {(() => {
-                      const s = (r.status || "").toLowerCase();
-                      const actionable = ![
-                        "completed",
-                        "approved",
-                        "rejected",
-                      ].includes(s);
-                      if (!actionable)
-                        return (
-                          <span className="text-gray-400 text-xs">
-                            No actions
+              rows.map((r) => {
+                const s = (r.status || "").toLowerCase();
+                const actionable = ![
+                  "completed",
+                  "approved",
+                  "rejected",
+                ].includes(s);
+                return (
+                  <tr key={r.id} className="border-t hover:bg-gray-50">
+                    <td className="p-2">{r.id}</td>
+                    <td className="p-2">{r.userId}</td>
+                    <td className="p-2">{r.username || "N/A"}</td>
+                    <td className="p-2">{r.amount}</td>
+                    <td className="p-2">{r.status}</td>
+                    <td className="p-2">{r.type}</td>
+                    <td className="p-2">
+                      {r.walletAddress ? (
+                        <span className="flex items-center gap-2">
+                          <span className="truncate max-w-[120px]">
+                            {r.walletAddress}
                           </span>
-                        );
-                      return (
+                          <button
+                            className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                            onClick={() => copyToClipboard(r.walletAddress!)}
+                          >
+                            Copy
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {r.cryptoType || (
+                        <span className="text-gray-400 text-xs">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-2 space-x-2">
+                      {actionable ? (
                         <>
                           <button
                             onClick={() => approve(r.id)}
@@ -166,14 +195,50 @@ export default function WithdrawalsPageV2() {
                             Reject
                           </button>
                         </>
-                      );
-                    })()}
-                  </td>
-                </tr>
-              ))}
+                      ) : s === "completed" ? (
+                        <button
+                          onClick={async () => {
+                            if (
+                              window.confirm(
+                                "Delete this completed withdrawal?"
+                              )
+                            ) {
+                              setLoading(true);
+                              try {
+                                await fetchWithAuth(
+                                  `/admin/withdrawals/${r.id}`,
+                                  { method: "DELETE" }
+                                );
+                                await load();
+                                toast({ title: "Withdrawal deleted" });
+                              } catch (e: any) {
+                                toast({
+                                  title: "Delete failed",
+                                  description: e.message,
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setLoading(false);
+                              }
+                            }
+                          }}
+                          className="px-2 py-1 text-xs bg-red-500 text-white rounded disabled:opacity-50"
+                          disabled={loading}
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-xs">
+                          No actions
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-4 text-center text-gray-500">
+                <td colSpan={9} className="p-4 text-center text-gray-500">
                   No withdrawals
                 </td>
               </tr>

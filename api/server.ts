@@ -282,6 +282,160 @@ app.get("/api/admin/users", async (req, res) => {
   }
 });
 
+// Admin user transactions endpoint
+app.get("/api/admin/user-transactions", async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Supabase admin not configured" });
+    }
+
+    // Optional: simple bearer check if provided
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing authorization token" });
+    }
+
+    const page = parseInt((req.query.page as string) || "1", 10);
+    const limit = parseInt((req.query.limit as string) || "20", 10);
+    const offset = (page - 1) * limit;
+    const sortBy = (req.query.sortBy as string) || "balance";
+    const sortOrder = (req.query.sortOrder as string) || "desc";
+    const search = (req.query.search as string) || "";
+
+    // Build the query
+    let query = supabaseAdmin.from("users").select(
+      `
+        id,
+        email,
+        username,
+        first_name,
+        last_name,
+        balance,
+        bitcoin_address,
+        bitcoin_cash_address,
+        ethereum_address,
+        usdt_trc20_address,
+        bnb_address,
+        created_at,
+        updated_at
+      `,
+      { count: "exact" }
+    );
+
+    // Add search filter if provided
+    if (search.trim()) {
+      query = query.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
+    }
+
+    // Add sorting
+    const validSortFields = [
+      "balance",
+      "email",
+      "username",
+      "created_at",
+      "id",
+      "first_name",
+      "last_name",
+    ];
+    if (validSortFields.includes(sortBy)) {
+      query = query.order(sortBy, { ascending: sortOrder === "asc" });
+    }
+
+    // Add pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: users, error, count } = await query;
+
+    if (error) {
+      console.error("Database error:", error);
+      return res
+        .status(500)
+        .json({
+          error: "Failed to fetch user transactions",
+          details: error.message,
+        });
+    }
+
+    // Calculate transaction stats for each user (simplified version)
+    const usersWithStats = await Promise.all(
+      (users || []).map(async (user) => {
+        // Get transaction counts (you may need to adjust based on your actual transaction table)
+        const { count: transactionCount } = await supabaseAdmin
+          .from("transactions")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
+
+        // Get total deposits and withdrawals (simplified)
+        const { data: deposits } = await supabaseAdmin
+          .from("transactions")
+          .select("amount")
+          .eq("user_id", user.id)
+          .eq("type", "deposit");
+
+        const { data: withdrawals } = await supabaseAdmin
+          .from("transactions")
+          .select("amount")
+          .eq("user_id", user.id)
+          .eq("type", "withdrawal");
+
+        const totalDeposits =
+          deposits?.reduce(
+            (sum, tx) => sum + parseFloat(tx.amount || "0"),
+            0
+          ) || 0;
+        const totalWithdrawals =
+          withdrawals?.reduce(
+            (sum, tx) => sum + parseFloat(tx.amount || "0"),
+            0
+          ) || 0;
+
+        // Get last transaction date
+        const { data: lastTransaction } = await supabaseAdmin
+          .from("transactions")
+          .select("created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        return {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          balance: user.balance || "0",
+          bitcoinAddress: user.bitcoin_address,
+          bitcoinCashAddress: user.bitcoin_cash_address,
+          ethereumAddress: user.ethereum_address,
+          usdtTrc20Address: user.usdt_trc20_address,
+          bnbAddress: user.bnb_address,
+          totalDeposits,
+          totalWithdrawals,
+          transactionCount: transactionCount || 0,
+          lastTransactionDate: lastTransaction?.created_at,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      data: usersWithStats,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+      },
+    });
+  } catch (e: any) {
+    console.error("User transactions endpoint error:", e);
+    return res.status(500).json({
+      error: "Internal server error",
+      details: e?.message || String(e),
+    });
+  }
+});
+
 // Temporary debug endpoint: returns boolean status about Supabase admin config
 // Safe: does not return secrets, only flags indicating presence
 app.get("/api/debug/status", (req, res) => {

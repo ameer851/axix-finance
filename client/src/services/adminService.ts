@@ -292,7 +292,7 @@ export const adminService = {
 
       let query = supabase
         .from("audit_logs")
-        .select("*, users!left(id, username, email)", { count: "exact" })
+        .select("*, users(id, username, email)", { count: "exact" })
         .order("created_at", { ascending: false });
 
       if (filters?.search) {

@@ -1,21 +1,5 @@
 import { api } from "@/lib/api";
-
-export interface InvestmentPlan {
-  id: string;
-  name: string;
-  minAmount: number;
-  maxAmount: number;
-  returnRate: string;
-  duration: string;
-  features: string[];
-  walletAddresses: {
-    bitcoin: string;
-    bitcoinCash: string;
-    ethereum: string;
-    bnb: string;
-    usdt: string;
-  };
-}
+import { type InvestmentPlan } from "./investmentService";
 
 export interface InvestmentCalculation {
   planId: string;
@@ -30,6 +14,9 @@ export interface InvestmentCalculation {
   projectedBalanceEnd: number;
   durationDays: number;
   returnPercentage: number;
+  minAmount: number;
+  maxAmount: number | null;
+  totalReturnPercentage: number;
 }
 
 export interface InvestmentProjection {
@@ -46,44 +33,13 @@ export function calculateInvestmentReturns(
   principalAmount: number,
   currentBalance: number = 0
 ): InvestmentCalculation {
-  // Parse return rate (e.g., "5-8% Monthly" -> take average)
-  const returnRateMatch = plan.returnRate.match(/(\d+)-(\d+)%/);
-  const returnPercentage = returnRateMatch
-    ? (parseInt(returnRateMatch[1]) + parseInt(returnRateMatch[2])) / 2
-    : 5; // Default 5% if parsing fails
-
-  // Parse duration (e.g., "3 Months" -> 90 days)
-  const durationMatch = plan.duration.match(
-    /(\d+)\s*(Month|Months|Day|Days|Year|Years)/i
-  );
-  let durationDays = 90; // Default 3 months
-  if (durationMatch) {
-    const value = parseInt(durationMatch[1]);
-    const unit = durationMatch[2].toLowerCase();
-    switch (unit) {
-      case "day":
-      case "days":
-        durationDays = value;
-        break;
-      case "month":
-      case "months":
-        durationDays = value * 30;
-        break;
-      case "year":
-      case "years":
-        durationDays = value * 365;
-        break;
-    }
-  }
-
-  // Calculate daily return rate
-  const dailyReturnRate = returnPercentage / 100 / 30; // Monthly rate converted to daily
-  const dailyReturn = principalAmount * dailyReturnRate;
+  // Calculate daily return
+  const dailyReturn = (principalAmount * plan.dailyProfit) / 100;
 
   // Calculate returns
   const totalReturn24h = dailyReturn * 1;
   const totalReturn30d = dailyReturn * 30;
-  const totalReturnPlan = dailyReturn * durationDays;
+  const totalReturnPlan = dailyReturn * plan.duration;
 
   // Calculate projected balances
   const projectedBalance24h = currentBalance + principalAmount + totalReturn24h;
@@ -102,8 +58,11 @@ export function calculateInvestmentReturns(
     projectedBalance24h,
     projectedBalance30d,
     projectedBalanceEnd,
-    durationDays,
-    returnPercentage,
+    durationDays: plan.duration,
+    returnPercentage: plan.dailyProfit,
+    minAmount: plan.minAmount,
+    maxAmount: plan.maxAmount,
+    totalReturnPercentage: plan.totalReturn,
   };
 }
 
@@ -137,6 +96,9 @@ export async function getInvestmentProjections(
       projectedBalanceEnd: calc.projectedBalanceEnd,
       durationDays: calc.durationDays,
       returnPercentage: calc.returnPercentage,
+      minAmount: calc.minAmount,
+      maxAmount: calc.maxAmount,
+      totalReturnPercentage: calc.totalReturnPercentage,
     }));
 
     return {
@@ -156,6 +118,10 @@ export async function getInvestmentProjections(
             projectedBalanceEnd: response.recommendedPlan.projectedBalanceEnd,
             durationDays: response.recommendedPlan.durationDays,
             returnPercentage: response.recommendedPlan.returnPercentage,
+            minAmount: response.recommendedPlan.minAmount,
+            maxAmount: response.recommendedPlan.maxAmount,
+            totalReturnPercentage:
+              response.recommendedPlan.totalReturnPercentage,
           }
         : undefined,
     };

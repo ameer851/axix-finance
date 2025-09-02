@@ -652,7 +652,7 @@ export function createAdminApiRouter(app: express.Express): Router {
               id,
               "completed"
             );
-            // Credit user's available balance by the deposit amount
+            // Credit user's available balance or lock into activeDeposits if investment
             let balanceCredited = false;
             let normalizedUserId: number | undefined = undefined;
             try {
@@ -692,13 +692,24 @@ export function createAdminApiRouter(app: express.Express): Router {
                 }
                 if (resolvedUser && typeof resolvedUser.id === "number") {
                   normalizedUserId = resolvedUser.id;
-                  const updatedUser = await storage.adjustUserBalance(
-                    resolvedUser.id,
-                    amountNum
-                  );
-                  balanceCredited = !!updatedUser;
+                  let updatedUser;
+                  if ((tx as any).planName || (tx as any).plan_name) {
+                    // Treat as investment principal: move into activeDeposits (do not inflate available balance)
+                    updatedUser = await (
+                      storage as any
+                    ).adjustUserActiveDeposits?.(resolvedUser.id, amountNum, {
+                      moveWithBalance: false,
+                    });
+                    balanceCredited = !!updatedUser;
+                  } else {
+                    updatedUser = await storage.adjustUserBalance(
+                      resolvedUser.id,
+                      amountNum
+                    );
+                    balanceCredited = !!updatedUser;
+                  }
                   console.log(
-                    "[admin] credited balance for user",
+                    "[admin] deposit approval credit/lock for user",
                     resolvedUser.id,
                     "amount",
                     amountNum,
@@ -837,6 +848,7 @@ export function createAdminApiRouter(app: express.Express): Router {
                   lastName: null,
                   full_name: null,
                   balance: null,
+                  activeDeposits: "0",
                   role: "user",
                   is_admin: false,
                   isVerified: false,
@@ -1088,6 +1100,7 @@ export function createAdminApiRouter(app: express.Express): Router {
                     lastName: null,
                     full_name: null,
                     balance: null,
+                    activeDeposits: "0",
                     role: "user",
                     is_admin: false,
                     isVerified: false,
@@ -1240,10 +1253,29 @@ export function createAdminApiRouter(app: express.Express): Router {
               dateFrom,
               dateTo,
             });
+            // Normalize field naming (snake_case -> camelCase) so the client
+            // Admin Withdrawals/Transactions tables can reliably access these
+            // properties without duplicating mapping logic in the frontend.
+            const normalized = (transactions || []).map((tx: any) => ({
+              ...tx,
+              userId: tx.userId ?? tx.user_id ?? null,
+              username: tx.users?.username ?? null,
+              userEmail: tx.users?.email ?? null,
+              planName: tx.planName ?? tx.plan_name ?? null,
+              cryptoType: tx.cryptoType ?? tx.crypto_type ?? null,
+              walletAddress: tx.walletAddress ?? tx.wallet_address ?? null,
+              transactionHash:
+                tx.transactionHash ?? tx.transaction_hash ?? null,
+              planDuration: tx.planDuration ?? tx.plan_duration ?? null,
+              dailyProfit: tx.dailyProfit ?? tx.daily_profit ?? null,
+              totalReturn: tx.totalReturn ?? tx.total_return ?? null,
+              createdAt: tx.createdAt ?? tx.created_at,
+              updatedAt: tx.updatedAt ?? tx.updated_at,
+            }));
             const totalPages = Math.ceil(total / limit) || 1;
             res.json({
               success: true,
-              data: transactions,
+              data: normalized,
               pagination: { total, totalPages, currentPage: page, limit },
             });
           } catch (error) {
@@ -1418,6 +1450,17 @@ export function createAdminApiRouter(app: express.Express): Router {
               storage.getTotalDepositAmount(),
               storage.getTotalWithdrawalAmount(),
             ]);
+            // Best-effort aggregate of activeDeposits across all users
+            let totalActiveDeposits = 0;
+            try {
+              const allUsers = await storage.getAllUsers();
+              totalActiveDeposits = (allUsers || []).reduce(
+                (sum: number, u: any) => sum + Number(u.activeDeposits || 0),
+                0
+              );
+            } catch (e) {
+              console.warn("Failed to aggregate activeDeposits in summary", e);
+            }
             res.json({
               success: true,
               data: {
@@ -1431,6 +1474,7 @@ export function createAdminApiRouter(app: express.Express): Router {
                   totalDeposits,
                   totalWithdrawals,
                   profit: totalDeposits - totalWithdrawals,
+                  activeDeposits: totalActiveDeposits,
                 },
               },
             });
@@ -1488,6 +1532,142 @@ export function createAdminApiRouter(app: express.Express): Router {
         });
       },
     },
+    {
+      method: "GET",
+      path: "/user-transactions",
+      registrar: (r) => {
+        r.get("/user-transactions", async (req: Request, res: Response) => {
+          try {
+            const page = parseInt((req.query.page as string) || "1", 10);
+            const limit = parseInt((req.query.limit as string) || "20", 10);
+            const offset = (page - 1) * limit;
+            const sortBy = (req.query.sortBy as string) || "balance";
+            const sortOrder = (req.query.sortOrder as string) || "desc";
+            const search = (req.query.search as string) || "";
+
+            // Get users with pagination and search
+            const [users, total] = await Promise.all([
+              storage.getUsers({
+                limit,
+                offset,
+                search: search.trim() || undefined,
+              }),
+              storage.getUserCount({ search: search.trim() || undefined }),
+            ]);
+
+            // Calculate transaction stats for each user
+            const usersWithStats = await Promise.all(
+              (users || []).map(async (user) => {
+                // Get user transactions using the dedicated method
+                const userTransactions = await storage.getUserTransactions(
+                  user.id
+                );
+                const depositCount = userTransactions.filter(
+                  (tx) => tx.type === "deposit"
+                ).length;
+                const withdrawalCount = userTransactions.filter(
+                  (tx) => tx.type === "withdrawal"
+                ).length;
+
+                // Get total deposits and withdrawals
+                const deposits = userTransactions.filter(
+                  (tx) => tx.type === "deposit"
+                );
+                const withdrawals = userTransactions.filter(
+                  (tx) => tx.type === "withdrawal"
+                );
+
+                const totalDeposits =
+                  deposits?.reduce(
+                    (sum, tx) => sum + parseFloat((tx.amount as string) || "0"),
+                    0
+                  ) || 0;
+
+                const totalWithdrawals =
+                  withdrawals?.reduce(
+                    (sum, tx) => sum + parseFloat((tx.amount as string) || "0"),
+                    0
+                  ) || 0;
+
+                // Get last transaction date
+                const allTransactions = [
+                  ...(deposits || []),
+                  ...(withdrawals || []),
+                ].sort(
+                  (a, b) =>
+                    new Date(b.createdAt || 0).getTime() -
+                    new Date(a.createdAt || 0).getTime()
+                );
+
+                // Normalize potential snake_case fields from DB to camelCase expected by frontend
+                const bitcoinAddress =
+                  (user as any).bitcoinAddress ||
+                  (user as any).bitcoin_address ||
+                  null;
+                const bitcoinCashAddress =
+                  (user as any).bitcoinCashAddress ||
+                  (user as any).bitcoin_cash_address ||
+                  null;
+                const ethereumAddress =
+                  (user as any).ethereumAddress ||
+                  (user as any).ethereum_address ||
+                  null;
+                const usdtTrc20Address =
+                  (user as any).usdtTrc20Address ||
+                  (user as any).usdt_trc20_address ||
+                  null;
+                const bnbAddress =
+                  (user as any).bnbAddress || (user as any).bnb_address || null;
+                // Determine last transaction date (support created_at)
+                const lastTx = allTransactions[0];
+                const lastTransactionDate =
+                  (lastTx as any)?.createdAt ||
+                  (lastTx as any)?.created_at ||
+                  null;
+                return {
+                  id: user.id,
+                  email: user.email,
+                  username:
+                    (user as any).username ||
+                    (user as any).full_name ||
+                    user.email.split("@")[0],
+                  firstName:
+                    (user as any).firstName || (user as any).first_name || null,
+                  lastName:
+                    (user as any).lastName || (user as any).last_name || null,
+                  balance: (user as any).balance || "0",
+                  bitcoinAddress,
+                  bitcoinCashAddress,
+                  ethereumAddress,
+                  usdtTrc20Address,
+                  bnbAddress,
+                  totalDeposits,
+                  totalWithdrawals,
+                  transactionCount: depositCount + withdrawalCount,
+                  lastTransactionDate,
+                };
+              })
+            );
+
+            return res.status(200).json({
+              data: usersWithStats,
+              pagination: {
+                page,
+                limit,
+                total: total || 0,
+                totalPages: Math.ceil((total || 0) / limit),
+              },
+            });
+          } catch (e: any) {
+            console.error("User transactions endpoint error:", e);
+            return res.status(500).json({
+              error: "Internal server error",
+              details: e?.message || String(e),
+            });
+          }
+        });
+      },
+    },
   ];
 
   for (const spec of routes) {
@@ -1496,6 +1676,7 @@ export function createAdminApiRouter(app: express.Express): Router {
       console.log(`⏭️  Skipping duplicate admin route ${spec.method} ${full}`);
       continue;
     }
+    console.log(`✅ Registering admin route ${spec.method} ${full}`);
     spec.registrar(router);
   }
 

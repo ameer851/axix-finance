@@ -17,11 +17,12 @@ export type InvestmentPlan = {
   id: string;
   name: string;
   minAmount: number;
-  maxAmount: number;
-  returnRate: string;
-  duration: string;
-  features: string[];
-  walletAddresses: {
+  maxAmount: number | null;
+  dailyProfit: number;
+  duration: number;
+  totalReturn: number;
+  features?: string[];
+  walletAddresses?: {
     bitcoin: string;
     bitcoinCash: string;
     ethereum: string;
@@ -39,97 +40,146 @@ const WALLET_ADDRESSES = {
   usdt: "THpFyXdC93QvnM8DJUeLmEVjq2hsFpULWb",
 };
 
-// Investment plans with real wallet addresses
-const INVESTMENT_PLANS: InvestmentPlan[] = [
-  {
-    id: "starter",
-    name: "Starter Plan",
-    minAmount: 100,
-    maxAmount: 1000,
-    returnRate: "5-8% Monthly",
-    duration: "3 Months",
-    features: [
+// Cache for investment plans
+let cachedPlans: InvestmentPlan[] | null = null;
+let plansCacheTime: number = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Get investment plans from server with caching
+export async function getInvestmentPlans(): Promise<InvestmentPlan[]> {
+  const now = Date.now();
+
+  // Return cached plans if they're still valid
+  if (cachedPlans && now - plansCacheTime < CACHE_DURATION) {
+    return cachedPlans;
+  }
+
+  try {
+    const response: any = await api.getInvestmentPlans();
+
+    if (response && response.plans) {
+      // Add wallet addresses to each plan
+      cachedPlans = response.plans.map((plan: any) => ({
+        ...plan,
+        features: getPlanFeatures(plan.id),
+        walletAddresses: WALLET_ADDRESSES,
+      }));
+
+      plansCacheTime = now;
+      return cachedPlans!;
+    }
+  } catch (error) {
+    console.error("Failed to fetch investment plans from server:", error);
+  }
+
+  // Fallback to cached plans if available
+  if (cachedPlans) {
+    return cachedPlans;
+  }
+
+  // Last resort: return default plans
+  return getDefaultPlans();
+}
+
+// Get features for a specific plan
+function getPlanFeatures(planId: string): string[] {
+  const features: { [key: string]: string[] } = {
+    starter: [
       "Basic portfolio management",
       "Weekly market updates",
       "Email support",
     ],
-    walletAddresses: {
-      bitcoin: WALLET_ADDRESSES.bitcoin,
-      bitcoinCash: WALLET_ADDRESSES.bitcoinCash,
-      ethereum: WALLET_ADDRESSES.ethereum,
-      bnb: WALLET_ADDRESSES.bnb,
-      usdt: WALLET_ADDRESSES.usdt,
-    },
-  },
-  {
-    id: "growth",
-    name: "Growth Plan",
-    minAmount: 1000,
-    maxAmount: 10000,
-    returnRate: "8-12% Monthly",
-    duration: "6 Months",
-    features: [
+    premium: [
       "Advanced portfolio management",
       "Daily market updates",
       "Priority email & chat support",
       "Quarterly strategy sessions",
     ],
-    walletAddresses: {
-      bitcoin: WALLET_ADDRESSES.bitcoin,
-      bitcoinCash: WALLET_ADDRESSES.bitcoinCash,
-      ethereum: WALLET_ADDRESSES.ethereum,
-      bnb: WALLET_ADDRESSES.bnb,
-      usdt: WALLET_ADDRESSES.usdt,
-    },
-  },
-  {
-    id: "premium",
-    name: "Premium Plan",
-    minAmount: 10000,
-    maxAmount: 100000,
-    returnRate: "12-18% Monthly",
-    duration: "12 Months",
-    features: [
+    delux: [
       "Personalized portfolio management",
       "Real-time market alerts",
       "24/7 dedicated support",
       "Monthly strategy sessions",
       "Tax optimization",
-      "Early access to new investment opportunities",
     ],
-    walletAddresses: {
-      bitcoin: WALLET_ADDRESSES.bitcoin,
-      bitcoinCash: WALLET_ADDRESSES.bitcoinCash,
-      ethereum: WALLET_ADDRESSES.ethereum,
-      bnb: WALLET_ADDRESSES.bnb,
-      usdt: WALLET_ADDRESSES.usdt,
-    },
-  },
-];
+    luxury: [
+      "VIP portfolio management",
+      "Real-time market alerts",
+      "24/7 dedicated support",
+      "Weekly strategy sessions",
+      "Tax optimization",
+      "Early access to new investment opportunities",
+      "Personal investment advisor",
+    ],
+  };
 
-/**
- * Get all available investment plans
- */
-export async function getInvestmentPlans(): Promise<InvestmentPlan[]> {
-  try {
-    // In a real app, this would make an API call
-    // const response = await apiRequest('GET', '/api/investment-plans');
-    // return await response.json();
-
-    // For development, return mock data
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(INVESTMENT_PLANS);
-      }, 300);
-    });
-  } catch (error: any) {
-    console.error("Error fetching investment plans:", error);
-    throw new Error(
-      error.message ||
-        "Failed to fetch investment plans. Please try again later."
-    );
-  }
+  return features[planId] || [];
 }
+
+// Default plans as fallback
+function getDefaultPlans(): InvestmentPlan[] {
+  return [
+    {
+      id: "starter",
+      name: "STARTER PLAN",
+      minAmount: 50,
+      maxAmount: 999,
+      dailyProfit: 2,
+      duration: 3,
+      totalReturn: 106,
+      features: getPlanFeatures("starter"),
+      walletAddresses: WALLET_ADDRESSES,
+    },
+    {
+      id: "premium",
+      name: "PREMIUM PLAN",
+      minAmount: 1000,
+      maxAmount: 4999,
+      dailyProfit: 3.5,
+      duration: 7,
+      totalReturn: 124.5,
+      features: getPlanFeatures("premium"),
+      walletAddresses: WALLET_ADDRESSES,
+    },
+    {
+      id: "delux",
+      name: "DELUX PLAN",
+      minAmount: 5000,
+      maxAmount: 19999,
+      dailyProfit: 5,
+      duration: 10,
+      totalReturn: 150,
+      features: getPlanFeatures("delux"),
+      walletAddresses: WALLET_ADDRESSES,
+    },
+    {
+      id: "luxury",
+      name: "LUXURY PLAN",
+      minAmount: 20000,
+      maxAmount: null,
+      dailyProfit: 7.5,
+      duration: 30,
+      totalReturn: 325,
+      features: getPlanFeatures("luxury"),
+      walletAddresses: WALLET_ADDRESSES,
+    },
+  ];
+}
+
+// Legacy export for backward compatibility - will fetch from server
+export const INVESTMENT_PLANS: InvestmentPlan[] = [];
+
+// Initialize plans on module load
+getInvestmentPlans()
+  .then((plans) => {
+    // Update the legacy export
+    INVESTMENT_PLANS.push(...plans);
+  })
+  .catch((error) => {
+    console.error("Failed to initialize investment plans:", error);
+    // Use default plans as fallback
+    INVESTMENT_PLANS.push(...getDefaultPlans());
+  });
 
 /**
  * Get a specific investment plan by ID
@@ -138,17 +188,8 @@ export async function getInvestmentPlan(
   planId: string
 ): Promise<InvestmentPlan | undefined> {
   try {
-    // In a real app, this would make an API call
-    // const response = await apiRequest('GET', `/api/investment-plans/${planId}`);
-    // return await response.json();
-
-    // For development, return mock data
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const plan = INVESTMENT_PLANS.find((p) => p.id === planId);
-        resolve(plan);
-      }, 300);
-    });
+    const plans = await getInvestmentPlans();
+    return plans.find((p) => p.id === planId);
   } catch (error: any) {
     console.error("Error fetching investment plan:", error);
     throw new Error(

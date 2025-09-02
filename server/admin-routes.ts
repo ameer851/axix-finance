@@ -29,7 +29,13 @@ adminRouter.get("/transactions", requireAdminRole, async (req, res) => {
       .select(
         `
         *,
-        users!inner(id, username, email, first_name, last_name)
+        users (
+          id,
+          username,
+          email,
+          firstName,
+          lastName
+        )
       `,
         { count: "exact" }
       )
@@ -179,7 +185,11 @@ adminRouter.get("/audit-logs", requireAdminRole, async (req, res) => {
       .select(
         `
         *,
-        users!left(id, username, email)
+        users (
+          id,
+          username,
+          email
+        )
       `,
         { count: "exact" }
       )
@@ -233,7 +243,13 @@ adminRouter.patch(
         .select(
           `
         *,
-        users!inner(id, username, email, first_name, last_name)
+        users (
+          id,
+          username,
+          email,
+          firstName,
+          lastName
+        )
       `
         )
         .eq("id", id)

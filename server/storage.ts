@@ -126,6 +126,45 @@ export class DatabaseStorage {
       return undefined;
     }
   }
+
+  /**
+   * Adjust a user's activeDeposits (principal locked in active investments).
+   * Optionally move funds from/to available balance when locking/unlocking.
+   */
+  async adjustUserActiveDeposits(
+    userId: number,
+    delta: number | string,
+    options?: { allowNegative?: boolean; moveWithBalance?: boolean }
+  ): Promise<User | undefined> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user) return undefined;
+      const change = Number(delta);
+      if (!Number.isFinite(change)) return undefined;
+      const currentLocked = Number((user as any).activeDeposits || 0);
+      let nextLocked = currentLocked + change;
+      if (nextLocked < 0 && !options?.allowNegative) return undefined;
+      let balance = Number((user as any).balance || 0);
+      if (options?.moveWithBalance) {
+        if (change > 0) {
+          // moving funds from balance into locked
+          balance -= change;
+          if (balance < 0 && !options.allowNegative) return undefined;
+        } else if (change < 0) {
+          // releasing funds back to balance
+          balance += -change;
+        }
+      }
+      const updated = await this.updateUser(userId, {
+        activeDeposits: String(nextLocked),
+        ...(options?.moveWithBalance ? { balance: String(balance) } : {}),
+      });
+      return updated || undefined;
+    } catch (e) {
+      console.error("Failed to adjust user activeDeposits:", e);
+      return undefined;
+    }
+  }
   async cleanupDeletedUsers(): Promise<{
     success: boolean;
     message: string;
@@ -266,7 +305,14 @@ export class DatabaseStorage {
     options: GetTransactionsOptions
   ): Promise<Transaction[]> {
     try {
-      let query = supabase.from("transactions").select("*");
+      let query = supabase.from("transactions").select(`
+          *,
+          users (
+            id,
+            username,
+            email
+          )
+        `);
 
       if (options.status) {
         query = query.eq("status", options.status);
@@ -1068,6 +1114,7 @@ export class DatabaseStorage {
       lastName: string;
       role: "user" | "admin";
       balance: string;
+      activeDeposits: string;
       isActive: boolean;
       isVerified: boolean;
       twoFactorEnabled: boolean;
@@ -1527,7 +1574,11 @@ export class DatabaseStorage {
         .select(
           `
           *,
-          users!inner(id, username, email)
+          users (
+            id,
+            username,
+            email
+          )
         `
         )
         .eq("type", "deposit");

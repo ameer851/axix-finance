@@ -49,7 +49,7 @@ const config = {
   supabase: {
     url:
       import.meta.env.VITE_SUPABASE_URL ||
-      "https://wvnyiinrmfysabsfztii.supabase.co",
+      "https://oyqanlnqfyyaqheehsmw.supabase.co",
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "your-anon-key",
   },
 

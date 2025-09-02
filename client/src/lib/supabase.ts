@@ -29,9 +29,21 @@ export const supabase = createClient(finalUrl, finalKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    flowType: "pkce",
   },
   global: {
-    headers: { "X-Client-Info": "axix-finance-web" },
+    headers: {
+      "X-Client-Info": "axix-finance-web",
+      apikey: finalKey,
+    },
+  },
+  db: {
+    schema: "public",
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
   },
 });
 

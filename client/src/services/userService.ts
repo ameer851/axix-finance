@@ -146,6 +146,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
   availableBalance: number;
   pendingBalance: number;
   totalBalance: number;
+  activeDeposits?: number;
   lastUpdated: string;
 }> {
   if (!userId) {
@@ -171,6 +172,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
       availableBalance: available,
       pendingBalance: pending,
       totalBalance: total,
+      activeDeposits: Number(raw.activeDeposits || 0),
       lastUpdated: raw.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
@@ -195,6 +197,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
       availableBalance: 0,
       pendingBalance: 0,
       totalBalance: 0,
+      activeDeposits: 0,
       lastUpdated: new Date().toISOString(),
     };
   }

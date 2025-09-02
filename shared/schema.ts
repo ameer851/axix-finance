@@ -62,6 +62,8 @@ export const users = pgTable("users", {
   lastName: text("lastName"),
   full_name: text("full_name"),
   balance: text("balance").default("0"),
+  // Sum of principal currently locked in active investments (not available for withdrawal)
+  activeDeposits: text("active_deposits").default("0"),
   role: text("role").notNull().default("user"),
   is_admin: boolean("is_admin").default(false),
   isVerified: boolean("isVerified").default(false),
@@ -110,9 +112,9 @@ export type NewUser = z.infer<typeof insertUserSchema>;
 // Transactions table
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.uid), // Changed to reference users.uid (UUID)
   type: text("type").notNull(),
   amount: numeric("amount").notNull(),
   description: text("description"),
@@ -142,7 +144,7 @@ export const logs = pgTable("logs", {
   type: text("type").notNull(),
   message: text("message").notNull(),
   details: jsonb("details"),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.uid), // Changed to UUID
   createdAt: timestamp("created_at").defaultNow(),
   ipAddress: text("ip_address"),
 });
@@ -150,9 +152,9 @@ export const logs = pgTable("logs", {
 // Support messages table
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.uid), // Changed to UUID
   subject: text("subject").notNull(),
   content: text("content").notNull(),
   status: text("status").notNull().default("unread"),
@@ -165,9 +167,9 @@ export const messages = pgTable("messages", {
 // Notifications table
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.uid), // Changed to UUID
   type: text("type").notNull(),
   title: text("title").notNull(),
   message: text("message").notNull(),
@@ -182,7 +184,7 @@ export const notifications = pgTable("notifications", {
 // Audit logs table
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.uid), // Changed to UUID
   action: text("action").notNull(),
   description: text("description").notNull(),
   details: jsonb("details"),
@@ -190,6 +192,45 @@ export const auditLogs = pgTable("audit_logs", {
   userAgent: text("user_agent"),
   location: text("location"),
   severity: text("severity").default("low"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Investments table for 24-hour profit system
+export const investments = pgTable("investments", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.uid), // Changed to UUID
+  transactionId: integer("transaction_id")
+    .notNull()
+    .references(() => transactions.id),
+  planName: text("plan_name").notNull(),
+  planDuration: text("plan_duration").notNull(),
+  dailyProfit: numeric("daily_profit").notNull(),
+  totalReturn: numeric("total_return").notNull(),
+  principalAmount: numeric("principal_amount").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: text("status").notNull().default("active"),
+  daysElapsed: integer("days_elapsed").notNull().default(0),
+  totalEarned: numeric("total_earned").notNull().default("0"),
+  lastReturnApplied: timestamp("last_return_applied"),
+  firstProfitDate: timestamp("first_profit_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Investment returns table for tracking daily profits
+export const investmentReturns = pgTable("investment_returns", {
+  id: serial("id").primaryKey(),
+  investmentId: integer("investment_id")
+    .notNull()
+    .references(() => investments.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.uid), // Changed to UUID
+  amount: numeric("amount").notNull(),
+  returnDate: timestamp("return_date").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -257,6 +298,20 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   isRead: true,
 });
 
+// Investment schemas
+export const insertInvestmentSchema = createInsertSchema(investments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvestmentReturnSchema = createInsertSchema(
+  investmentReturns
+).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -275,6 +330,14 @@ export type InsertSetting = z.infer<typeof insertSettingSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type Investment = typeof investments.$inferSelect;
+export type InsertInvestment = z.infer<typeof insertInvestmentSchema>;
+
+export type InvestmentReturn = typeof investmentReturns.$inferSelect;
+export type InsertInvestmentReturn = z.infer<
+  typeof insertInvestmentReturnSchema
+>;
 
 export type TransactionType =
   | "deposit"

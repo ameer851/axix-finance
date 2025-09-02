@@ -25,17 +25,52 @@ The Axix Finance platform now features a **fully automatic investment system** t
 
 The system includes an automatic processor that runs daily to apply investment returns.
 
-#### Option A: Automated Setup (Linux/Unix)
+#### Option A: Fly.io Cron Jobs (Recommended for your setup)
 
-```bash
-# Run the setup script
-chmod +x scripts/setup-auto-investment.sh
-./scripts/setup-auto-investment.sh
+Since you're running on Fly.io, use their built-in cron scheduling:
+
+**For Windows (PowerShell):**
+
+```powershell
+# Run the PowerShell setup script
+.\scripts\setup-fly-cron.ps1
 ```
 
-#### Option B: Manual Setup
+**For Linux/Mac:**
 
-**Linux/Mac (Cron):**
+```bash
+# Run the bash setup script
+chmod +x scripts/setup-fly-cron.sh
+./scripts/setup-fly-cron.sh
+```
+
+#### Option B: Manual Fly.io Cron Setup
+
+**Windows (PowerShell):**
+
+```powershell
+fly machines run `
+  --app "axix-finance" `
+  --schedule "0 2 * * *" `
+  --name "daily-investment-returns" `
+  --env NODE_ENV=production `
+  --command "node scripts/auto-investment-processor.js" `
+  --detach
+```
+
+**Linux/Mac:**
+
+```bash
+fly machines run \
+  --app "axix-finance" \
+  --schedule "0 2 * * *" \
+  --name "daily-investment-returns" \
+  --env NODE_ENV=production \
+  --command "node scripts/auto-investment-processor.js" \
+  --detach
+```
+
+#### Option C: Manual Cron Setup (Linux/Unix)
 
 ```bash
 # Edit crontab
@@ -45,15 +80,23 @@ crontab -e
 0 2 * * * cd /path/to/your/project && node scripts/auto-investment-processor.js >> logs/auto-investment.log 2>&1
 ```
 
-**Windows (Task Scheduler):**
+#### Option D: Windows (Not applicable for Fly.io)
 
-1. Open Task Scheduler
-2. Create a new task
-3. Set trigger to "Daily" at 2:00 AM
-4. Set action to "Start a program"
-5. Program: `node.exe`
-6. Arguments: `scripts/auto-investment-processor.js`
-7. Working directory: Your project root
+**Note**: Since you're on Fly.io, you cannot use Windows Task Scheduler. Use Fly.io cron jobs instead.
+
+#### Option B: Manual Cron Setup (Linux/Unix)
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line (runs daily at 2:00 AM)
+0 2 * * * cd /path/to/your/project && node scripts/auto-investment-processor.js >> logs/auto-investment.log 2>&1
+```
+
+#### Option C: Windows (Not applicable for Fly.io)
+
+**Note**: Since you're on Fly.io, you cannot use Windows Task Scheduler. Use Fly.io cron jobs instead.
 
 ### 2. Testing the System
 
@@ -116,9 +159,10 @@ Users can view their investments through the existing dashboard:
 
 1. User submits investment deposit via `/transactions/investment-deposit`
 2. System validates amount and plan
-3. Balance is credited immediately
-4. Investment record is created automatically
-5. Confirmation email is sent
+3. **Admin Approval Required** - Deposit status remains "pending"
+4. **Admin Approves** - Balance is credited and investment is created
+5. **Investment Starts** - Daily returns begin automatically
+6. Confirmation email is sent
 
 ### 2. Automatic Daily Returns
 
@@ -132,10 +176,10 @@ Users can view their investments through the existing dashboard:
 ### 3. Investment Lifecycle
 
 ```
-User Deposit → Instant Approval → Investment Created → Daily Returns → Completion
-     ↓              ↓                  ↓                      ↓              ↓
-  Balance       No Admin           Auto-created         Auto-applied     Auto-closed
-  Credited      Required           Record               Returns         Investment
+User Deposit → Admin Approval → Balance Credited → Investment Created → Daily Returns → Completion
+     ↓              ↓                  ↓                      ↓                      ↓              ↓
+  Pending       Manual Review      Immediate               Auto-created         Auto-applied     Auto-closed
+  Status        Required           Credit                  Record               Returns         Investment
 ```
 
 ## 📊 Monitoring & Logs
@@ -261,11 +305,11 @@ NODE_ENV=development node scripts/auto-investment-processor.js
 
 ## 🎯 Summary
 
-The automatic investment system transforms Axix Finance into a **hands-free investment platform** where:
+The automatic investment system transforms Axix Finance into a **controlled investment platform** where:
 
-✅ **Deposits are instant** - No waiting for approval
-✅ **Returns are automatic** - Daily processing via cron jobs
-✅ **No admin intervention** - Fully automated workflow
+✅ **Deposits require admin approval** - You maintain control over investments
+✅ **Returns are automatic** - Daily processing via cron jobs on Fly.io
+✅ **Admin oversight** - You can review and approve each deposit
 ✅ **Users get real-time updates** - Progress tracking and notifications
 
 **Ready to deploy!** 🚀</content>

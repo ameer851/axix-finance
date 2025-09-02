@@ -114,7 +114,7 @@ const FAQ_DATA = [
       {
         question: "What is the minimum withdrawal amount?",
         answer:
-          "The minimum withdrawal amount is $50 for most cryptocurrencies. This may vary depending on network fees and the specific cryptocurrency.",
+          "The minimum withdrawal amount is $10 for most cryptocurrencies. This may vary depending on network fees and the specific cryptocurrency.",
       },
     ],
   },
@@ -382,6 +382,7 @@ const NewSupport: React.FC = () => {
                     <select
                       id="category"
                       value={ticketForm.category}
+                      aria-label="Support ticket category"
                       onChange={(e) =>
                         setTicketForm((prev) => ({
                           ...prev,
@@ -405,6 +406,7 @@ const NewSupport: React.FC = () => {
                   <select
                     id="priority"
                     value={ticketForm.priority}
+                    aria-label="Support ticket priority"
                     onChange={(e) =>
                       setTicketForm((prev) => ({
                         ...prev,

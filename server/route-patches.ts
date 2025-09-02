@@ -55,6 +55,12 @@ export function applyRoutePatches(app: Express) {
     req.url = `/api/admin/transactions${qs}`;
     app._router.handle(req, res);
   });
+  app.get("/admin/user-transactions", (req, res) => {
+    // Preserve query string
+    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+    req.url = `/api/admin/user-transactions${qs}`;
+    app._router.handle(req, res);
+  });
 
   // Middleware to ensure routes only proceed if explicitly called
   function apiMiddleware(req: Request, res: Response, next: Function) {
@@ -133,6 +139,17 @@ export function applyRoutePatches(app: Express) {
         const activeUserCount = await storage.getActiveUserCount();
         const pendingTransactionCount =
           await storage.getPendingTransactionCount();
+        // Aggregate activeDeposits sum (best-effort)
+        let totalActiveDeposits = 0;
+        try {
+          const allUsers = await storage.getAllUsers();
+          totalActiveDeposits = (allUsers || []).reduce(
+            (sum: number, u: any) => sum + Number(u.activeDeposits || 0),
+            0
+          );
+        } catch (e) {
+          console.warn("Failed to aggregate activeDeposits", e);
+        }
 
         // Return dashboard stats
         res.json({
@@ -143,6 +160,7 @@ export function applyRoutePatches(app: Express) {
           transactions: {
             total: transactionCount,
             pending: pendingTransactionCount,
+            activeDeposits: totalActiveDeposits,
           },
           system: {
             status: "operational",

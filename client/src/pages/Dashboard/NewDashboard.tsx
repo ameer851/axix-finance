@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { reinvestFunds } from "@/services/transactionService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -49,6 +50,7 @@ const fetchUserBalance = async (userId: number) => {
         Number((data as any).totalBalance) ||
         Number((data as any).availableBalance) ||
         0,
+      activeDeposits: Number((data as any).activeDeposits) || 0,
       lastUpdated: (data as any).lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
@@ -58,6 +60,7 @@ const fetchUserBalance = async (userId: number) => {
       availableBalance: 0,
       pendingBalance: 0,
       totalBalance: 0,
+      activeDeposits: 0,
       lastUpdated: new Date().toISOString(),
     };
   }
@@ -141,6 +144,14 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
       color: "text-yellow-600",
       bg: "bg-yellow-50",
       description: "Awaiting approval",
+    },
+    {
+      title: "Active Deposits",
+      value: `$${(Number(balance?.activeDeposits) || 0).toFixed(2)}`,
+      icon: ArrowDownRight,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+      description: "Locked in investments",
     },
     {
       title: "Pending Deposits",
@@ -441,6 +452,8 @@ const NewDashboard: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [reinvestAmount, setReinvestAmount] = useState("");
+  const [reinvestLoading, setReinvestLoading] = useState(false);
 
   // Fetch user balance with proper error handling
   const {
@@ -592,6 +605,100 @@ const NewDashboard: React.FC = () => {
             window.location.href = "/client/deposit";
           }}
         />
+      </div>
+
+      {/* Reinvest Section */}
+      <div className="mt-10">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" /> Reinvest Funds
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              Move available balance into Active Deposits instantly. This locks
+              the amount for investment plans. No admin approval required.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+              <div className="flex-1 w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount to Reinvest
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={reinvestAmount}
+                  onChange={(e) => setReinvestAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  Available: ${balance?.availableBalance?.toFixed(2) || "0.00"}
+                </div>
+              </div>
+              <Button
+                disabled={
+                  reinvestLoading ||
+                  !reinvestAmount ||
+                  Number(reinvestAmount) <= 0 ||
+                  Number(reinvestAmount) > (balance?.availableBalance || 0)
+                }
+                onClick={async () => {
+                  try {
+                    const amt = Number(reinvestAmount);
+                    if (!amt || amt <= 0) return;
+                    if (amt > (balance?.availableBalance || 0)) {
+                      toast({
+                        title: "Insufficient Balance",
+                        description:
+                          "You don't have enough available balance to reinvest that amount.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setReinvestLoading(true);
+                    const result: any = await reinvestFunds({ amount: amt });
+                    if (result?.success !== false) {
+                      toast({
+                        title: "Reinvested",
+                        description: `Successfully moved $${amt.toFixed(2)} into Active Deposits.`,
+                      });
+                      setReinvestAmount("");
+                      await Promise.all([
+                        refetchBalance(),
+                        refetchTransactions(),
+                      ]);
+                    } else {
+                      toast({
+                        title: "Reinvest Failed",
+                        description: result?.message || "Unknown error",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch (e: any) {
+                    console.error("Reinvest error", e);
+                    toast({
+                      title: "Reinvest Error",
+                      description: e.message || "Failed to reinvest",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setReinvestLoading(false);
+                  }
+                }}
+                className="min-w-[140px]"
+              >
+                {reinvestLoading ? "Processing..." : "Reinvest"}
+              </Button>
+            </div>
+            <div className="text-xs text-gray-500 mt-3">
+              Note: Reinvesting reduces your available balance and increases
+              Active Deposits immediately.
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Last Updated */}

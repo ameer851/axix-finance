@@ -1,5 +1,13 @@
 import { useAuth } from "@/context/AuthContext";
-import { ArrowUpDown, CreditCard, LogOut, Menu, Users, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  CreditCard,
+  LogOut,
+  Menu,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
 import { ReactNode, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -10,7 +18,13 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
   const isOwner = (user as any)?.isOwner === true;
 
   const navigation = [
+    { name: "Dashboard", href: "/adminv2/dashboard", icon: Users },
     { name: "Users", href: "/adminv2/users", icon: Users },
+    {
+      name: "User Transactions",
+      href: "/adminv2/user-transactions",
+      icon: Wallet,
+    },
     { name: "Deposits", href: "/adminv2/deposits", icon: CreditCard },
     { name: "Withdrawals", href: "/adminv2/withdrawals", icon: ArrowUpDown },
   ];
@@ -50,6 +64,7 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-600"
+              aria-label="Close sidebar"
             >
               <X className="h-6 w-6" />
             </button>
@@ -87,6 +102,7 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              aria-label="Logout"
             >
               <LogOut className="h-5 w-5" />
               Logout
@@ -103,6 +119,7 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setSidebarOpen(true)}
               className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              aria-label="Open sidebar"
             >
               <Menu className="h-6 w-6" />
             </button>

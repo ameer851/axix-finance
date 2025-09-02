@@ -1,4 +1,5 @@
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import {
   checkServerConnection,
   getCurrentUser,
@@ -60,8 +61,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           await supabase.auth.refreshSession();
 
         if (refreshError || !refreshData.session) {
-          console.warn("No active session and refresh failed");
-          throw new Error("No active session available");
+          console.warn(
+            "No active session and refresh failed:",
+            refreshError?.message
+          );
+          // Don't throw error here, just return without refreshing
+          return;
         }
       }
 

@@ -7,6 +7,7 @@ import AdminV2Layout from "./layout";
 interface TxRow {
   id: number;
   userId: number;
+  username?: string;
   type: string;
   status: string;
   amount: string | number;
@@ -145,7 +146,8 @@ export default function DepositsPageV2() {
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2 min-w-[60px]">ID</th>
-              <th className="p-2 min-w-[80px]">User</th>
+              <th className="p-2 min-w-[80px]">User ID</th>
+              <th className="p-2 min-w-[120px]">Username</th>
               <th className="p-2 min-w-[100px]">Amount</th>
               <th className="p-2 min-w-[100px]">Status</th>
               <th className="p-2 min-w-[100px]">Type</th>
@@ -155,7 +157,7 @@ export default function DepositsPageV2() {
           <tbody>
             {loading && (
               <tr>
-                <td className="p-4 text-center" colSpan={6}>
+                <td className="p-4 text-center" colSpan={7}>
                   Loading...
                 </td>
               </tr>
@@ -165,6 +167,7 @@ export default function DepositsPageV2() {
                 <tr key={r.id} className="border-t hover:bg-gray-50">
                   <td className="p-2">{r.id}</td>
                   <td className="p-2">{r.userId}</td>
+                  <td className="p-2">{r.username || "N/A"}</td>
                   <td className="p-2">{r.amount}</td>
                   <td className="p-2">{r.status}</td>
                   <td className="p-2">{r.type}</td>
@@ -214,7 +217,7 @@ export default function DepositsPageV2() {
               ))}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-4 text-center text-gray-500">
+                <td colSpan={7} className="p-4 text-center text-gray-500">
                   No deposits
                 </td>
               </tr>

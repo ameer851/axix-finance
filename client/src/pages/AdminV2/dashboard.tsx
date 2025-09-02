@@ -10,6 +10,7 @@ type Summary = {
     totalDeposits: number;
     totalWithdrawals: number;
     profit: number;
+    activeDeposits?: number;
   };
 };
 
@@ -84,6 +85,14 @@ export default function AdminDashboardV2() {
           <div className="text-2xl font-semibold">
             {(summary?.transactions.pendingDeposits ?? 0) +
               (summary?.transactions.pendingWithdrawals ?? 0)}
+          </div>
+        </div>
+        <div className="p-4 bg-white rounded shadow">
+          <div className="text-gray-500 text-sm">Active Deposits (Locked)</div>
+          <div className="text-2xl font-semibold">
+            $
+            {summary?.transactions.activeDeposits?.toFixed?.(2) ??
+              (loading ? "…" : "0.00")}
           </div>
         </div>
         <div className="p-4 bg-white rounded shadow">

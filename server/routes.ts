@@ -362,6 +362,7 @@ async function buildBalanceResponse(userId: number) {
     (t) => t.type === "withdrawal" && t.status === "pending"
   );
   const availableBalance = Number((user as any).balance || 0);
+  const activeDeposits = Number((user as any).activeDeposits || 0);
   const pendingBalance = pendingDepositTxs.reduce(
     (sum, t) => sum + (parseFloat((t as any).amount) || 0),
     0
@@ -375,6 +376,7 @@ async function buildBalanceResponse(userId: number) {
     availableBalance,
     pendingBalance,
     totalBalance: availableBalance + pendingBalance,
+    activeDeposits,
     pendingDeposits: pendingDepositTxs.length,
     pendingWithdrawals: pendingWithdrawalTxs.length,
     pendingWithdrawalAmount,
@@ -382,6 +384,7 @@ async function buildBalanceResponse(userId: number) {
     lastUpdated: new Date().toISOString(),
     // Legacy fields for older client code
     balance: String(availableBalance),
+    activeDeposits: String(activeDeposits),
   };
 }
 
@@ -464,7 +467,7 @@ router.get(
   }
 );
 
-// Automatic Investment Deposit -> instant approval and balance credit
+// Automatic Investment Deposit -> pending approval (admin must approve before activating)
 router.post(
   "/transactions/investment-deposit",
   requireAuth,
@@ -511,7 +514,7 @@ router.post(
         description: `Investment Deposit - ${planName}`,
         transactionHash: transactionHash || null,
         planName: planName,
-        planDuration: plan.duration,
+        planDuration: `${plan.duration} days`,
         dailyProfit: dailyProfit,
         totalReturn: totalReturn,
       });
@@ -542,13 +545,233 @@ router.post(
   }
 );
 
+// Reinvest endpoint: move available balance into activeDeposits immediately (no admin approval)
+router.post(
+  "/transactions/reinvest",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { amount, planName } = req.body || {};
+      const numericAmount = Number(amount);
+      if (!numericAmount || numericAmount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+      if (!planName) {
+        return res.status(400).json({ message: "Investment plan is required" });
+      }
+      // Validate plan
+      const { INVESTMENT_PLANS } = await import("./investmentService");
+      const plan = INVESTMENT_PLANS.find((p) => p.name === planName);
+      if (!plan)
+        return res.status(400).json({ message: "Invalid investment plan" });
+      if (
+        numericAmount < plan.minAmount ||
+        (plan.maxAmount && numericAmount > plan.maxAmount)
+      ) {
+        return res.status(400).json({
+          message: `Amount must be between $${plan.minAmount} and ${plan.maxAmount || "unlimited"}`,
+        });
+      }
+      // Check balance
+      const user = await storage.getUser(req.user!.id);
+      const available = Number((user as any).balance || 0);
+      if (numericAmount > available) {
+        return res.status(409).json({ message: "Insufficient balance" });
+      }
+      // Move funds from balance to activeDeposits atomically
+      const updated = await storage.adjustUserActiveDeposits(
+        req.user!.id,
+        numericAmount,
+        { moveWithBalance: true }
+      );
+      if (!updated) {
+        return res
+          .status(500)
+          .json({ message: "Failed to lock funds for reinvestment" });
+      }
+      // Record an investment transaction (completed) for audit
+      const dailyProfit = (numericAmount * plan.dailyProfit) / 100;
+      const totalReturn = (numericAmount * plan.totalReturn) / 100;
+      const tx = await storage.createTransaction({
+        userId: req.user!.id,
+        userUid: (req.user as any).uid,
+        type: "investment",
+        amount: String(numericAmount),
+        status: "completed",
+        description: `Reinvest - ${planName}`,
+        planName: planName,
+        planDuration: `${plan.duration} days`,
+        dailyProfit: dailyProfit,
+        totalReturn: totalReturn,
+      });
+
+      // Create investment record for profit processing
+      const { createInvestmentFromTransaction, scheduleFirstProfit } =
+        await import("./investmentService");
+      const investment = await createInvestmentFromTransaction(tx.id);
+      if (investment) {
+        // Schedule first profit for 24 hours from now
+        await scheduleFirstProfit(investment.id);
+        console.log(
+          `[reinvest] Created investment ${investment.id} for reinvestment transaction ${tx.id}`
+        );
+      } else {
+        console.error(
+          `[reinvest] Failed to create investment record for transaction ${tx.id}`
+        );
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "Reinvestment successful",
+        data: {
+          transaction: tx,
+          investment: investment,
+          lockedAmount: numericAmount,
+          activeDeposits: (updated as any).activeDeposits,
+          balance: (updated as any).balance,
+          plan: plan,
+        },
+      });
+    } catch (e) {
+      console.error("reinvest error", e);
+      res.status(500).json({ message: "Failed to process reinvestment" });
+    }
+  }
+);
+
+// TEMPORARY TEST ENDPOINT - Remove after testing
+router.post(
+  "/transactions/reinvest-test",
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, amount, planName } = req.body || {};
+      const numericAmount = Number(amount);
+      if (!numericAmount || numericAmount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+      if (!planName) {
+        return res.status(400).json({ message: "Investment plan is required" });
+      }
+      if (!userId || userId !== 24) {
+        return res
+          .status(400)
+          .json({ message: "Test endpoint only for user ID 24" });
+      }
+
+      console.log(
+        `[TEST] Starting reinvestment for user ${userId}, amount: ${numericAmount}, plan: ${planName}`
+      );
+
+      // Validate plan
+      const { INVESTMENT_PLANS } = await import("./investmentService");
+      const plan = INVESTMENT_PLANS.find((p) => p.name === planName);
+      if (!plan)
+        return res.status(400).json({ message: "Invalid investment plan" });
+
+      // Check balance
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const available = Number((user as any).balance || 0);
+      console.log(
+        `[TEST] User balance: ${available}, requested: ${numericAmount}`
+      );
+
+      if (numericAmount > available) {
+        return res.status(409).json({ message: "Insufficient balance" });
+      }
+
+      // Move funds from balance to activeDeposits atomically
+      console.log(`[TEST] Moving funds from balance to activeDeposits...`);
+      const updated = await storage.adjustUserActiveDeposits(
+        userId,
+        numericAmount,
+        { moveWithBalance: true }
+      );
+
+      if (!updated) {
+        console.error(`[TEST] Failed to adjust user activeDeposits`);
+        return res
+          .status(500)
+          .json({ message: "Failed to lock funds for reinvestment" });
+      }
+
+      console.log(
+        `[TEST] Funds moved successfully. New balance: ${(updated as any).balance}, New activeDeposits: ${(updated as any).activeDeposits}`
+      );
+
+      // Record an investment transaction (completed) for audit
+      const dailyProfit = (numericAmount * plan.dailyProfit) / 100;
+      const totalReturn = (numericAmount * plan.totalReturn) / 100;
+
+      console.log(`[TEST] Creating transaction record...`);
+      const tx = await storage.createTransaction({
+        userId: userId,
+        userUid: (user as any).uid,
+        type: "investment",
+        amount: String(numericAmount),
+        status: "completed",
+        description: `Reinvest - ${planName}`,
+        planName: planName,
+        planDuration: `${plan.duration} days`,
+        dailyProfit: dailyProfit,
+        totalReturn: totalReturn,
+      });
+
+      console.log(`[TEST] Transaction created with ID: ${tx.id}`);
+
+      // Create investment record for profit processing
+      const { createInvestmentFromTransaction, scheduleFirstProfit } =
+        await import("./investmentService");
+
+      console.log(`[TEST] Creating investment record...`);
+      const investment = await createInvestmentFromTransaction(tx.id);
+      if (investment) {
+        // Schedule first profit for 24 hours from now
+        await scheduleFirstProfit(investment.id);
+        console.log(
+          `[TEST] Created investment ${investment.id} for transaction ${tx.id}`
+        );
+      } else {
+        console.error(
+          `[TEST] Failed to create investment record for transaction ${tx.id}`
+        );
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "Test reinvestment successful",
+        data: {
+          transaction: tx,
+          investment: investment,
+          lockedAmount: numericAmount,
+          activeDeposits: (updated as any).activeDeposits,
+          balance: (updated as any).balance,
+          plan: plan,
+        },
+      });
+    } catch (e) {
+      console.error("test reinvest error", e);
+      res
+        .status(500)
+        .json({
+          message: "Failed to process test reinvestment",
+          error: e.message,
+        });
+    }
+  }
+);
+
 // Withdrawal request -> create pending withdrawal & send withdrawal request email
 router.post(
   "/transactions/withdraw",
   requireAuth,
   async (req: Request, res: Response) => {
     try {
-      const { amount, destination } = req.body || {};
+      const { amount, destination, method } = req.body || {};
       const numericAmount = Number(amount);
       if (!numericAmount || numericAmount <= 0) {
         return res.status(400).json({ message: "Invalid amount" });
@@ -575,6 +798,8 @@ router.post(
         description: destination
           ? `Withdrawal to ${destination}`
           : "Withdrawal request",
+        cryptoType: method || null,
+        walletAddress: destination || null,
       });
       if (!tx) {
         // Rollback the debit if we couldn't create the transaction
@@ -696,6 +921,72 @@ router.post(
   }
 );
 
+// Deposit confirmation endpoint - handles crypto/external deposit confirmations
+router.post(
+  "/transactions/deposit-confirmation",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { transactionHash, amount, method, planName } = req.body || {};
+
+      // Validate required fields
+      if (!transactionHash) {
+        return res
+          .status(400)
+          .json({ message: "Transaction hash is required" });
+      }
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      if (!method) {
+        return res.status(400).json({ message: "Payment method is required" });
+      }
+
+      const numericAmount = Number(amount);
+
+      // Create deposit transaction record
+      const tx = await storage.createTransaction({
+        userId: req.user!.id,
+        userUid: (req.user as any).uid,
+        type: "deposit",
+        amount: String(numericAmount),
+        status: "pending", // Admin approval required for external deposits
+        description: planName
+          ? `Deposit confirmation - ${planName}`
+          : "Deposit confirmation",
+        transactionHash: transactionHash,
+        cryptoType: method,
+        planName: planName || null,
+      });
+
+      if (!tx) {
+        return res
+          .status(500)
+          .json({ message: "Failed to create deposit transaction" });
+      }
+
+      // Return success response
+      return res.status(201).json({
+        success: true,
+        message: "Deposit confirmation submitted successfully",
+        data: {
+          transaction: tx,
+          transactionHash,
+          amount: numericAmount,
+          method,
+          planName,
+          status: "pending_approval",
+        },
+      });
+    } catch (e) {
+      console.error("deposit-confirmation error", e);
+      res
+        .status(500)
+        .json({ message: "Failed to process deposit confirmation" });
+    }
+  }
+);
+
 // Investment calculation endpoints
 router.post(
   "/investment/calculate",
@@ -714,54 +1005,26 @@ router.post(
           .json({ message: "Valid principal amount is required" });
       }
 
-      // Import investment plans (mock data for now)
-      const plans = [
-        {
-          id: "starter",
-          name: "Starter Plan",
-          minAmount: 100,
-          maxAmount: 1000,
-          returnRate: "5-8% Monthly",
-          duration: "3 Months",
-        },
-        {
-          id: "growth",
-          name: "Growth Plan",
-          minAmount: 1000,
-          maxAmount: 10000,
-          returnRate: "8-12% Monthly",
-          duration: "6 Months",
-        },
-        {
-          id: "premium",
-          name: "Premium Plan",
-          minAmount: 10000,
-          maxAmount: 100000,
-          returnRate: "12-18% Monthly",
-          duration: "12 Months",
-        },
-      ];
+      // Import actual investment plans from investment service
+      const { INVESTMENT_PLANS } = await import("./investmentService");
 
-      const calculations = plans.map((plan) => {
-        // Parse return rate (e.g., "5-8% Monthly" -> take average)
-        const returnRateMatch = plan.returnRate.match(/(\d+)-(\d+)%/);
-        const returnPercentage = returnRateMatch
-          ? (parseInt(returnRateMatch[1]) + parseInt(returnRateMatch[2])) / 2
-          : 5;
+      const calculations = INVESTMENT_PLANS.map((plan) => {
+        // Check if principal amount is within plan limits
+        const isWithinLimits =
+          principalAmount >= plan.minAmount &&
+          (plan.maxAmount === null || principalAmount <= plan.maxAmount);
 
-        // Parse duration
-        const durationMatch = plan.duration.match(/(\d+)\s*(Month|Months)/i);
-        const durationMonths = durationMatch ? parseInt(durationMatch[1]) : 3;
-        const durationDays = durationMonths * 30;
+        if (!isWithinLimits) {
+          return null; // Skip plans that don't match the amount
+        }
 
-        // Calculate daily return rate
-        const dailyReturnRate = returnPercentage / 100 / 30;
-        const dailyReturn = principalAmount * dailyReturnRate;
+        // Calculate daily return
+        const dailyReturn = (principalAmount * plan.dailyProfit) / 100;
 
-        // Calculate returns
+        // Calculate returns for different periods
         const totalReturn24h = dailyReturn * 1;
         const totalReturn30d = dailyReturn * 30;
-        const totalReturnPlan = dailyReturn * durationDays;
+        const totalReturnPlan = dailyReturn * plan.duration;
 
         // Calculate projected balances
         const projectedBalance24h =
@@ -782,19 +1045,16 @@ router.post(
           projectedBalance24h,
           projectedBalance30d,
           projectedBalanceEnd,
-          durationDays,
-          returnPercentage,
+          durationDays: plan.duration,
+          returnPercentage: plan.dailyProfit,
+          minAmount: plan.minAmount,
+          maxAmount: plan.maxAmount,
+          totalReturnPercentage: plan.totalReturn,
         };
-      });
+      }).filter(Boolean); // Remove null entries for plans that don't match
 
-      // Find recommended plan
-      const recommendedPlan = calculations.find((calc) =>
-        principalAmount >= 100 && principalAmount <= 1000
-          ? calc.planId === "starter"
-          : principalAmount >= 1000 && principalAmount <= 10000
-            ? calc.planId === "growth"
-            : calc.planId === "premium"
-      );
+      // Find recommended plan (first available plan that matches the amount)
+      const recommendedPlan = calculations.length > 0 ? calculations[0] : null;
 
       res.json({
         calculations,
@@ -809,6 +1069,21 @@ router.post(
     }
   }
 );
+
+// Get investment plans
+router.get("/investment/plans", async (req: Request, res: Response) => {
+  try {
+    // Import actual investment plans from investment service
+    const { INVESTMENT_PLANS } = await import("./investmentService");
+
+    res.json({
+      plans: INVESTMENT_PLANS,
+    });
+  } catch (error) {
+    console.error("Get investment plans error:", error);
+    res.status(500).json({ message: "Failed to get investment plans" });
+  }
+});
 
 // Apply investment returns (for simulation/testing)
 router.post(

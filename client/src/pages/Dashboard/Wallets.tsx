@@ -267,7 +267,7 @@ const Wallets: React.FC = () => {
                           <p>
                             Please verify your withdrawal address carefully.
                             Withdrawals are typically processed within 24 hours.
-                            Minimum withdrawal amount is $50.
+                            Minimum withdrawal amount is $10.
                           </p>
                         </div>
                       </div>

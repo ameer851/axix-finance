@@ -479,6 +479,10 @@ export const api = {
     });
   },
 
+  getInvestmentPlans: async () => {
+    return apiRequest("GET", "/investment/plans");
+  },
+
   applyInvestmentReturns: async (
     planId: string,
     principalAmount: number,

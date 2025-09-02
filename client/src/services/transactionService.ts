@@ -303,6 +303,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
       totalBalance:
         balanceData.totalBalance ||
         (balanceData.availableBalance || 0) + (balanceData.pendingBalance || 0),
+      activeDeposits: balanceData.activeDeposits || 0,
       lastUpdated: balanceData.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
@@ -367,6 +368,34 @@ export async function depositFunds(data: {
     throw new Error(
       error.message || "Failed to process deposit. Please try again later."
     );
+  }
+}
+
+/**
+ * Reinvest funds: moves from available balance to activeDeposits immediately
+ */
+export async function reinvestFunds(data: {
+  amount: number;
+  planName: string;
+}): Promise<{
+  success: boolean;
+  amount: number;
+  transactionId?: number;
+  activeDeposits?: number;
+  balance?: number;
+}> {
+  try {
+    const res = await api.post(`/transactions/reinvest`, data);
+    return {
+      success: !!res?.success,
+      amount: data.amount,
+      transactionId: res?.data?.transaction?.id,
+      activeDeposits: Number(res?.data?.activeDeposits || 0),
+      balance: Number(res?.data?.balance || 0),
+    };
+  } catch (error: any) {
+    console.error("Error reinvesting funds:", error);
+    throw new Error(error.message || "Failed to reinvest funds.");
   }
 }
 

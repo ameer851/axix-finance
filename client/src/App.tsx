@@ -36,6 +36,7 @@ import InvestmentCalculatorPage from "@/pages/Client/InvestmentCalculatorPage";
 // AdminV2 components
 import AdminDashboardV2 from "@/pages/AdminV2/dashboard";
 import DepositsPageV2 from "@/pages/AdminV2/deposits";
+import UserTransactionsPage from "@/pages/AdminV2/user-transactions";
 import UsersPageV2 from "@/pages/AdminV2/users";
 import WithdrawalsPageV2 from "@/pages/AdminV2/withdrawals";
 
@@ -75,14 +76,14 @@ function Router() {
       ) {
         // Redirect based on user role
         if (user.role === "admin") {
-          // Send admins to new Admin V2 panel instead of legacy /admin
-          setLocation("/adminv2/users");
+          // Send admins to Admin V2 dashboard first
+          setLocation("/adminv2/dashboard");
         } else {
           setLocation("/dashboard");
         }
       }
     }
-  }, [isAuthenticated, user, setLocation]);
+  }, [isAuthenticated, user, location]);
 
   return (
     <Switch>
@@ -360,7 +361,8 @@ function Router() {
         {() => {
           const [, setLocation] = useLocation();
           useEffect(() => {
-            setLocation("/adminv2/users");
+            // Redirect legacy /admin to new dashboard
+            setLocation("/adminv2/dashboard");
           }, [setLocation]);
           return <LoadingSpinner />;
         }}
@@ -372,10 +374,24 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/adminv2/dashboard">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminDashboardV2 />
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/adminv2/users">
         {() => (
           <ProtectedRoute requireAdmin>
             <UsersPageV2 />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/adminv2/user-transactions">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <UserTransactionsPage />
           </ProtectedRoute>
         )}
       </Route>
