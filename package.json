@@ -16,8 +16,10 @@
   },
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "vite build",
-    "build:server": "esbuild server/index.ts --platform=node --external:@prisma/client --external:express --external:morgan --external:vite --external:@vitejs/plugin-react --external:dotenv --bundle --format=cjs --outdir=dist/server --out-extension:.js=.cjs",
+    "prebuild": "node scripts/safe-clean-dist.cjs",
+    "build": "npm run prebuild && vite build --emptyOutDir=false",
+    "build:no-clean": "vite build --emptyOutDir=false",
+    "build:server": "esbuild server/index.ts server/cron-jobs.ts --platform=node --external:@prisma/client --external:express --external:morgan --external:vite --external:@vitejs/plugin-react --external:dotenv --bundle --format=cjs --outdir=dist/server --out-extension:.js=.cjs",
     "build:frontend": "vite build --outDir dist",
     "clean": "rimraf dist .vercel/output client/dist api/index.js",
     "clean:server": "rimraf dist/server",
@@ -42,7 +44,17 @@
     "deploy:prepare": "node prepare-vercel-deployment.js",
     "build:api": "node build-api.cjs",
     "deploy:vercel": "npm run build && npm run build:api && vercel",
-    "diagnose:prod": "node scripts/diagnose-production.mjs"
+    "diagnose:prod": "node scripts/diagnose-production.mjs",
+    "cron:run": "node scripts/auto-investment-processor.js",
+    "cron:dry-run": "node scripts/auto-investment-processor.js --dry-run",
+    "verify:today-returns": "node scripts/verify-today-returns.mjs",
+    "verify:today-completions": "node scripts/verify-completions-today.mjs",
+    "test:emails": "node scripts/test-investment-emails.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "spec:check": "node scripts/validate-openapi.mjs",
+    "spec:types": "openapi-typescript docs/openapi.yaml -o shared/api-types.ts",
+    "secret:scan": "node scripts/scan-secrets.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -80,6 +92,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tanstack/react-query": "^5.60.5",
     "@tanstack/react-table": "^8.21.3",
+    "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.11.14",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.7.0",
@@ -113,6 +126,7 @@
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
     "next-themes": "^0.4.6",
+    "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.2",
     "passport": "^0.7.0",
@@ -159,9 +173,12 @@
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.5.13",
     "cross-env": "^7.0.3",
+    "openapi-typescript": "^7.9.1",
     "rimraf": "^6.0.1",
+    "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
-    "tsx": "^4.19.1"
+    "tsx": "^4.19.1",
+    "vitest": "^2.1.4"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

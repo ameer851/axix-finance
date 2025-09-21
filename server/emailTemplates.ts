@@ -296,6 +296,8 @@ function generateWithdrawalConfirmationEmailHTML(
 export {
   generateDepositApprovalEmailHTML,
   generateDepositConfirmationEmailHTML,
+  generateInvestmentCompletedEmailHTML,
+  generateInvestmentIncrementEmailHTML,
   // Placeholder generators (legacy references) to avoid runtime errors; real implementations can be added later.
   generateNotificationEmailHTML,
   generatePasswordResetEmailHTML,
@@ -321,4 +323,116 @@ function generatePasswordResetEmailHTML(user: any, resetLink: string) {
 
 function generateVerificationEmailHTML(user: any, verifyLink: string) {
   return `<!DOCTYPE html><html><body><h2>Verify Your Email</h2><p>Hello ${user?.firstName || user?.username || user?.email || "User"},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verifyLink}">Verify Email</a></p><p>If you did not create an account, you can ignore this email.</p><p>— AxixFinance</p></body></html>`;
+}
+
+// --- New templates for investment increment and completion ---
+function generateInvestmentIncrementEmailHTML(
+  user: DrizzleUser,
+  opts: {
+    planName: string;
+    day: number;
+    duration: number;
+    dailyAmount: number;
+    totalEarned: number;
+    principal: number;
+    nextAccrualUtc?: string | null;
+  }
+): string {
+  const {
+    planName,
+    day,
+    duration,
+    dailyAmount,
+    totalEarned,
+    principal,
+    nextAccrualUtc,
+  } = opts;
+  return `
+    <div style="${COMMON_STYLES.outerWrapper}">
+      <div style="${COMMON_STYLES.container}">
+        ${renderHeader()}
+        <div style="${COMMON_STYLES.body}">
+          <h2>Daily Increment Applied</h2>
+          <p>Hello ${user.firstName || (user as any).username || user.email},</p>
+          <p>Your investment just earned today's return.</p>
+
+          <div style="text-align:center; margin: 22px 0;">
+            <img src="${BRAND.welcomeImage}" alt="${BRAND.name}" style="${COMMON_STYLES.heroImage}" />
+          </div>
+
+          <div style="${COMMON_STYLES.infoBox}">
+            <p style="margin:0"><strong>Plan:</strong> ${planName}</p>
+            <p style="margin:10px 0 0 0"><strong>Day:</strong> ${day} / ${duration}</p>
+            <p style="margin:10px 0 0 0"><strong>Today's Return:</strong> $${dailyAmount.toFixed(2)}</p>
+            <p style="margin:10px 0 0 0"><strong>Total Earned:</strong> $${totalEarned.toFixed(2)}</p>
+            <p style="margin:10px 0 0 0"><strong>Principal:</strong> $${principal.toFixed(2)}</p>
+            ${
+              nextAccrualUtc
+                ? `<p style="margin:10px 0 0 0"><strong>Next Accrual (UTC):</strong> ${new Date(nextAccrualUtc).toUTCString()}</p>`
+                : ""
+            }
+          </div>
+          <p style="margin-top:22px">Track your progress anytime from your dashboard.</p>
+          <div style="margin: 24px 0; text-align: center;">
+            <a href="${BRAND.url}/dashboard" style="${COMMON_STYLES.button}">Open Dashboard</a>
+          </div>
+          <p>Best regards,<br/>The ${BRAND.name} Team</p>
+        </div>
+        <div style="${COMMON_STYLES.footer}">
+          <p>&copy; ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function generateInvestmentCompletedEmailHTML(
+  user: DrizzleUser,
+  opts: {
+    planName: string;
+    duration: number;
+    totalEarned: number;
+    principal: number;
+    endDateUtc?: string | null;
+  }
+): string {
+  const { planName, duration, totalEarned, principal, endDateUtc } = opts;
+  const totalPayout = principal + totalEarned;
+  return `
+    <div style="${COMMON_STYLES.outerWrapper}">
+      <div style="${COMMON_STYLES.container}">
+        ${renderHeader()}
+        <div style="${COMMON_STYLES.body}">
+          <h2>Plan Completed</h2>
+          <p>Hello ${user.firstName || (user as any).username || user.email},</p>
+          <p>Congratulations! Your investment plan has finished.</p>
+
+          <div style="text-align:center; margin: 22px 0;">
+            <img src="${BRAND.welcomeImage}" alt="${BRAND.name}" style="${COMMON_STYLES.heroImage}" />
+          </div>
+
+          <div style="${COMMON_STYLES.infoBox}">
+            <p style="margin:0"><strong>Plan:</strong> ${planName}</p>
+            <p style="margin:10px 0 0 0"><strong>Duration:</strong> ${duration} days</p>
+            <p style="margin:10px 0 0 0"><strong>Total Earned:</strong> $${totalEarned.toFixed(2)}</p>
+            <p style="margin:10px 0 0 0"><strong>Principal:</strong> $${principal.toFixed(2)}</p>
+            <p style="margin:10px 0 0 0"><strong>Total Payout:</strong> $${totalPayout.toFixed(2)}</p>
+            ${
+              endDateUtc
+                ? `<p style="margin:10px 0 0 0"><strong>Completed (UTC):</strong> ${new Date(endDateUtc).toUTCString()}</p>`
+                : ""
+            }
+          </div>
+          <p style="margin-top:22px">Your account balance has been updated accordingly. You can reinvest or withdraw from your dashboard.</p>
+          <div style="margin: 24px 0; text-align: center;">
+            <a href="${BRAND.url}/dashboard" style="${COMMON_STYLES.button}">View Investments</a>
+          </div>
+          <p>Thank you for investing with ${BRAND.name}.</p>
+        </div>
+        <div style="${COMMON_STYLES.footer}">
+          <p>&copy; ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.</p>
+        </div>
+      </div>
+    </div>
+  `;
 }

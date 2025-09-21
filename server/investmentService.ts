@@ -1,3 +1,10 @@
+import pg from "pg";
+import {
+  sendInvestmentCompletedEmail,
+  sendInvestmentIncrementEmail,
+} from "./emailService";
+import { financialLedger } from "./financialLedger";
+import { log } from "./logger";
 import { supabase } from "./supabase";
 
 // Investment types
@@ -74,8 +81,9 @@ export const INVESTMENT_PLANS = [
  * Create an investment record when a deposit with investment plan is completed
  */
 export async function createInvestmentFromTransaction(
-  transactionId: number
-): Promise<Investment | null> {
+  transactionId: number,
+  planId: string
+): Promise<{ success: boolean; investment?: Investment; error?: string }> {
   try {
     // Get transaction details
     const { data: transaction, error: txError } = await supabase
@@ -85,19 +93,67 @@ export async function createInvestmentFromTransaction(
       .single();
 
     if (txError || !transaction) {
-      console.error("Transaction not found:", txError);
-      return null;
+      return { success: false, error: "Transaction not found" };
     }
 
-    // Check if this transaction has investment plan data
-    if (!transaction.plan_name || !transaction.daily_profit) {
-      return null; // Not an investment transaction
+    if (transaction.status !== "completed") {
+      return { success: false, error: "Transaction not completed" };
     }
 
-    const plan = INVESTMENT_PLANS.find((p) => p.name === transaction.plan_name);
+    // Check if an investment already exists for this transaction
+    const { data: existingInvestment, error: existingInvError } = await supabase
+      .from("investments")
+      .select("id")
+      .eq("transaction_id", transactionId)
+      .single();
+
+    if (existingInvError && existingInvError.code !== "PGRST116") {
+      // PGRST116: "exact one row not found" - this is expected
+      console.error(
+        "Error checking for existing investment:",
+        existingInvError
+      );
+      return { success: false, error: "Database query error" };
+    }
+
+    if (existingInvestment) {
+      return {
+        success: false,
+        error: "Investment already created for this transaction",
+      };
+    }
+
+    const plan = INVESTMENT_PLANS.find((p) => p.id === planId);
     if (!plan) {
-      console.error("Investment plan not found:", transaction.plan_name);
-      return null;
+      return { success: false, error: "Investment plan not found" };
+    }
+
+    const amount = parseFloat(transaction.amount);
+    if (
+      amount < plan.minAmount ||
+      (plan.maxAmount && amount > plan.maxAmount)
+    ) {
+      return { success: false, error: "Amount is not within plan limits" };
+    }
+
+    // Resolve numeric user id
+    let numericUserId: number | null = null;
+    if (typeof (transaction as any).user_id === "number") {
+      numericUserId = Number((transaction as any).user_id);
+    } else if (typeof (transaction as any).user_id === "string") {
+      const { data: userRow, error: userErr } = await supabase
+        .from("users")
+        .select("id")
+        .eq("uid", (transaction as any).user_id)
+        .single();
+      if (userErr || !userRow) {
+        return { success: false, error: "User not found" };
+      }
+      numericUserId = Number(userRow.id);
+    }
+
+    if (!numericUserId) {
+      return { success: false, error: "Could not resolve user ID" };
     }
 
     // Calculate investment dates
@@ -109,52 +165,37 @@ export async function createInvestmentFromTransaction(
     const { data: investment, error: invError } = await supabase
       .from("investments")
       .insert({
-        user_id: transaction.user_id,
+        user_id: numericUserId,
         transaction_id: transaction.id,
-        plan_name: transaction.plan_name,
-        plan_duration: transaction.plan_duration,
-        daily_profit: transaction.daily_profit,
-        total_return: transaction.total_return,
-        principal_amount: parseFloat(transaction.amount),
+        plan_name: plan.name,
+        plan_duration: plan.duration,
+        daily_profit: plan.dailyProfit,
+        total_return: plan.totalReturn,
+        principal_amount: amount,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         status: "active",
         days_elapsed: 0,
         total_earned: 0,
-        first_profit_date: null, // Will be set when admin approves
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       })
       .select()
       .single();
 
     if (invError) {
       console.error("Error creating investment:", invError);
-      return null;
+      return { success: false, error: "Failed to create investment record" };
     }
 
-    return {
-      id: investment.id,
-      userId: investment.user_id,
-      transactionId: investment.transaction_id,
-      planName: investment.plan_name,
-      planDuration: investment.plan_duration,
-      dailyProfit: investment.daily_profit,
-      totalReturn: investment.total_return,
-      principalAmount: investment.principal_amount,
-      startDate: investment.start_date,
-      endDate: investment.end_date,
-      status: investment.status,
-      daysElapsed: investment.days_elapsed,
-      totalEarned: investment.total_earned,
-      lastReturnApplied: investment.last_return_applied,
-      firstProfitDate: investment.first_profit_date,
-      createdAt: investment.created_at,
-      updatedAt: investment.updated_at,
-    };
+    // Also update the user's active_deposits
+    await supabase.rpc("increment_user_active_deposits", {
+      user_id_input: numericUserId,
+      amount_input: amount,
+    });
+
+    return { success: true, investment: investment as Investment };
   } catch (error) {
     console.error("Error creating investment from transaction:", error);
-    return null;
+    return { success: false, error: "Internal server error" };
   }
 }
 
@@ -212,8 +253,8 @@ export async function getUserInvestmentReturns(
     const { data: returns, error } = await supabase
       .from("investment_returns")
       .select("*")
-      .eq("userId", userId)
-      .order("returnDate", { ascending: false });
+      .eq("user_id", userId)
+      .order("return_date", { ascending: false });
 
     if (error) {
       console.error("Error fetching user investment returns:", error);
@@ -232,8 +273,10 @@ export async function getUserInvestmentReturns(
  */
 export async function applyDailyReturns(): Promise<void> {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
 
     // Get all active investments that haven't had returns applied today
     // Include investments that have first_profit_date due today
@@ -242,7 +285,7 @@ export async function applyDailyReturns(): Promise<void> {
       .select("*")
       .eq("status", "active")
       .or(
-        `last_return_applied.is.null,last_return_applied.lt.${today.toISOString()},first_profit_date.eq.${today.toISOString()}`
+        `last_return_applied.is.null,last_return_applied.lt.${today.toISOString()},first_profit_date.lte.${today.toISOString()}`
       );
 
     if (error) {
@@ -251,6 +294,24 @@ export async function applyDailyReturns(): Promise<void> {
     }
 
     for (const investment of investments || []) {
+      // Debug selection window
+      try {
+        const lra = investment.last_return_applied
+          ? new Date(investment.last_return_applied)
+          : null;
+        const fpd = investment.first_profit_date
+          ? new Date(investment.first_profit_date)
+          : null;
+        console.log(
+          "[applyDailyReturns] considering investment",
+          investment.id,
+          {
+            today: today.toISOString(),
+            last_return_applied: lra ? lra.toISOString() : null,
+            first_profit_date: fpd ? fpd.toISOString() : null,
+          }
+        );
+      } catch {}
       await applyInvestmentReturn(investment);
     }
   } catch (error) {
@@ -265,10 +326,18 @@ export async function applyInvestmentReturn(
   investmentData: any
 ): Promise<void> {
   try {
+    // Cutover: Investments starting on/after this UTC date will credit earnings only upon completion
+    const CREDIT_POLICY_CUTOFF_ISO = "2025-09-18T00:00:00Z";
+    const creditOnCompletionOnly =
+      new Date(investmentData.start_date).getTime() >=
+      new Date(CREDIT_POLICY_CUTOFF_ISO).getTime();
+
     const startDate = new Date(investmentData.start_date);
     const endDate = new Date(investmentData.end_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
 
     // Check if this is the first profit date (24 hours after approval)
     const firstProfitDate = investmentData.first_profit_date
@@ -276,93 +345,392 @@ export async function applyInvestmentReturn(
       : null;
 
     let isFirstProfit = false;
-    if (firstProfitDate && firstProfitDate.getTime() === today.getTime()) {
+    if (firstProfitDate && firstProfitDate.getTime() <= today.getTime()) {
       isFirstProfit = true;
     }
 
-    // Calculate days elapsed
-    const daysElapsed = Math.floor(
+    // Calculate calendar days since start for eligibility (first day guarded by first_profit_date)
+    const daysSinceStart = Math.floor(
       (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    if (daysElapsed < 1 && !isFirstProfit) {
+    if (daysSinceStart < 1 && !isFirstProfit) {
       return; // Investment hasn't started yet and not first profit time
     }
 
-    if (today >= endDate) {
-      // Investment completed
-      await supabase
-        .from("investments")
-        .update({
-          status: "completed",
-          days_elapsed: daysElapsed,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", investmentData.id);
-      return;
+    // Parse plan duration (string like "3 days" or numeric)
+    const planDuration: number = (() => {
+      const raw = investmentData.plan_duration;
+      if (typeof raw === "number") return raw;
+      if (typeof raw === "string") {
+        const m = raw.match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      }
+      return 0;
+    })();
+
+    // Number of daily profits applied so far (we use days_elapsed as counter)
+    const appliedCount = Number(investmentData.days_elapsed || 0);
+    if (appliedCount >= planDuration) {
+      // Already fully accrued; ensure completion path finishes principal unlock/archive
+      // Fall through to completion handler below
     }
 
     // Calculate daily return amount
     const dailyReturnAmount =
       investmentData.principal_amount * (investmentData.daily_profit / 100);
 
-    // Apply return to user balance
-    const { error: balanceError } = await supabase.rpc(
-      "increment_user_balance",
-      {
-        user_id: investmentData.user_id,
-        amount: dailyReturnAmount,
+    // Decide if we should apply a daily return today (not exceeding plan duration)
+    let didApplyReturn = false;
+    let newTotalEarned = Number(investmentData.total_earned || 0);
+    let newAppliedCount = appliedCount;
+    if (
+      // Apply if not already applied today and we still have days left
+      (!investmentData.last_return_applied ||
+        new Date(investmentData.last_return_applied).getTime() <
+          today.getTime()) &&
+      appliedCount < planDuration
+    ) {
+      // Apply return: do NOT credit user balance daily for new investments (post-cutoff)
+      if (!creditOnCompletionOnly) {
+        // Legacy behavior: credit user balance daily (pre-cutoff investments)
+        const { error: balanceError } = await supabase.rpc(
+          "increment_user_balance",
+          {
+            user_id: investmentData.user_id,
+            amount: dailyReturnAmount,
+          }
+        );
+
+        if (balanceError) {
+          // Fallback: if RPC is missing, increment balance directly
+          const isMissingRpc =
+            (balanceError as any)?.code === "PGRST202" ||
+            /Could not find the function\s+public\.increment_user_balance/i.test(
+              String((balanceError as any)?.message || "")
+            );
+          if (isMissingRpc) {
+            try {
+              const { data: userRow, error: userErr } = await supabase
+                .from("users")
+                .select("id, balance")
+                .eq("id", investmentData.user_id)
+                .single();
+              if (userErr || !userRow) {
+                console.error("Fallback balance fetch failed:", userErr);
+                return;
+              }
+              const current = Number(userRow.balance || 0);
+              const updated = current + Number(dailyReturnAmount || 0);
+              const { error: updErr } = await supabase
+                .from("users")
+                .update({ balance: String(updated) })
+                .eq("id", userRow.id);
+              if (updErr) {
+                console.error("Fallback balance update failed:", updErr);
+                return;
+              }
+            } catch (e) {
+              console.error("Fallback balance update exception:", e);
+              return;
+            }
+          } else {
+            console.error("Error updating user balance:", balanceError);
+            return;
+          }
+        }
       }
-    );
 
-    if (balanceError) {
-      console.error("Error updating user balance:", balanceError);
-      return;
+      // Record the return
+      const { error: returnError } = await supabase
+        .from("investment_returns")
+        .insert({
+          investment_id: investmentData.id,
+          user_id: investmentData.user_id,
+          amount: dailyReturnAmount,
+          return_date: today.toISOString(),
+          created_at: new Date().toISOString(),
+        });
+
+      if (returnError) {
+        console.error("Error recording investment return:", returnError);
+        return;
+      }
+
+      // Update investment record: increment applied count and totals
+      newAppliedCount = appliedCount + 1;
+      newTotalEarned = newTotalEarned + dailyReturnAmount;
+
+      const updateData: any = {
+        days_elapsed: newAppliedCount,
+        total_earned: newTotalEarned,
+        last_return_applied: today.toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Clear first_profit_date after applying first profit
+      if (isFirstProfit) {
+        updateData.first_profit_date = null;
+      }
+
+      await supabase
+        .from("investments")
+        .update(updateData)
+        .eq("id", investmentData.id);
+
+      didApplyReturn = true;
+
+      const profitType = isFirstProfit ? "first profit (24h)" : "daily return";
+      console.log(
+        `Applied ${profitType} of ${dailyReturnAmount} to investment ${investmentData.id}`
+      );
+
+      // Attempt to send increment email; idempotence is ensured by last_return_applied date update
+      try {
+        const { data: user } = await supabase
+          .from("users")
+          .select("id, uid, email, username, first_name, full_name, balance")
+          .eq("id", investmentData.user_id)
+          .single();
+        if (user && user.email) {
+          const nextDayUtc = new Date(today);
+          nextDayUtc.setUTCDate(nextDayUtc.getUTCDate() + 1);
+          await sendInvestmentIncrementEmail(user as any, {
+            planName: investmentData.plan_name,
+            day: newAppliedCount,
+            duration: planDuration || newAppliedCount,
+            dailyAmount: dailyReturnAmount,
+            totalEarned: newTotalEarned,
+            principal: investmentData.principal_amount || 0,
+            nextAccrualUtc: nextDayUtc.toISOString(),
+          });
+        }
+      } catch (e) {
+        console.warn("[investments] increment email failed", {
+          investmentId: investmentData.id,
+          error: (e as any)?.message,
+        });
+      }
     }
 
-    // Record the return (no email notification for profits)
-    const { error: returnError } = await supabase
-      .from("investment_returns")
-      .insert({
-        investment_id: investmentData.id,
-        user_id: investmentData.user_id,
-        amount: dailyReturnAmount,
-        return_date: today.toISOString(),
-        created_at: new Date().toISOString(),
+    // If we've reached or exceeded plan duration after today's accrual, complete the investment
+    const shouldComplete = newAppliedCount >= planDuration || today >= endDate;
+    if (shouldComplete) {
+      await completeInvestmentTransactionally(investmentData, {
+        planDuration,
+        totalEarnedAtCompletion: newTotalEarned,
+        creditOnCompletionOnly,
       });
-
-    if (returnError) {
-      console.error("Error recording investment return:", returnError);
       return;
     }
-
-    // Update investment record
-    const newTotalEarned =
-      (investmentData.total_earned || 0) + dailyReturnAmount;
-
-    const updateData: any = {
-      days_elapsed: daysElapsed,
-      total_earned: newTotalEarned,
-      last_return_applied: today.toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // Clear first_profit_date after applying first profit
-    if (isFirstProfit) {
-      updateData.first_profit_date = null;
-    }
-
-    await supabase
-      .from("investments")
-      .update(updateData)
-      .eq("id", investmentData.id);
 
     const profitType = isFirstProfit ? "first profit (24h)" : "daily return";
     console.log(
       `Applied ${profitType} of ${dailyReturnAmount} to investment ${investmentData.id}`
     );
+
+    // If we didn't apply or complete (shouldn't generally happen), fall through
   } catch (error) {
     console.error("Error applying investment return:", error);
+  }
+}
+
+interface CompletionContext {
+  planDuration: number;
+  totalEarnedAtCompletion: number;
+  creditOnCompletionOnly: boolean;
+}
+
+async function completeInvestmentTransactionally(
+  investmentData: any,
+  ctx: CompletionContext
+) {
+  // Fault injection (test-only): if env flag set to 'before-user-update' or 'after-user-update', throw to simulate partial failure paths.
+  const faultPoint = process.env.TEST_FAIL_AFTER_PRINCIPAL_UNLOCK;
+  const serviceDbUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+  const canTransact = !!serviceDbUrl;
+  const client = canTransact
+    ? new pg.Client({ connectionString: serviceDbUrl })
+    : null;
+  const nowIso = new Date().toISOString();
+  try {
+    if (client) await client.connect();
+    if (client) await client.query("BEGIN");
+
+    // Lock user & investment rows (if using pg client) to prevent race double-completion
+    let userRow: any = null;
+    if (client) {
+      const userRes = await client.query(
+        "SELECT id, balance, active_deposits FROM users WHERE id = $1 FOR UPDATE",
+        [investmentData.user_id]
+      );
+      userRow = userRes.rows[0];
+      const invRes = await client.query(
+        "SELECT id, status FROM investments WHERE id = $1 FOR UPDATE",
+        [investmentData.id]
+      );
+      const invStatus = invRes.rows[0]?.status;
+      if (invStatus === "completed") {
+        if (client) await client.query("ROLLBACK");
+        return; // already completed
+      }
+    } else {
+      const { data: fetchedUser } = await supabase
+        .from("users")
+        .select("id,balance,active_deposits")
+        .eq("id", investmentData.user_id)
+        .single();
+      userRow = fetchedUser;
+    }
+
+    // Update investment status
+    if (client) {
+      await client.query(
+        "UPDATE investments SET status = $1, updated_at = $2 WHERE id = $3",
+        ["completed", nowIso, investmentData.id]
+      );
+    } else {
+      await supabase
+        .from("investments")
+        .update({ status: "completed", updated_at: nowIso })
+        .eq("id", investmentData.id);
+    }
+
+    // Adjust active deposits & optionally credit earnings
+    const principal = Number(investmentData.principal_amount || 0);
+    const earned = Number(ctx.totalEarnedAtCompletion || 0);
+    let nextBalance = Number(userRow?.balance || 0);
+    let nextActive = Number(userRow?.active_deposits || 0) - principal;
+    if (nextActive < 0) nextActive = 0;
+    if (ctx.creditOnCompletionOnly) {
+      nextBalance += earned; // credit all accrued earnings now
+    }
+    // Always unlock principal back to balance
+    nextBalance += principal;
+
+    if (client) {
+      await client.query(
+        "UPDATE users SET balance = $1, active_deposits = $2, updated_at = $3 WHERE id = $4",
+        [
+          String(nextBalance),
+          String(nextActive),
+          nowIso,
+          investmentData.user_id,
+        ]
+      );
+    } else {
+      await supabase
+        .from("users")
+        .update({
+          balance: String(nextBalance),
+          active_deposits: String(nextActive),
+          updated_at: nowIso,
+        })
+        .eq("id", investmentData.user_id);
+    }
+
+    if (faultPoint === "after-user-update") {
+      throw new Error("Injected failure after user update");
+    }
+
+    // Archive snapshot
+    if (client) {
+      await client.query(
+        "INSERT INTO completed_investments (original_investment_id,user_id,plan_name,daily_profit,duration,principal_amount,total_earned,start_date,end_date,completed_at,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)",
+        [
+          investmentData.id,
+          investmentData.user_id,
+          investmentData.plan_name,
+          investmentData.daily_profit,
+          ctx.planDuration,
+          investmentData.principal_amount,
+          earned,
+          investmentData.start_date,
+          investmentData.end_date,
+          nowIso,
+        ]
+      );
+    } else {
+      await supabase.from("completed_investments").insert({
+        original_investment_id: investmentData.id,
+        user_id: investmentData.user_id,
+        plan_name: investmentData.plan_name,
+        daily_profit: investmentData.daily_profit,
+        duration: ctx.planDuration,
+        principal_amount: investmentData.principal_amount,
+        total_earned: earned,
+        start_date: investmentData.start_date,
+        end_date: investmentData.end_date,
+        completed_at: nowIso,
+      });
+    }
+
+    if (faultPoint === "after-archive") {
+      throw new Error("Injected failure after archive");
+    }
+
+    // Ledger entries (principal unlock + earnings credit aggregated) using supabase client only (out-of-tx, acceptable; or we could skip when client exists)
+    try {
+      await financialLedger.record({
+        userId: investmentData.user_id,
+        entryType: "investment_completion",
+        amountDelta:
+          principal + (ctx.creditOnCompletionOnly ? earned : principal),
+        activeDepositsDelta: -principal,
+        balanceAfter: nextBalance,
+        activeDepositsAfter: nextActive,
+        referenceTable: "investments",
+        referenceId: investmentData.id,
+        metadata: {
+          earned,
+          creditOnCompletionOnly: ctx.creditOnCompletionOnly,
+        },
+      });
+    } catch (e) {
+      log.error("ledger.record.completion.fail", e, {
+        investmentId: investmentData.id,
+      });
+    }
+
+    if (client) await client.query("COMMIT");
+
+    // Send completion email (outside transaction)
+    try {
+      const { data: user } = await supabase
+        .from("users")
+        .select("id,email,username,first_name,full_name,balance")
+        .eq("id", investmentData.user_id)
+        .single();
+      if (user && (user as any).email) {
+        await sendInvestmentCompletedEmail(user as any, {
+          planName: investmentData.plan_name,
+          duration: ctx.planDuration,
+          totalEarned: earned,
+          principal: investmentData.principal_amount || 0,
+          endDateUtc: investmentData.end_date,
+        });
+      }
+    } catch (e) {
+      log.warn("completion.email.fail", {
+        investmentId: investmentData.id,
+        error: (e as any)?.message,
+      });
+    }
+  } catch (e) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+    }
+    log.error("investment.complete.tx.fail", e, {
+      investmentId: investmentData.id,
+    });
+  } finally {
+    if (client) {
+      try {
+        await client.end();
+      } catch {}
+    }
   }
 }
 
@@ -373,14 +741,24 @@ export async function scheduleFirstProfit(
   investmentId: number
 ): Promise<boolean> {
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0); // Set to start of day
+    // Compute tomorrow at UTC start-of-day to avoid local timezone/DST issues
+    const now = new Date();
+    const tomorrowUtc = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1,
+        0,
+        0,
+        0,
+        0
+      )
+    );
 
     const { error } = await supabase
       .from("investments")
       .update({
-        first_profit_date: tomorrow.toISOString(),
+        first_profit_date: tomorrowUtc.toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", investmentId);

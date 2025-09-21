@@ -13,7 +13,7 @@ async function applyMigration() {
     // Read the migration file
     const migrationPath = path.join(
       __dirname,
-      "../supabase/migrations/20250806_fix_user_schema.sql"
+      "../migrations/20250920_update_user_balance_fields.sql"
     );
 
     if (!fs.existsSync(migrationPath)) {

@@ -225,6 +225,38 @@ export const adminService = {
     }
   },
 
+  jobs: {
+    getDailyInvestmentStatus: async () => {
+      try {
+        return await api.get<any>(`/admin/jobs/daily-investments/status`);
+      } catch (e) {
+        console.error("Failed to fetch job status", e);
+        return null;
+      }
+    },
+    listDailyInvestmentRuns: async (page = 1, limit = 10) => {
+      try {
+        return await api.get<any>(
+          `/admin/jobs/daily-investments/runs?page=${page}&limit=${limit}`
+        );
+      } catch (e) {
+        console.error("Failed to fetch job runs", e);
+        return null;
+      }
+    },
+    triggerDailyInvestment: async (dryRun = false) => {
+      try {
+        return await api.post(
+          `/admin/investments/run-daily${dryRun ? "?dryRun=1" : ""}`,
+          {}
+        );
+      } catch (e) {
+        console.error("Failed to trigger job", e);
+        throw e;
+      }
+    },
+  },
+
   updateSystemSettings: async (
     settings: Partial<SystemSettings>
   ): Promise<SystemSettings> => {
@@ -283,38 +315,35 @@ export const adminService = {
   },
 
   getAuditLogs: async (
-    filters?: Partial<TransactionFilters>
+    filters?: Partial<TransactionFilters> & { action?: string }
   ): Promise<PaginatedResponse<AuditLog>> => {
     try {
-      const page = filters?.page || 1;
-      const limit = filters?.limit || 10;
-      const offset = (page - 1) * limit;
+      const params = new URLSearchParams();
+      if (filters?.page) params.set("page", String(filters.page));
+      if (filters?.limit) params.set("limit", String(filters.limit));
+      if (filters?.search) params.set("search", String(filters.search));
+      if ((filters as any)?.action)
+        params.set("action", String((filters as any).action));
 
-      let query = supabase
-        .from("audit_logs")
-        .select("*, users(id, username, email)", { count: "exact" })
-        .order("created_at", { ascending: false });
+      const res = await api.get<any>(
+        `/admin/audit-logs${params.toString() ? `?${params.toString()}` : ""}`
+      );
 
-      if (filters?.search) {
-        query = query.or(
-          `description.ilike.%${filters.search}%,action.ilike.%${filters.search}%`
-        );
-      }
-
-      query = query.range(offset, offset + limit - 1);
-
-      const { data: logs, error, count } = await query;
-
-      if (error) throw error;
-
+      const data = Array.isArray(res?.data) ? res.data : [];
+      const pagination = res?.pagination || {
+        page: filters?.page || 1,
+        limit: data.length,
+        total: data.length,
+        totalPages: 1,
+      };
       return {
         success: true,
-        data: logs || [],
+        data,
         pagination: {
-          page,
-          limit,
-          total: count || 0,
-          pages: Math.ceil((count || 0) / limit),
+          page: pagination.page,
+          limit: pagination.limit,
+          total: pagination.total,
+          pages: pagination.totalPages,
         },
       };
     } catch (error) {
@@ -356,6 +385,73 @@ export const adminService = {
     } catch (error) {
       throw new Error("Failed to perform bulk action");
     }
+  },
+  ledger: {
+    list: async (opts?: {
+      page?: number;
+      limit?: number;
+      userId?: number;
+      entryType?: string;
+      referenceTable?: string;
+      referenceId?: number;
+    }) => {
+      const page = opts?.page || 1;
+      const limit = opts?.limit || 50;
+      const offset = (page - 1) * limit;
+      const params = new URLSearchParams();
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      if (opts?.userId) params.set("userId", String(opts.userId));
+      if (opts?.entryType) params.set("entryType", opts.entryType);
+      if (opts?.referenceTable)
+        params.set("referenceTable", String(opts.referenceTable));
+      if (opts?.referenceId)
+        params.set("referenceId", String(opts.referenceId));
+      const res = await api.get<any>(`/admin/ledger?${params.toString()}`);
+      const items = res?.items || [];
+      const total = res?.count ?? items.length;
+      return {
+        success: true,
+        data: items,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.max(1, Math.ceil(total / limit)),
+        },
+      } as PaginatedResponse<any>;
+    },
+  },
+  jobRuns: {
+    list: async (opts?: {
+      page?: number;
+      limit?: number;
+      jobName?: string;
+      success?: boolean;
+    }) => {
+      const page = opts?.page || 1;
+      const limit = opts?.limit || 50;
+      const offset = (page - 1) * limit;
+      const params = new URLSearchParams();
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      if (opts?.jobName) params.set("jobName", opts.jobName);
+      if (typeof opts?.success === "boolean")
+        params.set("success", String(opts.success));
+      const res = await api.get<any>(`/admin/job-runs?${params.toString()}`);
+      const items = res?.items || [];
+      const total = res?.count ?? items.length;
+      return {
+        success: true,
+        data: items,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.max(1, Math.ceil(total / limit)),
+        },
+      } as PaginatedResponse<any>;
+    },
   },
 } as const;
 

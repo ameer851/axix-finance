@@ -9,11 +9,9 @@
  * 4. Simulate 24 hours passing and apply first profit
  */
 
-const { createClient } = require("@supabase/supabase-js");
-const path = require("path");
-
-// Load environment variables
-require("dotenv").config();
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+dotenv.config();
 
 async function test24HourProfitSystem() {
   console.log("🧪 Testing 24-Hour Profit System...\n");
@@ -38,12 +36,19 @@ async function test24HourProfitSystem() {
     // Step 1: Create a test user
     console.log("1. Creating test user...");
     const testEmail = `test-${Date.now()}@example.com`;
+    // Generate a strong ephemeral password for the test user instead of hardcoding
+    const generatedPassword =
+      "Test-" + Math.random().toString(36).slice(2, 10) + "-P@55";
+
     const { data: testUser, error: userError } =
       await supabase.auth.admin.createUser({
         email: testEmail,
-        password: "testpassword123",
+        password: generatedPassword,
         email_confirm: true,
       });
+
+    // Avoid logging the password; only indicate that one was generated
+    console.log("🔐 Generated ephemeral password for test user (not logged)");
 
     if (userError) {
       throw new Error(`Failed to create test user: ${userError.message}`);
@@ -124,9 +129,19 @@ async function test24HourProfitSystem() {
     }
 
     // Create investment record with first_profit_date
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
+    // Use UTC start-of-day for tomorrow to align with server processing
+    const now = new Date();
+    const tomorrow = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1,
+        0,
+        0,
+        0,
+        0
+      )
+    );
 
     const { data: investment, error: invError } = await supabase
       .from("investments")

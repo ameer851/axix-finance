@@ -16,6 +16,7 @@ kill_timeout = "5s"
 [[services]]
   protocol = "tcp"
   internal_port = 8080
+  processes = ["web"]
 
   [[services.ports]]
     port = 80
@@ -51,3 +52,7 @@ kill_timeout = "5s"
     interval = "15s"
     timeout = "5s"
     path = "/health"
+
+[processes]
+  web = "node dist/server/index.cjs"
+  worker = "node dist/server/cron-jobs.cjs"

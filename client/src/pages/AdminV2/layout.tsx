@@ -27,6 +27,7 @@ export function AdminV2Layout({ children }: { children: ReactNode }) {
     },
     { name: "Deposits", href: "/adminv2/deposits", icon: CreditCard },
     { name: "Withdrawals", href: "/adminv2/withdrawals", icon: ArrowUpDown },
+    { name: "Audit Logs", href: "/adminv2/audit-logs", icon: Menu },
   ];
 
   const handleLogout = async () => {

@@ -56,6 +56,7 @@ export function createAdminRouter(): Router {
             lastName: null,
             full_name: null,
             balance: null,
+            activeDeposits: null,
             role: "user",
             is_admin: false,
             isVerified: false,

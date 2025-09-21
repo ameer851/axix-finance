@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Abort on secret findings
+node scripts/scan-secrets.cjs || {
+  echo "Secret scan failed – aborting commit" >&2
+  exit 1
+}

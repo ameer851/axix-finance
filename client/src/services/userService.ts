@@ -172,7 +172,9 @@ export async function getUserBalance(userId?: number | string): Promise<{
       availableBalance: available,
       pendingBalance: pending,
       totalBalance: total,
-      activeDeposits: Number(raw.activeDeposits || 0),
+      activeDeposits: Number(
+        raw.activeDeposits ?? (raw as any).active_deposits ?? 0
+      ),
       lastUpdated: raw.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {

@@ -144,7 +144,11 @@ export function applyRoutePatches(app: Express) {
         try {
           const allUsers = await storage.getAllUsers();
           totalActiveDeposits = (allUsers || []).reduce(
-            (sum: number, u: any) => sum + Number(u.activeDeposits || 0),
+            (sum: number, u: any) =>
+              sum +
+              Number(
+                (u as any).activeDeposits ?? (u as any).active_deposits ?? 0
+              ),
             0
           );
         } catch (e) {

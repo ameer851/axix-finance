@@ -9,11 +9,10 @@ export default defineConfig({
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    host: "aws-0-us-east-2.pooler.supabase.com",
-    port: 6543,
-    user: "postgres.wvnyiinrmfysabsfztii",
-    password: "0nPJxjEsfpHLQNcb",
-    database: "postgres",
-    ssl: false
+    url: process.env.DATABASE_URL + "?sslmode=require",
+  },
+  migrations: {
+    table: "migrations",
+    schema: "public",
   },
 });

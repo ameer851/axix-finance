@@ -10,6 +10,8 @@ import {
   BRAND,
   generateDepositApprovalEmailHTML,
   generateDepositConfirmationEmailHTML,
+  generateInvestmentCompletedEmailHTML,
+  generateInvestmentIncrementEmailHTML,
   generateWelcomeEmailHTML,
   generateWithdrawalConfirmationEmailHTML,
   generateWithdrawalRequestEmailHTML,
@@ -551,6 +553,76 @@ export async function sendDepositSuccessEmail(
         type: "error",
         message: `Deposit success email failed for user ${user.email}`,
         details: { error, userId: user.id, amount, planName },
+      });
+    } catch {}
+    return false;
+  }
+}
+
+// New: Send daily increment email
+export async function sendInvestmentIncrementEmail(
+  user: DrizzleUser,
+  opts: {
+    planName: string;
+    day: number;
+    duration: number;
+    dailyAmount: number;
+    totalEarned: number;
+    principal: number;
+    nextAccrualUtc?: string | null;
+  }
+): Promise<boolean> {
+  try {
+    if (!transporter) await initializeEmailTransporter();
+    const mailOptions = buildMail({
+      to: user.email,
+      subject: `${BRAND.name} - Daily Increment Applied (${opts.planName})`,
+      html: generateInvestmentIncrementEmailHTML(user, opts),
+      headers: { "X-Axix-Mail-Event": "investment-increment" },
+    });
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    try {
+      const storage = require("./storage");
+      await storage.createLog({
+        type: "error",
+        message: `Increment email failed for user ${user.email}`,
+        details: { error, userId: user.id, opts },
+      });
+    } catch {}
+    return false;
+  }
+}
+
+// New: Send investment completed email
+export async function sendInvestmentCompletedEmail(
+  user: DrizzleUser,
+  opts: {
+    planName: string;
+    duration: number;
+    totalEarned: number;
+    principal: number;
+    endDateUtc?: string | null;
+  }
+): Promise<boolean> {
+  try {
+    if (!transporter) await initializeEmailTransporter();
+    const mailOptions = buildMail({
+      to: user.email,
+      subject: `${BRAND.name} - Plan Completed (${opts.planName})`,
+      html: generateInvestmentCompletedEmailHTML(user, opts),
+      headers: { "X-Axix-Mail-Event": "investment-completed" },
+    });
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    try {
+      const storage = require("./storage");
+      await storage.createLog({
+        type: "error",
+        message: `Completion email failed for user ${user.email}`,
+        details: { error, userId: user.id, opts },
       });
     } catch {}
     return false;

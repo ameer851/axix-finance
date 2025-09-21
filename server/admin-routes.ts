@@ -5,11 +5,143 @@ import {
   sendDepositApprovedEmail,
   sendWithdrawalApprovedEmail,
 } from "./emailService";
+import { createHttpError } from "./wrapAsync";
 
 const adminRouter = Router();
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Job status / staleness endpoint
+adminRouter.get(
+  "/jobs/daily-investments/status",
+  requireAdminRole,
+  async (_req, res) => {
+    try {
+      const { data: runs, error } = await supabase
+        .from("job_runs")
+        .select("*")
+        .eq("job_name", "daily-investments")
+        .order("started_at", { ascending: false })
+        .limit(2);
+      if (error) {
+        return res.status(500).json({ ok: false, error: error.message });
+      }
+      const last = runs?.[0] || null;
+      const prev = runs?.[1] || null;
+      const now = Date.now();
+      const stale =
+        !last ||
+        now - new Date(last.started_at).getTime() > 26 * 60 * 60 * 1000;
+      return res.status(200).json({ ok: true, last, previous: prev, stale });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// Consolidated health endpoint (superset summary) for daily job
+adminRouter.get(
+  "/jobs/daily-investments/health",
+  requireAdminRole,
+  async (_req, res, next) => {
+    try {
+      const { data: runs, error } = await supabase
+        .from("job_runs")
+        .select("*")
+        .eq("job_name", "daily-investments")
+        .order("started_at", { ascending: false })
+        .limit(7); // last week of runs
+      if (error)
+        return next(
+          createHttpError(
+            500,
+            "JOB_HEALTH_QUERY_FAIL",
+            "Failed to query job runs",
+            { error: error.message }
+          )
+        );
+      const last = runs?.[0] || null;
+      const nowMs = Date.now();
+      const stale =
+        !last ||
+        nowMs - new Date(last.started_at).getTime() > 26 * 60 * 60 * 1000;
+      const successes = (runs || []).filter((r) => r.success).length;
+      const failures = (runs || []).filter((r) => !r.success).length;
+      const avgProcessed =
+        runs && runs.length
+          ? Math.round(
+              runs.reduce((a, r) => a + (r.processed_count || 0), 0) /
+                runs.length
+            )
+          : 0;
+      const avgCompleted =
+        runs && runs.length
+          ? Math.round(
+              runs.reduce((a, r) => a + (r.completed_count || 0), 0) /
+                runs.length
+            )
+          : 0;
+      const response = {
+        ok: true,
+        stale,
+        lastRun: last,
+        recentRuns: runs || [],
+        stats: {
+          window: runs?.length || 0,
+          successes,
+          failures,
+          successRate:
+            runs && runs.length ? +(successes / runs.length).toFixed(3) : 0,
+          avgProcessed,
+          avgCompleted,
+        },
+      };
+      res.status(200).json(response);
+    } catch (e: any) {
+      next(
+        createHttpError(
+          500,
+          "JOB_HEALTH_INTERNAL_ERROR",
+          "Failed to compute job health",
+          { error: e.message }
+        )
+      );
+    }
+  }
+);
+
+// Job runs listing (paged) for admin observability
+adminRouter.get(
+  "/jobs/daily-investments/runs",
+  requireAdminRole,
+  async (req, res) => {
+    const page = parseInt((req.query.page as string) || "1", 10);
+    const limit = parseInt((req.query.limit as string) || "20", 10);
+    const offset = (page - 1) * limit;
+    try {
+      let query = supabase
+        .from("job_runs")
+        .select("*", { count: "exact" })
+        .eq("job_name", "daily-investments")
+        .order("started_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+      const { data, error, count } = await query;
+      if (error) {
+        return res.status(500).json({ ok: false, error: error.message });
+      }
+      return res.status(200).json({
+        ok: true,
+        runs: data || [],
+        page,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+      });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
 );
 
 // Transactions endpoint (used for both deposits and withdrawals)

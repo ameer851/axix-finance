@@ -3,272 +3,137 @@
 /**
  * Automatic Investment Returns Processor
  *
- * This service automatically applies daily returns to all active investments
- * and handles investment completion. Designed to run as a scheduled task.
+ * Applies daily returns to active investments and completes them when done.
+ * Designed for cron. Safe to run once per day at UTC start.
  *
  * Usage:
- *   node scripts/auto-investment-processor.js
- *
- * For cron job (daily at 2 AM):
- *   0 2 * * * cd /path/to/project && node scripts/auto-investment-processor.js
- *
- * For testing:
- *   node scripts/auto-investment-processor.js --dry-run
+ *   node scripts/auto-investment-processor.js [--dry-run]
  */
 
-const { createClient } = require("@supabase/supabase-js");
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../.env") });
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+import nodemailer from "nodemailer";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+import {
+  jobLog,
+  runDailyInvestmentJob,
+} from "../shared/dailyInvestmentJob.shared.js";
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Setup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, "../.env") });
 
-if (!supabaseUrl || !supabaseServiceKey) {
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Early diagnostic log (mask sensitive values)
+console.log("[cron:init] Environment snapshot", {
+  node: process.version,
+  tz: process.env.TZ || "(default)",
+  SUPABASE_URL_present: !!SUPABASE_URL,
+  SERVICE_ROLE_key_len: SUPABASE_SERVICE_ROLE_KEY
+    ? String(SUPABASE_SERVICE_ROLE_KEY).length
+    : 0,
+  RESEND_API_KEY_present: !!process.env.RESEND_API_KEY,
+  SMTP_HOST: process.env.SMTP_HOST ? "(set)" : undefined,
+  EMAIL_FROM: process.env.EMAIL_FROM || "(unset)",
+  IMAGE_REF:
+    process.env.FLY_IMAGE_REF || process.env.RENDER_GIT_COMMIT || undefined,
+});
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
-    "❌ Missing Supabase configuration. Please check your .env file."
+    "❌ Missing Supabase configuration (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY). Aborting."
   );
   process.exit(1);
 }
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Optional mail transport (best-effort)
+const mailFrom =
+  process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@axixfinance.com";
+let smtpTransport = null;
+try {
+  if (
+    process.env.SMTP_HOST &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASSWORD
+  ) {
+    smtpTransport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+    });
+  } else if (process.env.RESEND_API_KEY) {
+    smtpTransport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "smtp.resend.com",
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: false,
+      auth: { user: "resend", pass: process.env.RESEND_API_KEY },
+    });
+  }
+} catch {}
 
-// Check for dry run mode
+async function sendMail(to, subject, html, headers) {
+  if (!smtpTransport) {
+    console.warn("[cron] sendMail skipped (no smtp transport configured)");
+    return false;
+  }
+  try {
+    await smtpTransport.sendMail({
+      from: mailFrom,
+      to,
+      subject,
+      html,
+      headers: headers || {},
+    });
+    return true;
+  } catch (e) {
+    console.warn("[cron] email send failed", (e && e.message) || e);
+    return false;
+  }
+}
+
 const isDryRun = process.argv.includes("--dry-run");
-if (isDryRun) {
-  console.log("🔍 DRY RUN MODE - No changes will be made to the database");
-}
 
-/**
- * Apply daily returns to all active investments
- */
-async function applyDailyReturns() {
-  console.log(
-    `🚀 Starting automatic investment returns processing... (${isDryRun ? "DRY RUN" : "LIVE"})`
+function utcStartOfDay(d) {
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
   );
-
-  try {
-    // Get all active investments that haven't received returns today
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data: investments, error: investmentsError } = await supabase
-      .from("investments")
-      .select("*")
-      .eq("status", "active")
-      .or(`last_return_applied.is.null,last_return_applied.neq.${today}`);
-
-    if (investmentsError) {
-      console.error("❌ Error fetching investments:", investmentsError);
-      return;
-    }
-
-    if (!investments || investments.length === 0) {
-      console.log("ℹ️  No active investments found that need returns today.");
-      return;
-    }
-
-    console.log(`📊 Processing ${investments.length} active investments...`);
-
-    let processedCount = 0;
-    let completedCount = 0;
-    let totalReturnsApplied = 0;
-
-    for (const investment of investments) {
-      try {
-        const daysElapsed =
-          Math.floor(
-            (Date.now() - new Date(investment.start_date).getTime()) /
-              (1000 * 60 * 60 * 24)
-          ) + 1;
-
-        // Check if investment should be completed
-        if (daysElapsed >= investment.plan_duration) {
-          if (!isDryRun) {
-            // Mark investment as completed
-            await supabase
-              .from("investments")
-              .update({
-                status: "completed",
-                days_elapsed: investment.plan_duration,
-                total_earned: investment.total_return,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", investment.id);
-
-            // Create completion record
-            await supabase.from("investment_returns").insert({
-              investment_id: investment.id,
-              user_id: investment.user_id,
-              amount: investment.total_return - investment.total_earned,
-              return_date: new Date().toISOString(),
-              created_at: new Date().toISOString(),
-            });
-          }
-
-          console.log(
-            `✅ Investment ${investment.id} completed - Total earned: $${investment.total_return}`
-          );
-          completedCount++;
-          continue;
-        }
-
-        // Calculate and apply daily return
-        const dailyReturn = investment.daily_profit;
-
-        if (!isDryRun) {
-          // Apply return to user's balance
-          const { data: user } = await supabase
-            .from("users")
-            .select("balance")
-            .eq("id", investment.user_id)
-            .single();
-
-          if (user) {
-            const currentBalance = parseFloat(user.balance || "0");
-            const newBalance = currentBalance + dailyReturn;
-
-            await supabase
-              .from("users")
-              .update({ balance: newBalance.toString() })
-              .eq("id", investment.user_id);
-
-            // Update investment record
-            await supabase
-              .from("investments")
-              .update({
-                days_elapsed: daysElapsed,
-                total_earned: investment.total_earned + dailyReturn,
-                last_return_applied: today,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", investment.id);
-
-            // Create return record
-            await supabase.from("investment_returns").insert({
-              investment_id: investment.id,
-              user_id: investment.user_id,
-              amount: dailyReturn,
-              return_date: new Date().toISOString(),
-              created_at: new Date().toISOString(),
-            });
-          }
-        }
-
-        console.log(
-          `💰 Applied $${dailyReturn.toFixed(2)} return to investment ${investment.id} (Day ${daysElapsed}/${investment.plan_duration})`
-        );
-        processedCount++;
-        totalReturnsApplied += dailyReturn;
-      } catch (error) {
-        console.error(
-          `❌ Error processing investment ${investment.id}:`,
-          error
-        );
-      }
-    }
-
-    console.log(`\n📈 Processing Summary:`);
-    console.log(`   • Investments processed: ${processedCount}`);
-    console.log(`   • Investments completed: ${completedCount}`);
-    console.log(
-      `   • Total returns applied: $${totalReturnsApplied.toFixed(2)}`
-    );
-    console.log(
-      `   • Mode: ${isDryRun ? "DRY RUN (no changes made)" : "LIVE (changes applied)"}`
-    );
-
-    // Send summary notification (if configured)
-    if (!isDryRun && processedCount > 0) {
-      await sendProcessingSummary(
-        processedCount,
-        completedCount,
-        totalReturnsApplied
-      );
-    }
-  } catch (error) {
-    console.error("❌ Fatal error in daily returns processing:", error);
-    process.exit(1);
-  }
 }
 
-/**
- * Send processing summary notification
- */
-async function sendProcessingSummary(
-  processedCount,
-  completedCount,
-  totalReturns
-) {
-  try {
-    // This could be extended to send email notifications or Discord webhooks
-    console.log(
-      `📧 Processing summary notification sent (processed: ${processedCount}, completed: ${completedCount}, returns: $${totalReturns.toFixed(2)})`
-    );
-  } catch (error) {
-    console.warn("⚠️  Failed to send processing summary:", error);
-  }
+// Wrapper maintains legacy console output while delegating core logic
+async function applyDailyReturns() {
+  jobLog({ event: "delegate_start", dryRun: isDryRun });
+  const metrics = await runDailyInvestmentJob({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+    dryRun: isDryRun,
+    source: "cron",
+    sendIncrementEmails: process.env.DAILY_JOB_INCREMENT_EMAILS === "true",
+    sendCompletionEmails: process.env.DAILY_JOB_COMPLETION_EMAILS !== "false",
+    forceCreditOnCompletionOnly:
+      process.env.DAILY_JOB_FORCE_COMPLETION_ONLY === "true",
+  });
+  console.log("\n📈 Summary:");
+  console.log(`   • Processed: ${metrics.processed}`);
+  console.log(`   • Completed: ${metrics.completed}`);
+  console.log(
+    `   • Total returns applied: $${metrics.totalApplied.toFixed(2)}`
+  );
 }
 
-/**
- * Clean up old completed investments (optional maintenance)
- */
-async function cleanupOldInvestments() {
-  try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    if (!isDryRun) {
-      const { data, error } = await supabase
-        .from("investment_returns")
-        .delete()
-        .lt("created_at", thirtyDaysAgo.toISOString());
-
-      if (!error && data) {
-        console.log(`🧹 Cleaned up ${data.length} old return records`);
-      }
-    } else {
-      console.log(
-        `🔍 DRY RUN: Would clean up old return records older than ${thirtyDaysAgo.toISOString()}`
-      );
-    }
-  } catch (error) {
-    console.warn("⚠️  Failed to cleanup old investments:", error);
-  }
-}
-
-/**
- * Main execution function
- */
 async function main() {
-  const startTime = Date.now();
-
   try {
     await applyDailyReturns();
-    await cleanupOldInvestments();
-
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(
-      `\n✅ Automatic investment processing completed in ${duration}s`
-    );
-  } catch (error) {
-    console.error("❌ Processing failed:", error);
+    console.log("\n✅ Done");
+  } catch (e) {
+    console.error("❌ Failed:", e);
     process.exit(1);
   }
 }
 
-// Handle graceful shutdown
-process.on("SIGINT", () => {
-  console.log("\n⏹️  Received shutdown signal, exiting gracefully...");
-  process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-  console.log("\n⏹️  Received termination signal, exiting gracefully...");
-  process.exit(0);
-});
-
-// Run the processor
-main().catch((error) => {
-  console.error("💥 Unhandled error:", error);
-  process.exit(1);
-});
+main();

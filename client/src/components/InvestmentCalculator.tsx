@@ -166,7 +166,7 @@ export function InvestmentCalculator({
                         )}
                       </div>
                       <CardDescription>
-                        {formatPercentage(calc.returnPercentage)} monthly return
+                        {formatPercentage(calc.returnPercentage)} daily return
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">

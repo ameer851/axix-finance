@@ -22,11 +22,14 @@ import DepositsListPage from "@/pages/Client/DepositsListPage";
 import DepositThankYou from "@/pages/Client/DepositThankYou";
 import EditAccountPage from "@/pages/Client/EditAccountPage";
 import History from "@/pages/Client/History";
+import InvestmentHistoryPage from "@/pages/Client/InvestmentHistoryPage";
+import InvestmentsPage from "@/pages/Client/InvestmentsPage";
 import Marketing from "@/pages/Client/Marketing";
 import Profile from "@/pages/Client/Profile";
 import Referrals from "@/pages/Client/Referrals";
 import ClientSettings from "@/pages/Client/Settings";
 import SimpleEditAccount from "@/pages/Client/SimpleEditAccount";
+import TrackInvestmentPage from "@/pages/Client/TrackInvestmentPage";
 import Withdraw from "@/pages/Client/Withdraw";
 import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
 
@@ -34,6 +37,7 @@ import WithdrawalsHistoryPage from "@/pages/Client/WithdrawalsHistoryPage";
 import InvestmentCalculatorPage from "@/pages/Client/InvestmentCalculatorPage";
 
 // AdminV2 components
+import AuditLogsPage from "@/pages/AdminV2/audit-logs";
 import AdminDashboardV2 from "@/pages/AdminV2/dashboard";
 import DepositsPageV2 from "@/pages/AdminV2/deposits";
 import UserTransactionsPage from "@/pages/AdminV2/user-transactions";
@@ -94,6 +98,15 @@ function Router() {
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
       {/* User Routes */}
+      <Route path="/investments">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <InvestmentsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/dashboard">
         {() => (
           <ProtectedRoute requireVerified>
@@ -247,11 +260,29 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/investment-history">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <InvestmentHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/withdrawal-history">
         {() => (
           <ProtectedRoute requireVerified>
             <DashboardLayout>
               <WithdrawalsHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/track-investment">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <TrackInvestmentPage />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -266,6 +297,15 @@ function Router() {
         )}
       </Route>
       {/* Client prefixed routes for routing consistency */}
+      <Route path="/client/investments">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <InvestmentsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/client/withdraw">
         {() => (
           <ProtectedRoute>
@@ -347,11 +387,29 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/client/investment-history">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <InvestmentHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
       <Route path="/client/withdrawal-history">
         {() => (
           <ProtectedRoute requireVerified>
             <DashboardLayout>
               <WithdrawalsHistoryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/client/track-investment">
+        {() => (
+          <ProtectedRoute requireVerified>
+            <DashboardLayout>
+              <TrackInvestmentPage />
             </DashboardLayout>
           </ProtectedRoute>
         )}
@@ -406,6 +464,13 @@ function Router() {
         {() => (
           <ProtectedRoute requireAdmin>
             <WithdrawalsPageV2 />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/adminv2/audit-logs">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AuditLogsPage />
           </ProtectedRoute>
         )}
       </Route>

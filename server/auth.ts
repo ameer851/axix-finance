@@ -383,7 +383,10 @@ export function setupAuth(app: Express) {
       // Use environment variables or defaults for admin credentials
       const adminUsername = "admin";
       const adminEmail = process.env.ADMIN_EMAIL ?? "admin@example.com";
-      const adminPassword = process.env.ADMIN_PASSWORD ?? "Axix-Admin@123";
+      const adminPassword = process.env.ADMIN_PASSWORD; // no insecure fallback
+      if (!adminPassword) {
+        throw new Error("ADMIN_PASSWORD is required; no fallback allowed");
+      }
       const adminFirstName = "Admin";
       const adminLastName = "User";
       const adminRole = "admin";
@@ -498,10 +501,16 @@ export function setupAuth(app: Express) {
         }
 
         // Create admin user if it doesn't exist
-        const hashedPassword = await hashPassword("Axix-Admin@123");
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        if (!adminPassword) {
+          return res
+            .status(500)
+            .json({ success: false, message: "ADMIN_PASSWORD not set" });
+        }
+        const hashedPassword = await hashPassword(adminPassword);
         const newAdminUser = await storage.createUser({
           username: "admin",
-          password: "Axix-Admin@123", // Using unhashed password for easy login
+          password: adminPassword,
           email: "admin@axixfinance.com",
           firstName: "Admin",
           lastName: "User",
@@ -546,30 +555,11 @@ export function setupAuth(app: Express) {
 
         // Direct login for admin without password hash check
         // This is for emergency troubleshooting only
-        if (password === "Axix-Admin@123") {
-          req.login(
-            {
-              ...adminUser,
-              password: (adminUser as any).password || "default-password",
-            } as unknown as Express.User,
-            (err) => {
-              if (err) {
-                console.error("Error logging in admin user:", err);
-              }
-            }
-          );
-
-          return res.json({
-            success: true,
-            message: "Admin logged in successfully",
-            user: adminUser,
-          });
-        } else {
-          return res.status(401).json({
-            success: false,
-            message: "Invalid password",
-          });
-        }
+        return res.status(401).json({
+          success: false,
+          message:
+            "Fallback admin password login disabled. Use standard authentication.",
+        });
       }
     } catch (error) {
       console.error("Direct admin login error:", error);

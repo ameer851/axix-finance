@@ -41,6 +41,9 @@ ENV PORT=8080
 # Copy built artifacts and production deps
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
+# Include raw scripts & shared source for cron/scheduled tasks
+COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/shared ./shared
 
 EXPOSE 8080
 CMD ["node", "dist/server/index.cjs"]

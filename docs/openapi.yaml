@@ -1,0 +1,539 @@
+openapi: 3.1.0
+info:
+  title: Axix Finance API
+  version: 0.2.0
+  description: >-
+    Public and admin endpoints for Axix Finance investment platform.
+    This spec has been expanded with component schemas, standardized error shapes,
+    and planned (future) admin observability endpoints annotated via `x-planned: true`.
+servers:
+  - url: https://axix-finance.fly.dev/api
+    description: Production
+  - url: http://localhost:8080/api
+    description: Local Dev
+tags:
+  - name: Health
+  - name: Auth
+  - name: Investments
+  - name: Returns
+  - name: Admin
+  - name: Jobs
+  - name: Ledger
+security:
+  - bearerAuth: []
+paths:
+  /ping:
+    get:
+      tags: [Health]
+      summary: Liveness ping
+      operationId: ping
+      responses:
+        "200":
+          description: Pong + timestamp
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  ts:
+                    type: integer
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: health
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/create-profile:
+    post:
+      tags: [Auth]
+      summary: Create user profile (service role)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfileRequest"
+      responses:
+        "201":
+          description: Created profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSummary"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /investments/active:
+    get:
+      tags: [Investments]
+      summary: List active investments for authenticated user
+      operationId: listActiveInvestments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active investments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  investments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvestmentActive"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /investments/history:
+    get:
+      tags: [Investments]
+      summary: List completed investments for authenticated user
+      operationId: listCompletedInvestments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Completed investments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  investments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvestmentCompleted"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /investments/returns/today:
+    get:
+      tags: [Returns]
+      summary: Returns summary for current user (UTC day)
+      operationId: getTodayReturns
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Returns summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserReturnSummary"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /admin/returns/today:
+    get:
+      tags: [Returns, Admin]
+      summary: Global returns summary (admin)
+      operationId: getTodayReturnsAdmin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Global returns summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalReturnSummary"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /admin/investments/run-daily:
+    post:
+      tags: [Jobs, Admin]
+      summary: Manually trigger daily returns job (admin)
+      operationId: runDailyInvestmentsJob
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dryRun
+          in: query
+          schema:
+            type: integer
+            enum: [0, 1]
+      responses:
+        "200":
+          description: Job execution result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyJobRunResult"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /admin/jobs/daily-investments/status:
+    get:
+      tags: [Jobs, Admin]
+      summary: Latest and previous daily job run status
+      operationId: getDailyJobStatus
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current status payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyJobStatus"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /admin/jobs/daily-investments/runs:
+    get:
+      tags: [Jobs, Admin]
+      summary: Paginated historical runs
+      operationId: listDailyJobRuns
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: Paginated run list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JobRun"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /admin/jobs/daily-investments/health:
+    get:
+      tags: [Jobs, Admin]
+      summary: Consolidated health & recent statistics for daily job
+      operationId: getDailyJobHealth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Health summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyJobHealth"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /admin/ledger/verify:
+    get:
+      tags: [Ledger, Admin]
+      summary: Verify ledger hash chain integrity
+      operationId: verifyLedgerIntegrity
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: fromId
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: toId
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: sample
+          schema: { type: integer, minimum: 1, maximum: 10000 }
+      responses:
+        "200":
+          description: Ledger verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerVerifyResult"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /admin/ledger:
+    get:
+      tags: [Ledger, Admin]
+      summary: Paginated ledger entries
+      operationId: listLedgerEntries
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - in: query
+          name: userId
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: entryType
+          schema: { type: string }
+        - in: query
+          name: referenceTable
+          schema: { type: string }
+        - in: query
+          name: referenceId
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Ledger page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/LedgerEntry" }
+                  meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /admin/job-runs:
+    get:
+      tags: [Jobs, Admin]
+      summary: Paginated job run history (all jobs)
+      operationId: listJobRuns
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - in: query
+          name: jobName
+          schema: { type: string }
+        - in: query
+          name: success
+          schema: { type: integer, enum: [0, 1] }
+      responses:
+        "200":
+          description: Job runs page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/JobRun" }
+                  meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string }
+        ok: { type: boolean }
+    CreateProfileRequest:
+      type: object
+      required: [email, username]
+      properties:
+        email: { type: string, format: email }
+        username: { type: string, minLength: 3 }
+    UserSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        username: { type: string }
+    InvestmentActive:
+      type: object
+      properties:
+        id: { type: integer }
+        plan_name: { type: string }
+        daily_profit:
+          { type: number, description: "Daily percent (e.g. 2 for 2%)" }
+        plan_duration: { type: integer, description: "Number of days" }
+        principal_amount: { type: number }
+        total_earned: { type: number }
+        days_elapsed: { type: integer }
+        status: { type: string, enum: [active, completed] }
+        start_date: { type: string, format: date-time }
+        end_date: { type: string, format: date-time, nullable: true }
+        last_return_applied: { type: string, format: date-time, nullable: true }
+    InvestmentCompleted:
+      type: object
+      properties:
+        id: { type: integer }
+        original_investment_id: { type: integer }
+        plan_name: { type: string }
+        daily_profit: { type: number }
+        duration: { type: integer }
+        principal_amount: { type: number }
+        total_earned: { type: number }
+        start_date: { type: string, format: date-time }
+        end_date: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+    UserReturnSummary:
+      type: object
+      properties:
+        todayUtc: { type: string, format: date }
+        count: { type: integer }
+        sum: { type: number }
+        completionsCount: { type: integer }
+    GlobalReturnSummary:
+      allOf:
+        - $ref: "#/components/schemas/UserReturnSummary"
+      properties:
+        userCount:
+          {
+            type: integer,
+            description: "Number of distinct users with returns today",
+          }
+    DailyJobRunResult:
+      type: object
+      properties:
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        processedCount: { type: integer }
+        completedCount: { type: integer }
+        totalApplied: { type: number }
+        dryRun: { type: boolean }
+        success: { type: boolean }
+        source: { type: string }
+    JobRun:
+      type: object
+      properties:
+        id: { type: integer }
+        job_name: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time, nullable: true }
+        processed_count: { type: integer }
+        completed_count: { type: integer }
+        total_applied: { type: number }
+        success: { type: boolean }
+        error_text: { type: string, nullable: true }
+        source: { type: string }
+    DailyJobStatus:
+      type: object
+      properties:
+        last: { $ref: "#/components/schemas/JobRun" }
+        previous: { $ref: "#/components/schemas/JobRun" }
+        stale: { type: boolean }
+    DailyJobHealth:
+      type: object
+      properties:
+        ok: { type: boolean }
+        stale: { type: boolean }
+        lastRun: { $ref: "#/components/schemas/JobRun" }
+        recentRuns:
+          type: array
+          items: { $ref: "#/components/schemas/JobRun" }
+        stats:
+          type: object
+          properties:
+            window: { type: integer }
+            successes: { type: integer }
+            failures: { type: integer }
+            successRate: { type: number }
+            avgProcessed: { type: integer }
+            avgCompleted: { type: integer }
+    LedgerEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        user_id: { type: integer }
+        entry_type: { type: string }
+        amount_delta: { type: number }
+        active_deposits_delta: { type: number }
+        balance_after: { type: number }
+        active_deposits_after: { type: number }
+        reference_table: { type: string, nullable: true }
+        reference_id: { type: integer, nullable: true }
+        metadata: { type: object }
+        previous_hash: { type: string, nullable: true }
+        entry_hash: { type: string }
+        created_at: { type: string, format: date-time }
+    LedgerVerifyResult:
+      type: object
+      properties:
+        ok: { type: boolean }
+        checked: { type: integer }
+        firstCorruptionId: { type: integer, nullable: true }
+        hashMismatches: { type: integer }
+        durationMs: { type: integer }
+    PaginationMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, nullable: true }
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            unauthorized:
+              value:
+                error: { code: UNAUTHORIZED, message: Authorization required }
+    Forbidden:
+      description: Insufficient privileges
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            forbidden:
+              value:
+                error: { code: FORBIDDEN, message: Admin permission required }
+    BadRequest:
+      description: Invalid request payload/parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            badRequest:
+              value:
+                error: { code: BAD_REQUEST, message: Invalid input }
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            serverError:
+              value:
+                error: { code: INTERNAL_ERROR, message: Unexpected failure }

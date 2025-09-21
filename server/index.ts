@@ -19,15 +19,19 @@ import { setupAuth } from "./auth";
 // Legacy admin panel disabled (replaced by modular admin API)
 // import { setupAdminPanel } from "./admin-panel";
 import { setupCookiePolicy } from "./cookiePolicy"; // Import our cookie policy middleware
+import "./cron-jobs"; // Import and start cron jobs
 import { checkDatabaseConnection } from "./db"; // Import our enhanced database connection check
 import * as emailManager from "./emailManager"; // Import email manager
+import { validateEnv } from "./env-check";
 import { routeDelay } from "./middleware"; // Import our custom middleware
+import { requestLogger } from "./request-logger";
 import { applyRoutePatches } from "./route-patches";
 import router from "./routes";
 import { securityMiddleware } from "./security-middleware";
 import { DatabaseStorage } from "./storage";
 import { visitorRouter } from "./visitor-routes";
-import { log, serveStatic, setupVite } from "./vite";
+import { serveStatic, setupVite } from "./vite";
+import { createErrorMiddleware, createHttpError } from "./wrapAsync";
 // Express user augmentation (lightweight) so TS stops complaining about req.user.id
 declare global {
   namespace Express {
@@ -239,105 +243,57 @@ app.use("/api/visitors", visitorRouter);
 app.use("/api/", apiLimiter);
 app.use("/api/admin/", adminLimiter);
 
-// Request logging middleware with improved formatting
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+// Validate environment early (before heavy subsystems) and abort if critical issues
+const envResult = validateEnv();
+if (!envResult.ok) {
+  // Fail fast to avoid partial boot
+  console.error(
+    "❌ Critical environment configuration errors. Aborting startup."
+  );
+  console.error(envResult.errors.join("\n"));
+  process.exit(1);
+}
 
-  // Store original methods
-  const originalJson = res.json;
-  const originalSend = res.send;
-
-  // Override json method
-  res.json = function (body) {
-    // Restore original method before calling it
-    res.json = originalJson;
-
-    // Log response info after the response has been set up
-    res.on("finish", () => {
-      const duration = Date.now() - start;
-
-      if (path.startsWith("/api")) {
-        // Create log entry for API calls
-        const logData = {
-          timestamp: new Date().toISOString(),
-          method: req.method,
-          path,
-          status: res.statusCode,
-          duration: `${duration}ms`,
-          ip,
-          userId: req.user?.id || "anonymous",
-        };
-
-        // Log to console in development
-        if (process.env.NODE_ENV !== "production") {
-          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-          if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
-          log(logLine);
-        } else {
-          // Log to database in production for important events
-          if (res.statusCode >= 400 || path.includes("/auth/")) {
-            storage
-              .createLog({
-                type: res.statusCode >= 400 ? "error" : "info",
-                message: `${req.method} ${path} ${res.statusCode}`,
-                details: { ...logData, ipAddress: ip },
-                userId: req.user?.id,
-              })
-              .catch((err) => console.error("Failed to log to database:", err));
-          }
-
-          // Always console log in production, formatted as JSON for easier parsing
-          if (process.env.NODE_ENV !== "production")
-            console.log(JSON.stringify(logData));
-        }
-      }
-    });
-
-    // Call the original method
-    return originalJson.call(this, body);
-  };
-
-  // Also handle res.send for completeness
-  res.send = function (body) {
-    // Restore original method before calling it
-    res.send = originalSend;
-
-    // Log response info after the response has been set up
-    res.on("finish", () => {
-      const duration = Date.now() - start;
-      if (path.startsWith("/api")) {
-        if (process.env.NODE_ENV !== "production") {
-          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-          if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
-          log(logLine);
-        } else {
-          if (process.env.NODE_ENV !== "production")
-            console.log(
-              JSON.stringify({
-                timestamp: new Date().toISOString(),
-                method: req.method,
-                path,
-                status: res.statusCode,
-                duration: `${duration}ms`,
-                ip,
-                userId: req.user?.id || "anonymous",
-              })
-            );
-        }
-      }
-    });
-
-    // Call the original method
-    return originalSend.call(this, body);
-  };
-
-  next();
-});
+// Structured request logging (replaces ad-hoc middleware)
+app.use(requestLogger);
 
 // Mount minimal router under /api
 app.use("/api", router);
+// Direct Resend webhook endpoint (top-level) to ensure availability even if router bundle lags
+app.post("/api/email/webhooks/resend", async (req: Request, res: Response) => {
+  try {
+    const event: any = req.body || {};
+    const type = event?.type || "unknown";
+    const to = Array.isArray(event?.data?.to)
+      ? event.data.to.join(",")
+      : event?.data?.to || null;
+    const subject = event?.data?.subject || null;
+    const message = `Resend webhook: ${type}${subject ? ` | ${subject}` : ""}`;
+
+    try {
+      await storage.createLog({
+        type: "resend_webhook",
+        message,
+        details: {
+          type,
+          to,
+          subject,
+          data: event?.data || null,
+          headers: req.headers,
+        },
+      });
+    } catch (e: any) {
+      console.warn(
+        "[webhook] failed to write audit log:",
+        (e && (e as any).message) || e
+      );
+    }
+    res.status(200).json({ ok: true });
+  } catch (e: any) {
+    console.error("/api/email/webhooks/resend error", e);
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
 // Email health endpoint (registered early so static catch-all doesn't override)
 app.get("/api/email/health", async (req, res) => {
   if (process.env.NODE_ENV !== "production")
@@ -373,50 +329,6 @@ app.use("/api/visitors", visitorRouter);
   const http = await import("http");
   const server: any = http.createServer(app);
 
-  // Global error handler - should be registered after all routes
-  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    // Log error details but don't expose them in production
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const logData = {
-      error: err.name || "Error",
-      message: err.message,
-      stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
-      path: req.path,
-      method: req.method,
-      status,
-      ip,
-      userId: req.user?.id || "anonymous",
-      timestamp: new Date().toISOString(),
-    };
-
-    // Log all errors to console
-    console.error("Server error:", JSON.stringify(logData));
-
-    // For production, also log severe errors to database
-    if (process.env.NODE_ENV === "production" && status >= 500) {
-      // Removed duplicate createLog call with ipAddress
-    }
-
-    // Only send response if headers haven't been sent yet
-    if (!res.headersSent) {
-      // Sanitize error messages in production
-      const clientMessage =
-        process.env.NODE_ENV === "production" && status >= 500
-          ? "An unexpected error occurred. Our team has been notified."
-          : message;
-
-      res.status(status).json({
-        message: clientMessage,
-        requestId:
-          Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
-        status,
-      });
-    }
-  });
-
   // ===== CRITICAL ORDER: Modular admin API -> existing admin panel -> legacy patches =====
   setupAdminApi(app); // Modular admin API endpoints
   // setupAdminPanel(app); // DISABLED legacy panel
@@ -424,13 +336,14 @@ app.use("/api/visitors", visitorRouter);
   applyRoutePatches(app); // Legacy compatibility endpoints
   console.log("🔄 Legacy route patches applied for compatibility");
 
-  // Ensure unmatched /api requests return JSON 404 instead of falling through to HTML
-  // Place AFTER all API mounts (admin, visitors, patches) and BEFORE static catch-all
-  app.use("/api", (req: Request, res: Response) => {
-    if (!res.headersSent) {
-      res.status(404).json({ message: "Not Found", path: req.path });
-    }
+  // Ensure unmatched /api requests are handled with standardized error response
+  app.use("/api", (req: Request, _res: Response, next: NextFunction) => {
+    // Delegate to centralized error handler
+    next(createHttpError(404, "NOT_FOUND", "Not Found", { path: req.path }));
   });
+
+  // Centralized error middleware (after all routes & 404 handling)
+  app.use(createErrorMiddleware());
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

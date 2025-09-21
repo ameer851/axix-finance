@@ -19,12 +19,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node"],
+    "types": ["node", "vitest"],
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["client/src/**/*", "server/**/*", "shared/**/*"],
+  "include": ["client/src/**/*", "server/**/*", "shared/**/*", "tests/**/*"],
   "exclude": ["node_modules", "build", "dist"]
 }

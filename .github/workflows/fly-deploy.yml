@@ -1,0 +1,45 @@
+name: Fly Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_label:
+        description: Optional image label (e.g., sha)
+        required: false
+        default: manual
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies (root)
+        run: npm ci
+
+      - name: Build client and server
+        run: npm run build
+
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl version
+          flyctl deploy --app axix-finance --now --remote-only
+
+      - name: Post-deploy health check
+        run: |
+          echo "Waiting for rollout..." 
+          sleep 10
+          curl -fsS https://axix-finance.fly.dev/api/ping || curl -fsS https://axix-finance.fly.dev/health

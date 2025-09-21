@@ -1,3 +1,5 @@
+import { financialLedger } from "./financialLedger";
+import { log } from "./logger";
 import { supabase } from "./supabase";
 
 // Local type definitions
@@ -114,15 +116,37 @@ export class DatabaseStorage {
       const current = Number((user as any).balance || 0);
       const change = Number(delta);
       if (!Number.isFinite(change)) {
-        console.error("adjustUserBalance: invalid delta", delta);
+        log.warn("adjustUserBalance invalid delta", { userId, delta });
         return undefined;
       }
       const next = current + change;
       const nextStr = next.toString();
       const updated = await this.updateUser(userId, { balance: nextStr });
+      log.info("balance.adjust", {
+        userId,
+        previous: current,
+        delta: change,
+        next,
+      });
+      // Ledger entry (available balance change only)
+      if (updated) {
+        await financialLedger.record({
+          userId,
+          entryType: change >= 0 ? "balance_increment" : "balance_decrement",
+          amountDelta: change,
+          activeDepositsDelta: 0,
+          balanceAfter: next,
+          activeDepositsAfter: Number(
+            (updated as any).active_deposits ||
+              (updated as any).activeDeposits ||
+              0
+          ),
+          metadata: { source: "adjustUserBalance" },
+        });
+      }
       return updated;
     } catch (error) {
-      console.error("Failed to adjust user balance:", error);
+      log.error("balance.adjust.fail", error, { userId, delta });
       return undefined;
     }
   }
@@ -141,7 +165,10 @@ export class DatabaseStorage {
       if (!user) return undefined;
       const change = Number(delta);
       if (!Number.isFinite(change)) return undefined;
-      const currentLocked = Number((user as any).activeDeposits || 0);
+      // Read current locked using camelCase/snake_case fallback
+      const currentLocked = Number(
+        (user as any).activeDeposits ?? (user as any).active_deposits ?? 0
+      );
       let nextLocked = currentLocked + change;
       if (nextLocked < 0 && !options?.allowNegative) return undefined;
       let balance = Number((user as any).balance || 0);
@@ -155,13 +182,70 @@ export class DatabaseStorage {
           balance += -change;
         }
       }
-      const updated = await this.updateUser(userId, {
-        activeDeposits: String(nextLocked),
+      // Choose correct column name for update based on existing user fields
+      const activeKey =
+        (user as any).activeDeposits !== undefined
+          ? "activeDeposits"
+          : (user as any).active_deposits !== undefined
+            ? "active_deposits"
+            : "activeDeposits"; // default to camelCase if unknown
+
+      const updateData: any = {
+        [activeKey]: String(nextLocked),
         ...(options?.moveWithBalance ? { balance: String(balance) } : {}),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from("users")
+        .update(updateData)
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (error || !data) {
+        log.error("activeDeposits.adjust.fail", error, {
+          userId,
+          delta: change,
+          updateData,
+        });
+        return undefined;
+      }
+      log.info("activeDeposits.adjust", {
+        userId,
+        previousLocked: currentLocked,
+        delta: change,
+        nextLocked,
+        moveWithBalance: !!options?.moveWithBalance,
       });
-      return updated || undefined;
+      // Ledger entry representing movement of principal and optionally balance
+      try {
+        await financialLedger.record({
+          userId,
+          entryType: change >= 0 ? "investment_lock" : "investment_unlock",
+          amountDelta: options?.moveWithBalance
+            ? change > 0
+              ? -change
+              : -change
+            : 0, // if moving with balance, balance decreased by change when locking; increased by -change when unlocking
+          activeDepositsDelta: change,
+          balanceAfter: Number((data as any).balance || 0),
+          activeDepositsAfter: Number(
+            (data as any).active_deposits ||
+              (data as any).activeDeposits ||
+              nextLocked
+          ),
+          metadata: {
+            source: "adjustUserActiveDeposits",
+            moveWithBalance: !!options?.moveWithBalance,
+          },
+        });
+      } catch (e) {
+        log.error("ledger.record.activeDeposits.fail", e, { userId, change });
+      }
+      return data as User;
     } catch (e) {
-      console.error("Failed to adjust user activeDeposits:", e);
+      log.error("activeDeposits.adjust.exception", e, { userId, delta });
       return undefined;
     }
   }
@@ -1273,16 +1357,16 @@ export class DatabaseStorage {
       const { data, error } = await supabase
         .from("audit_logs")
         .insert({
-          userId: logData.userId || null,
+          user_id: logData.userId || null,
           action: logData.type,
           description: logData.message,
           details:
             typeof logData.details === "object"
               ? JSON.stringify(logData.details)
               : logData.details || null,
-          ipAddress: null,
-          userAgent: null,
-          createdAt: new Date().toISOString(),
+          ip_address: null,
+          user_agent: null,
+          created_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -1333,7 +1417,7 @@ export class DatabaseStorage {
     userIdOrUid: number | string
   ): Promise<Transaction[]> {
     try {
-      // New canonical schema: transactions.user_id stores auth uid (uuid)
+      // New canonical schema: transactions.user_id stores auth uid (uuid column)
       const isUid = typeof userIdOrUid === "string" && userIdOrUid.length > 20;
       let uid: string | undefined;
       if (isUid) {

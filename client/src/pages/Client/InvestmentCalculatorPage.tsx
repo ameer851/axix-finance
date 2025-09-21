@@ -8,9 +8,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { InvestmentCalculation } from "@/services/investmentCalculationService";
+import {
+  getInvestmentPlans,
+  type InvestmentPlan,
+} from "@/services/investmentService";
 import { Clock, Target, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function InvestmentCalculatorPage() {
+  const [plans, setPlans] = useState<InvestmentPlan[]>([]);
+  useEffect(() => {
+    getInvestmentPlans()
+      .then(setPlans)
+      .catch(() => setPlans([]));
+  }, []);
   const handlePlanSelect = (plan: InvestmentCalculation) => {
     console.log("Selected plan:", plan);
     // Here you could navigate to a plan details page or start the investment process
@@ -74,44 +85,21 @@ export default function InvestmentCalculatorPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">Starter Plan</h3>
-                <Badge variant="secondary">5-8% Monthly</Badge>
+            {plans.map((p) => (
+              <div key={p.id} className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">{p.name}</h3>
+                  <Badge variant="secondary">
+                    {p.dailyProfit}% daily • {p.duration} days
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  ${p.minAmount.toLocaleString()}{" "}
+                  {p.maxAmount ? `- $${p.maxAmount.toLocaleString()}` : "+"}
+                </p>
+                <p className="text-sm">Total return: {p.totalReturn}%</p>
               </div>
-              <p className="text-sm text-muted-foreground mb-2">
-                $100 - $1,000
-              </p>
-              <p className="text-sm">
-                Perfect for beginners looking to start their investment journey
-              </p>
-            </div>
-
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">Growth Plan</h3>
-                <Badge variant="secondary">8-12% Monthly</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mb-2">
-                $1,000 - $10,000
-              </p>
-              <p className="text-sm">
-                Ideal for investors seeking steady growth and higher returns
-              </p>
-            </div>
-
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">Premium Plan</h3>
-                <Badge variant="secondary">12-18% Monthly</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mb-2">
-                $10,000 - $100,000
-              </p>
-              <p className="text-sm">
-                For serious investors looking for maximum returns
-              </p>
-            </div>
+            ))}
           </div>
         </CardContent>
       </Card>

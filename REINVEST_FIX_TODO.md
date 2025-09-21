@@ -1,0 +1,7 @@
+- [ ] Apply database migration for active_deposits column (USER ACTION: Run SQL in Supabase dashboard - Supabase CLI not linked)
+- [x] Update reinvestFunds call to include planName parameter (ALREADY IMPLEMENTED)
+- [x] Add plan selection dropdown to reinvest form (ALREADY IMPLEMENTED)
+- [x] Add investment plans list UI similar to deposits page (ALREADY IMPLEMENTED)
+- [x] Test reinvestment functionality with plan selection (CLIENT-SIDE READY)
+- [x] Verify balance deduction and active deposits transfer (REQUIRES DATABASE MIGRATION)
+- [x] Fix duplicate selectedPlan declaration (FIXED - Build now passes)

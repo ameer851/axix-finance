@@ -61,9 +61,14 @@ export const users = pgTable("users", {
   firstName: text("firstName"),
   lastName: text("lastName"),
   full_name: text("full_name"),
-  balance: text("balance").default("0"),
-  // Sum of principal currently locked in active investments (not available for withdrawal)
-  activeDeposits: text("active_deposits").default("0"),
+  balance: numeric("balance", { precision: 15, scale: 2 }).default("0.00"),
+  activeDeposits: numeric("active_deposits", {
+    precision: 15,
+    scale: 2,
+  }).default("0.00"),
+  earnedMoney: numeric("earned_money", { precision: 15, scale: 2 }).default(
+    "0.00"
+  ),
   role: text("role").notNull().default("user"),
   is_admin: boolean("is_admin").default(false),
   isVerified: boolean("isVerified").default(false),

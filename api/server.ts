@@ -98,6 +98,55 @@ const supabaseAdmin =
 // No static serving here; Vercel serves client/dist. This function handles only /api/*.
 
 // API routes
+// Resend webhook: record events into audit_logs for automated assertions
+app.post("/api/email/webhooks/resend", async (req, res) => {
+  try {
+    const event: any = req.body || {};
+    const type = event?.type || "unknown";
+    const to = Array.isArray(event?.data?.to)
+      ? event.data.to.join(",")
+      : event?.data?.to || null;
+    const subject = event?.data?.subject || null;
+    const message = `Resend webhook: ${type}${subject ? ` | ${subject}` : ""}`;
+
+    // Best-effort insert into audit_logs if admin client configured
+    try {
+      if (supabaseAdmin) {
+        const ip =
+          (req.headers["x-forwarded-for"] as string) ||
+          (req.socket as any)?.remoteAddress ||
+          null;
+        const userAgent = req.headers["user-agent"] || null;
+        await (supabaseAdmin as any).from("audit_logs").insert([
+          {
+            action: "resend_webhook",
+            message,
+            details: {
+              type,
+              to,
+              subject,
+              data: event?.data || null,
+              headers: req.headers,
+            },
+            ip_address: ip,
+            user_agent: userAgent,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      }
+    } catch (e: any) {
+      console.warn(
+        "[webhook] audit_logs insert failed:",
+        e?.message || String(e)
+      );
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (e: any) {
+    console.error("/api/email/webhooks/resend error", e);
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
 
 app.get("/api/health", (req, res) => {
   try {
@@ -348,12 +397,10 @@ app.get("/api/admin/user-transactions", async (req, res) => {
 
     if (error) {
       console.error("Database error:", error);
-      return res
-        .status(500)
-        .json({
-          error: "Failed to fetch user transactions",
-          details: error.message,
-        });
+      return res.status(500).json({
+        error: "Failed to fetch user transactions",
+        details: error.message,
+      });
     }
 
     // Calculate transaction stats for each user (simplified version)

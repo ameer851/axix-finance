@@ -405,6 +405,36 @@ export async function getUserInvestmentReturns(): Promise<InvestmentReturn[]> {
 }
 
 /**
+ * Get current user's active investments (server derives user from auth)
+ */
+export async function getActiveInvestments(): Promise<any[]> {
+  try {
+    const resp = (await api.get("/investments/active")) as {
+      investments: any[];
+    };
+    return resp.investments || [];
+  } catch (e) {
+    console.error("Error fetching active investments:", e);
+    return [];
+  }
+}
+
+/**
+ * Get current user's completed investment history
+ */
+export async function getInvestmentHistory(): Promise<any[]> {
+  try {
+    const resp = (await api.get("/investments/history")) as {
+      investments: any[];
+    };
+    return resp.investments || [];
+  } catch (e) {
+    console.error("Error fetching investment history:", e);
+    return [];
+  }
+}
+
+/**
  * Calculate investment progress percentage
  */
 export function calculateInvestmentProgress(investment: Investment): number {

@@ -120,6 +120,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       icon: <Calculator className="h-5 w-5" />,
     },
     {
+      path: "/investment-history",
+      label: "Investment History",
+      icon: <History className="h-5 w-5" />,
+    },
+    {
+      path: "/track-investment",
+      label: "Track Investment",
+      icon: <LineChart className="h-5 w-5" />,
+    },
+    {
       path: "/edit-account",
       label: "Edit Account",
       icon: <Edit className="h-5 w-5" />,

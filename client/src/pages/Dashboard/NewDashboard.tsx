@@ -1,6 +1,5 @@
 import CryptoPriceWidget from "@/components/CryptoPriceWidget";
 import DepositThankYou from "@/components/DepositThankYou";
-import { InvestmentDashboard } from "@/components/InvestmentDashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,14 +42,24 @@ const fetchUserBalance = async (userId: number) => {
       };
     }
 
+    const availableBalance = Number((data as any).availableBalance) || 0;
+    const adjustedAvailable = Number(
+      (data as any).adjustedAvailable ?? (data as any).adjusted_available
+    );
     return {
-      availableBalance: Number((data as any).availableBalance) || 0,
+      availableBalance,
       pendingBalance: Number((data as any).pendingBalance) || 0,
       totalBalance:
         Number((data as any).totalBalance) ||
         Number((data as any).availableBalance) ||
         0,
-      activeDeposits: Number((data as any).activeDeposits) || 0,
+      activeDeposits:
+        Number(
+          (data as any).activeDeposits ?? (data as any).active_deposits ?? 0
+        ) || 0,
+      adjustedAvailable: Number.isFinite(adjustedAvailable)
+        ? adjustedAvailable
+        : availableBalance,
       lastUpdated: (data as any).lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
@@ -89,11 +98,29 @@ const fetchUserTransactions = async (userId: number) => {
   }
 };
 
+// Fetch total earned across all investments
+const fetchTotalEarned = async (): Promise<number> => {
+  try {
+    const response: any = await api.get(`/investments/total-earned`);
+    const data =
+      response && typeof response === "object" && "data" in response
+        ? (response as any).data
+        : response;
+    const val = Number((data as any)?.totalEarned ?? 0);
+    return Number.isFinite(val) ? val : 0;
+  } catch (error) {
+    console.error("Total earned fetch error:", error);
+    return 0;
+  }
+};
+
+// Removed client-side active investments fetch; server now provides adjustedAvailable
+
 // Dashboard Stats Component
-const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
-  balance,
-  transactions,
-}) => {
+const DashboardStats: React.FC<{
+  balance: any;
+  transactions: any[];
+}> = ({ balance, transactions }) => {
   const completedDeposits =
     transactions?.filter(
       (t) => t.type === "deposit" && t.status === "completed"
@@ -131,45 +158,59 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
   const stats = [
     {
       title: "Available Balance",
-      value: `$${balance?.availableBalance?.toFixed(2) || "0.00"}`,
+      value: `$${Number(balance?.availableBalance || 0).toFixed(2)}`,
       icon: DollarSign,
       color: "text-green-600",
       bg: "bg-green-50",
-      description: "Ready to withdraw",
+      description: "Ready to withdraw or reinvest",
     },
     {
-      title: "Pending Balance",
-      value: `$${balance?.pendingBalance?.toFixed(2) || "0.00"}`,
-      icon: Clock,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50",
-      description: "Awaiting approval",
+      title: "Total Earned",
+      value: `$${Number(balance?.totalEarned || 0).toFixed(2)}`,
+      icon: BarChart3,
+      color: "text-emerald-700",
+      bg: "bg-emerald-50",
+      description: "From active investments (not yet in balance)",
     },
     {
       title: "Active Deposits",
-      value: `$${(Number(balance?.activeDeposits) || 0).toFixed(2)}`,
-      icon: ArrowDownRight,
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-      description: "Locked in investments",
+      value: `$${Number(balance?.activeDeposits || 0).toFixed(2)}`,
+      icon: Activity,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      description: "Principal in active plans",
     },
     {
       title: "Pending Deposits",
       value: `$${pendingDepositAmount.toFixed(2)}`,
-      count: `(${pendingDeposits.length})`,
-      icon: ArrowDownRight,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-      description: "Waiting for approval",
+      icon: Clock,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      description: `${pendingDeposits.length} transaction(s)`,
     },
     {
       title: "Pending Withdrawals",
       value: `$${pendingWithdrawalAmount.toFixed(2)}`,
-      count: `(${pendingWithdrawals.length})`,
-      icon: ArrowUpRight,
+      icon: Clock,
       color: "text-orange-600",
       bg: "bg-orange-50",
-      description: "Being processed",
+      description: `${pendingWithdrawals.length} transaction(s)`,
+    },
+    {
+      title: "Total Deposits",
+      value: `$${totalDeposits.toFixed(2)}`,
+      icon: ArrowUpRight,
+      color: "text-gray-500",
+      bg: "bg-gray-50",
+      description: "All completed deposits",
+    },
+    {
+      title: "Total Withdrawals",
+      value: `$${totalWithdrawals.toFixed(2)}`,
+      icon: ArrowDownRight,
+      color: "text-gray-500",
+      bg: "bg-gray-50",
+      description: "All completed withdrawals",
     },
   ];
 
@@ -184,9 +225,6 @@ const DashboardStats: React.FC<{ balance: any; transactions: any[] }> = ({
                   {stat.title}
                 </p>
                 <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                {stat.count && (
-                  <p className="text-sm text-gray-500 mt-1">{stat.count}</p>
-                )}
                 {stat.description && (
                   <p className="text-xs text-gray-500 mt-1">
                     {stat.description}
@@ -454,6 +492,7 @@ const NewDashboard: React.FC = () => {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [reinvestAmount, setReinvestAmount] = useState("");
   const [reinvestLoading, setReinvestLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState("STARTER PLAN");
 
   // Fetch user balance with proper error handling
   const {
@@ -469,6 +508,50 @@ const NewDashboard: React.FC = () => {
     gcTime: 300000, // 5 minutes (updated from cacheTime)
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+
+  // Fetch total earned
+  const {
+    data: totalEarned = 0,
+    isLoading: totalEarnedLoading,
+    refetch: refetchTotalEarned,
+  } = useQuery({
+    queryKey: ["totalEarned", user?.id],
+    queryFn: () => fetchTotalEarned(),
+    enabled: !!user?.id,
+    staleTime: 60000,
+  });
+
+  // Fetch active investments to adjust available balance (exclude accrued earnings for post-cutoff investments)
+  // Removed; adjustedAvailable comes from balance API
+
+  // Fetch today's returns summary (UTC-based, server authoritative)
+  const {
+    data: todaySummary,
+    isLoading: todaySummaryLoading,
+    error: todaySummaryError,
+    refetch: refetchTodaySummary,
+  } = useQuery({
+    queryKey: ["todayReturns", user?.id],
+    queryFn: async () => {
+      try {
+        const response: any = await api.get(`/investments/returns/today`);
+        const data =
+          response && typeof response === "object" && "data" in response
+            ? (response as any).data
+            : response;
+        return {
+          sum: Number((data as any)?.sum || 0),
+          count: Number((data as any)?.count || 0),
+          completionsCount: Number((data as any)?.completionsCount || 0),
+        };
+      } catch (e) {
+        console.error("Today returns fetch error:", e);
+        return { sum: 0, count: 0, completionsCount: 0 };
+      }
+    },
+    enabled: !!user?.id,
+    staleTime: 60000,
   });
 
   // Handle balance error with toast
@@ -518,7 +601,12 @@ const NewDashboard: React.FC = () => {
   const handleRefreshAll = async () => {
     try {
       setLastRefresh(new Date());
-      await Promise.all([refetchBalance(), refetchTransactions()]);
+      await Promise.all([
+        refetchBalance(),
+        refetchTransactions(),
+        refetchTotalEarned(),
+        refetchTodaySummary(),
+      ]);
       toast({
         title: "Data Refreshed",
         description: "All dashboard data has been updated.",
@@ -582,7 +670,18 @@ const NewDashboard: React.FC = () => {
       <DepositThankYou />
 
       {/* Dashboard Stats */}
-      <DashboardStats balance={balance} transactions={transactions} />
+      <DashboardStats
+        balance={balance}
+        transactions={transactions}
+        totalEarned={totalEarned}
+        todayReturnSum={todaySummary?.sum || 0}
+        todayReturnCount={todaySummary?.count || 0}
+        adjustedAvailable={Number(
+          (balance as any)?.adjustedAvailable ??
+            (balance as any)?.availableBalance ??
+            0
+        )}
+      />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -597,15 +696,7 @@ const NewDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Investment Dashboard */}
-      <div className="mt-8">
-        <InvestmentDashboard
-          onDepositClick={() => {
-            // Navigate to deposit page or open deposit modal
-            window.location.href = "/client/deposit";
-          }}
-        />
-      </div>
+      {/* Investment Dashboard removed per request */}
 
       {/* Reinvest Section */}
       <div className="mt-10">
@@ -635,21 +726,62 @@ const NewDashboard: React.FC = () => {
                   className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <div className="text-xs text-gray-500 mt-1">
-                  Available: ${balance?.availableBalance?.toFixed(2) || "0.00"}
+                  Available: $
+                  {Number(
+                    (balance as any)?.adjustedAvailable ??
+                      (balance as any)?.availableBalance ??
+                      0
+                  ).toFixed(2)}
                 </div>
+              </div>
+              <div className="flex-1 w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Investment Plan
+                </label>
+                <select
+                  value={selectedPlan}
+                  onChange={(e) => setSelectedPlan(e.target.value)}
+                  className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  title="Select Investment Plan"
+                >
+                  <option value="STARTER PLAN">
+                    Starter Plan (2% daily, 3 days)
+                  </option>
+                  <option value="PREMIUM PLAN">
+                    Premium Plan (3.5% daily, 7 days)
+                  </option>
+                  <option value="DELUX PLAN">
+                    Delux Plan (5% daily, 10 days)
+                  </option>
+                  <option value="LUXURY PLAN">
+                    Luxury Plan (7.5% daily, 30 days)
+                  </option>
+                </select>
               </div>
               <Button
                 disabled={
                   reinvestLoading ||
                   !reinvestAmount ||
                   Number(reinvestAmount) <= 0 ||
-                  Number(reinvestAmount) > (balance?.availableBalance || 0)
+                  (() => {
+                    const adjAvail = Number(
+                      (balance as any)?.adjustedAvailable ??
+                        (balance as any)?.availableBalance ??
+                        0
+                    );
+                    return Number(reinvestAmount) > adjAvail;
+                  })()
                 }
                 onClick={async () => {
                   try {
                     const amt = Number(reinvestAmount);
                     if (!amt || amt <= 0) return;
-                    if (amt > (balance?.availableBalance || 0)) {
+                    const adjAvail = Number(
+                      (balance as any)?.adjustedAvailable ??
+                        (balance as any)?.availableBalance ??
+                        0
+                    );
+                    if (amt > adjAvail) {
                       toast({
                         title: "Insufficient Balance",
                         description:
@@ -659,17 +791,62 @@ const NewDashboard: React.FC = () => {
                       return;
                     }
                     setReinvestLoading(true);
-                    const result: any = await reinvestFunds({ amount: amt });
+                    const result: any = await reinvestFunds({
+                      amount: amt,
+                      planName: selectedPlan,
+                    });
                     if (result?.success !== false) {
                       toast({
                         title: "Reinvested",
                         description: `Successfully moved $${amt.toFixed(2)} into Active Deposits.`,
                       });
                       setReinvestAmount("");
-                      await Promise.all([
-                        refetchBalance(),
-                        refetchTransactions(),
-                      ]);
+                      // Optimistically update cached balance to reflect changes immediately
+                      try {
+                        queryClient.setQueryData(
+                          ["userBalance", user?.id],
+                          (prev: any) => {
+                            const prevObj =
+                              prev && typeof prev === "object" ? prev : {};
+                            const nextAvailable = Math.max(
+                              0,
+                              Number(prevObj.availableBalance || 0) - amt
+                            );
+                            const nextAdjusted = Math.max(
+                              0,
+                              Number(
+                                prevObj.adjustedAvailable ??
+                                  prevObj.availableBalance ??
+                                  0
+                              ) - amt
+                            );
+                            const nextActive =
+                              Number(prevObj.activeDeposits || 0) + amt;
+                            return {
+                              ...prevObj,
+                              availableBalance: nextAvailable,
+                              adjustedAvailable: nextAdjusted,
+                              totalBalance: Number(
+                                prevObj.totalBalance ||
+                                  nextAvailable +
+                                    Number(prevObj.pendingBalance || 0)
+                              ),
+                              activeDeposits: nextActive,
+                              lastUpdated: new Date().toISOString(),
+                            };
+                          }
+                        );
+                      } catch {}
+                      // Invalidate and refetch balance data to confirm server state
+                      queryClient.invalidateQueries({
+                        queryKey: ["userBalance", user?.id],
+                      });
+                      const freshBalance = await refetchBalance();
+                      console.log(
+                        "🔄 Balance after reinvestment:",
+                        freshBalance.data
+                      );
+                      await refetchTransactions();
                     } else {
                       toast({
                         title: "Reinvest Failed",
@@ -699,6 +876,60 @@ const NewDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Investment Plans List */}
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Available Investment Plans
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              name: "Starter Plan",
+              rate: "2%",
+              duration: "3 days",
+              min: "$50",
+              color: "blue",
+            },
+            {
+              name: "Premium Plan",
+              rate: "3.5%",
+              duration: "7 days",
+              min: "$1,000",
+              color: "green",
+            },
+            {
+              name: "Delux Plan",
+              rate: "5%",
+              duration: "10 days",
+              min: "$5,000",
+              color: "purple",
+            },
+            {
+              name: "Luxury Plan",
+              rate: "7.5%",
+              duration: "30 days",
+              min: "$20,000",
+              color: "amber",
+            },
+          ].map((plan, index) => (
+            <Card key={index} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <h3 className="font-semibold text-sm mb-2">{plan.name}</h3>
+                  <div
+                    className={`text-lg font-bold text-${plan.color}-600 mb-1`}
+                  >
+                    {plan.rate} Daily
+                  </div>
+                  <p className="text-xs text-gray-600">{plan.duration}</p>
+                  <p className="text-xs text-gray-500 mt-1">Min: {plan.min}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Last Updated */}

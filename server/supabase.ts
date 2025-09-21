@@ -1,12 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
 // Supabase configuration for server-side
-const supabaseUrl =
-  process.env.SUPABASE_URL || "https://oyqanlnqfyyaqheehsmw.supabase.co";
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95cWFubG5xZnl5YXFoZWVoc213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMzMzMzQsImV4cCI6MjA2OTkwOTMzNH0.9iuJ3lKSbmGOIblmdGFr08wiUaC7RKqRzY7DUc-pjWc";
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl) {
+  throw new Error("SUPABASE_URL not set; please configure environment");
+}
+if (!supabaseServiceKey) {
+  throw new Error(
+    "Neither SUPABASE_SERVICE_ROLE_KEY nor SUPABASE_ANON_KEY set; no embedded fallback"
+  );
+}
 
 // Create Supabase client for server-side operations
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {

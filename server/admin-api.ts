@@ -1,6 +1,8 @@
 import { User as DrizzleUser } from "@shared/schema";
 import express, { Request, Response, Router } from "express";
 import jwt from "jsonwebtoken";
+// Daily investment shared job logic (adds job_runs row, metrics, logging)
+import { runDailyInvestmentJob } from "../shared/dailyInvestmentJob.shared";
 // Note: We avoid importing requireAdminRole here to support token-only auth
 import {
   isConfigured as isEmailConfigured,
@@ -56,6 +58,23 @@ export function createAdminApiRouter(app: express.Express): Router {
         authHeader: req.headers.authorization?.split(" ")[0] || null,
         cookie: req.headers.cookie ? "present" : "none",
       });
+    }
+    next();
+  });
+  // Temporary emergency bypass: header x-admin-job-key matching ADMIN_JOB_KEY env injects synthetic admin.
+  // NOTE: Remove once session auth to this router is confirmed working.
+  router.use((req, _res, next) => {
+    if (!req.user) {
+      const hdr = req.headers["x-admin-job-key"] as string | undefined;
+      const expected = process.env.ADMIN_JOB_KEY;
+      if (expected && hdr && hdr === expected) {
+        (req as any).user = {
+          id: 0,
+          role: "admin",
+          email: "synthetic-admin@local",
+        };
+        (req as any).syntheticAdmin = true;
+      }
     }
     next();
   });
@@ -164,6 +183,432 @@ export function createAdminApiRouter(app: express.Express): Router {
   });
 
   const routes: RouteSpec[] = [
+    // Daily investment job status endpoint (was previously only in legacy router)
+    {
+      method: "GET",
+      path: "/jobs/daily-investments/status",
+      registrar: (r) => {
+        r.get(
+          "/jobs/daily-investments/status",
+          async (_req: Request, res: Response) => {
+            try {
+              const supabase = (await import("./supabase")).supabase as any;
+              const { data: rows, error } = await supabase
+                .from("job_runs")
+                .select("*")
+                // NOTE: job_name inserted by runDailyInvestmentJob uses hyphen form "daily-investments"
+                .eq("job_name", "daily-investments")
+                .order("started_at", { ascending: false })
+                .limit(1);
+              if (error) {
+                console.error("[admin-api] job status query error", error);
+                return res
+                  .status(500)
+                  .json({ ok: false, error: "query_failed" });
+              }
+              const last = rows && rows.length ? rows[0] : null;
+              const now = new Date();
+              const nowUtcDate = new Date(
+                Date.UTC(
+                  now.getUTCFullYear(),
+                  now.getUTCMonth(),
+                  now.getUTCDate()
+                )
+              );
+              let stale = true;
+              let cooldownMs: number = 0;
+              let nextRunUtc: string | null = null;
+              if (last) {
+                try {
+                  const started = new Date(
+                    last.started_at || last.startedAt || last.created_at
+                  );
+                  const ageMs = Date.now() - started.getTime();
+                  // stale if older than 26h or run_date not today UTC
+                  const runDateStr = last.run_date || last.runDate;
+                  let sameUtcDay = false;
+                  if (runDateStr) {
+                    const rd = new Date(runDateStr);
+                    sameUtcDay =
+                      rd.getUTCFullYear() === now.getUTCFullYear() &&
+                      rd.getUTCMonth() === now.getUTCMonth() &&
+                      rd.getUTCDate() === now.getUTCDate();
+                  } else if (!Number.isNaN(started.getTime())) {
+                    sameUtcDay =
+                      started.getUTCFullYear() === now.getUTCFullYear() &&
+                      started.getUTCMonth() === now.getUTCMonth() &&
+                      started.getUTCDate() === now.getUTCDate();
+                  }
+                  stale = !(
+                    ageMs < 26 * 60 * 60 * 1000 &&
+                    sameUtcDay &&
+                    last.success !== false
+                  );
+                  if (
+                    !stale &&
+                    !last?.meta?.dryRun &&
+                    last.success !== false &&
+                    sameUtcDay
+                  ) {
+                    const nextMidnight = new Date(
+                      Date.UTC(
+                        now.getUTCFullYear(),
+                        now.getUTCMonth(),
+                        now.getUTCDate() + 1,
+                        0,
+                        0,
+                        0,
+                        0
+                      )
+                    );
+                    const remaining = nextMidnight.getTime() - now.getTime();
+                    if (remaining > 0) cooldownMs = remaining;
+                    else cooldownMs = 0;
+                    nextRunUtc = nextMidnight.toISOString();
+                  }
+                } catch (e) {
+                  // keep stale true on parse failure
+                }
+              }
+              return res.json({
+                ok: true,
+                last,
+                stale,
+                cooldownMs,
+                nextRunUtc,
+                now: new Date().toISOString(),
+              });
+            } catch (e: any) {
+              console.error("[admin-api] job status error", e);
+              return res
+                .status(500)
+                .json({ ok: false, error: e?.message || "error" });
+            }
+          }
+        );
+      },
+    },
+    // List recent daily investment job runs
+    {
+      method: "GET",
+      path: "/jobs/daily-investments/runs",
+      registrar: (r) => {
+        r.get(
+          "/jobs/daily-investments/runs",
+          async (req: Request, res: Response) => {
+            try {
+              const page = Math.max(
+                1,
+                parseInt((req.query.page as string) || "1", 10) || 1
+              );
+              const limit = Math.min(
+                100,
+                parseInt((req.query.limit as string) || "20", 10) || 20
+              );
+              const offset = (page - 1) * limit;
+              const supabase = (await import("./supabase")).supabase as any;
+              const { data: rows, error } = await supabase
+                .from("job_runs")
+                .select("*", { count: "exact" })
+                // Align job_name filter with insertion key (hyphenated)
+                .eq("job_name", "daily-investments")
+                .order("started_at", { ascending: false })
+                .range(offset, offset + limit - 1);
+              if (error) {
+                console.error("[admin-api] job runs query error", error);
+                return res
+                  .status(500)
+                  .json({ ok: false, error: "query_failed" });
+              }
+              // second query for total count if not provided (fallback)
+              let total = (rows as any)?.length || 0;
+              try {
+                const { count } = await supabase
+                  .from("job_runs")
+                  .select("id", { count: "exact", head: true })
+                  // Ensure deletion / maintenance queries use consistent hyphenated job_name
+                  .eq("job_name", "daily-investments");
+                if (typeof count === "number") total = count;
+              } catch {}
+              return res.json({
+                ok: true,
+                data: rows || [],
+                pagination: {
+                  page,
+                  limit,
+                  total,
+                  totalPages: Math.ceil(total / limit) || 1,
+                },
+              });
+            } catch (e: any) {
+              console.error("[admin-api] job runs error", e);
+              return res
+                .status(500)
+                .json({ ok: false, error: e?.message || "error" });
+            }
+          }
+        );
+      },
+    },
+    // Trigger daily investments job (supports dryRun=1). This was originally in admin-routes
+    // but that router is not mounted in the current server bootstrap; adding here ensures
+    // both session and bearer (Supabase) admin contexts can invoke it.
+    {
+      method: "POST",
+      path: "/investments/run-daily",
+      registrar: (r) => {
+        r.post(
+          "/investments/run-daily",
+          async (req: Request, res: Response) => {
+            const dryRun =
+              req.query.dryRun === "1" || req.query.dryRun === "true";
+            try {
+              const started = Date.now();
+              const metrics = await runDailyInvestmentJob({
+                supabaseUrl: process.env.SUPABASE_URL!,
+                serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+                dryRun,
+                source: "api",
+                sendIncrementEmails:
+                  process.env.DAILY_JOB_INCREMENT_EMAILS === "true",
+                sendCompletionEmails:
+                  process.env.DAILY_JOB_COMPLETION_EMAILS !== "false",
+                forceCreditOnCompletionOnly:
+                  process.env.DAILY_JOB_FORCE_COMPLETION_ONLY === "true",
+              });
+              const elapsedMs = Date.now() - started;
+              return res
+                .status(200)
+                .json({ ok: true, dryRun, elapsedMs, metrics });
+            } catch (e: any) {
+              console.error("[admin-api] run-daily failed", e);
+              return res
+                .status(500)
+                .json({ ok: false, error: e?.message || "failed" });
+            }
+          }
+        );
+      },
+    },
+    {
+      method: "POST",
+      path: "/reconcile/post-cutoff-earnings",
+      registrar: (r) => {
+        r.post(
+          "/reconcile/post-cutoff-earnings",
+          async (req: Request, res: Response) => {
+            try {
+              const { userId, dryRun } = req.body || {};
+              const supabase = (await import("./supabase")).supabase as any;
+              const CREDIT_POLICY_CUTOFF_ISO = "2025-09-18T00:00:00Z";
+              const cutoffMs = new Date(CREDIT_POLICY_CUTOFF_ISO).getTime();
+
+              // Get users list to iterate or a single user
+              let users: any[] = [];
+              if (userId) {
+                const { data, error } = await supabase
+                  .from("users")
+                  .select("id, balance")
+                  .eq("id", Number(userId))
+                  .limit(1);
+                if (error) throw error;
+                users = data || [];
+              } else {
+                const { data, error } = await supabase
+                  .from("users")
+                  .select("id, balance")
+                  .order("id", { ascending: true });
+                if (error) throw error;
+                users = data || [];
+              }
+
+              const results: any[] = [];
+              let totalAdjusted = 0;
+              for (const u of users) {
+                const uid = Number(u.id);
+                // Sum accrued earnings for active investments starting on/after cutoff
+                const { data: invs, error: invErr } = await supabase
+                  .from("investments")
+                  .select("start_date, total_earned, status")
+                  .eq("user_id", uid)
+                  .eq("status", "active");
+                if (invErr) throw invErr;
+                const overCredited = (invs || []).reduce(
+                  (acc: number, inv: any) => {
+                    const sd = new Date(inv.start_date || 0).getTime();
+                    if (!Number.isFinite(sd)) return acc;
+                    if (sd >= cutoffMs)
+                      return acc + Number(inv.total_earned || 0);
+                    return acc;
+                  },
+                  0
+                );
+                const currentBal = Number(u.balance || 0);
+                const adjustedAvailable = Math.max(
+                  0,
+                  currentBal - Number(overCredited || 0)
+                );
+                const delta = adjustedAvailable - currentBal; // negative if we need to subtract
+                results.push({
+                  userId: uid,
+                  currentBal,
+                  overCredited,
+                  adjustedAvailable,
+                  delta,
+                });
+                if (!dryRun && delta !== 0) {
+                  const { data: updated, error: updErr } = await supabase
+                    .from("users")
+                    .update({
+                      balance: String(adjustedAvailable),
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", uid)
+                    .select("id, balance")
+                    .single();
+                  if (updErr) throw updErr;
+                  // Best-effort audit log
+                  try {
+                    await supabase.from("audit_logs").insert({
+                      userId: uid,
+                      action: "reconcile_post_cutoff",
+                      description: `Reconciled over-credited post-cutoff earnings: -$${Number(overCredited || 0).toFixed(2)}`,
+                      details: JSON.stringify({
+                        currentBal,
+                        overCredited,
+                        newBalance: adjustedAvailable,
+                      }),
+                    });
+                  } catch (logErr) {
+                    console.warn("audit log insert failed", logErr);
+                  }
+                }
+                totalAdjusted += -delta; // amount removed from balances
+              }
+
+              return res.json({
+                dryRun: !!dryRun,
+                usersProcessed: users.length,
+                totalAdjusted,
+                results,
+              });
+            } catch (e: any) {
+              console.error("Admin reconcile error:", e);
+              return res.status(500).json({
+                error: "Failed to reconcile",
+                details: e?.message || String(e),
+              });
+            }
+          }
+        );
+      },
+    },
+    {
+      method: "GET",
+      path: "/returns/today",
+      registrar: (r) => {
+        r.get("/returns/today", async (_req: Request, res: Response) => {
+          try {
+            const now = new Date();
+            const todayUtc = new Date(
+              Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                now.getUTCDate()
+              )
+            ).toISOString();
+
+            const supabase = (await import("./supabase")).supabase as any;
+
+            const [{ data: rows, error: rErr }, { data: comps, error: cErr }] =
+              await Promise.all([
+                supabase
+                  .from("investment_returns")
+                  .select("amount")
+                  .gte("return_date", todayUtc),
+                supabase
+                  .from("completed_investments")
+                  .select("id")
+                  .gte("completed_at", todayUtc),
+              ]);
+
+            if (rErr) {
+              console.error("[admin] returns/today query error", rErr);
+              return res
+                .status(500)
+                .json({ message: "Failed to load today's returns" });
+            }
+            if (cErr) {
+              console.error(
+                "[admin] returns/today completions query error",
+                cErr
+              );
+              return res
+                .status(500)
+                .json({ message: "Failed to load today's completions" });
+            }
+
+            const count = (rows || []).length;
+            const sum = (rows || []).reduce(
+              (acc: number, r: any) => acc + Number(r.amount || 0),
+              0
+            );
+            const completionsCount = (comps || []).length;
+
+            return res.json({ todayUtc, count, sum, completionsCount });
+          } catch (e: any) {
+            console.error("[admin] /returns/today error", e);
+            return res.status(500).json({
+              message: "Failed to load today's summary",
+              error: e?.message || String(e),
+            });
+          }
+        });
+      },
+    },
+    {
+      method: "GET",
+      path: "/audit-logs",
+      registrar: (r) => {
+        r.get("/audit-logs", async (req: Request, res: Response) => {
+          try {
+            const page = Math.max(
+              1,
+              parseInt((req.query.page as string) || "1", 10) || 1
+            );
+            const limit = Math.min(
+              100,
+              parseInt((req.query.limit as string) || "20", 10) || 20
+            );
+            const offset = (page - 1) * limit;
+            const action = (req.query.action as string) || undefined;
+            const search = (req.query.search as string) || undefined;
+
+            // Fetch logs and total count
+            const [logs, total] = await Promise.all([
+              storage.getAuditLogs({ action, search, limit, offset }),
+              storage.getAuditLogCount({ action, search }),
+            ]);
+
+            return res.status(200).json({
+              data: logs || [],
+              pagination: {
+                page,
+                limit,
+                total: total || 0,
+                totalPages: Math.ceil((total || 0) / limit),
+              },
+            });
+          } catch (e: any) {
+            console.error("Admin audit-logs error:", e);
+            return res.status(500).json({
+              error: "Failed to fetch audit logs",
+              details: e?.message || String(e),
+            });
+          }
+        });
+      },
+    },
     {
       method: "GET",
       path: "/health",
@@ -693,23 +1138,15 @@ export function createAdminApiRouter(app: express.Express): Router {
                 if (resolvedUser && typeof resolvedUser.id === "number") {
                   normalizedUserId = resolvedUser.id;
                   let updatedUser;
-                  if ((tx as any).planName || (tx as any).plan_name) {
-                    // Treat as investment principal: move into activeDeposits (do not inflate available balance)
-                    updatedUser = await (
-                      storage as any
-                    ).adjustUserActiveDeposits?.(resolvedUser.id, amountNum, {
-                      moveWithBalance: false,
-                    });
-                    balanceCredited = !!updatedUser;
-                  } else {
-                    updatedUser = await storage.adjustUserBalance(
-                      resolvedUser.id,
-                      amountNum
-                    );
-                    balanceCredited = !!updatedUser;
-                  }
+                  // Always credit external deposits to available balance
+                  // Only internal transfers (reinvest) should move to activeDeposits
+                  updatedUser = await storage.adjustUserBalance(
+                    resolvedUser.id,
+                    amountNum
+                  );
+                  balanceCredited = !!updatedUser;
                   console.log(
-                    "[admin] deposit approval credit/lock for user",
+                    "[admin] deposit approval credited to available balance for user",
                     resolvedUser.id,
                     "amount",
                     amountNum,
@@ -723,7 +1160,7 @@ export function createAdminApiRouter(app: express.Express): Router {
                         userId: resolvedUser.id,
                         type: "transaction",
                         title: "Deposit Approved",
-                        message: `Your deposit of $${amountNum} has been approved and credited to your account.`,
+                        message: `Your deposit of $${amountNum} has been approved and added to your available balance. You can now use these funds or invest them through the reinvest option.`,
                         relatedEntityType: "transaction",
                         relatedEntityId: id,
                         priority: "high",
@@ -1455,7 +1892,11 @@ export function createAdminApiRouter(app: express.Express): Router {
             try {
               const allUsers = await storage.getAllUsers();
               totalActiveDeposits = (allUsers || []).reduce(
-                (sum: number, u: any) => sum + Number(u.activeDeposits || 0),
+                (sum: number, u: any) =>
+                  sum +
+                  Number(
+                    (u as any).activeDeposits ?? (u as any).active_deposits ?? 0
+                  ),
                 0
               );
             } catch (e) {

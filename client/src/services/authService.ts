@@ -126,6 +126,11 @@ export async function login(
       lastName: userProfile.lastName ?? userProfile.last_name ?? null,
       full_name: userProfile.full_name ?? null,
       balance: userProfile.balance ?? "0",
+      // include activeDeposits for downstream consumers; default to "0"
+      activeDeposits:
+        (userProfile as any).activeDeposits ??
+        (userProfile as any).active_deposits ??
+        "0",
       role: userProfile.role ?? "user",
       is_admin: userProfile.is_admin ?? false,
       isVerified: userProfile.isVerified ?? userProfile.is_verified ?? false,

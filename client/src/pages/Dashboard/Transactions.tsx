@@ -104,7 +104,8 @@ const Transactions: React.FC = () => {
       if (!user) throw new Error("User not authenticated");
 
       const transaction: InsertTransaction = {
-        userId: user.id,
+        // transactions.userId references users.uid (UUID)
+        userId: (user as any).uid || (user as any).auth_uid || String(user.id),
         type: data.type as TransactionType,
         amount: data.amount,
         description: data.description || "",

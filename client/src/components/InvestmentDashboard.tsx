@@ -132,6 +132,10 @@ export function InvestmentDashboard({
   const activeInvestments = investments.filter(
     (inv) => inv.status === "active"
   );
+  const activeInvestmentsValue = activeInvestments.reduce(
+    (sum, inv) => sum + inv.principalAmount,
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -171,7 +175,13 @@ export function InvestmentDashboard({
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeInvestments.length}</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(activeInvestmentsValue)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {activeInvestments.length} active{" "}
+              {activeInvestments.length === 1 ? "plan" : "plans"}
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -25,7 +25,8 @@ LICENSE
 README.md
 logs
 migrations
-scripts
+# NOTE: Removed 'scripts' exclusion so cron/utility scripts are available in the image
+# If you wish to exclude large dev-only scripts, consider pattern-based ignores instead.
 supabase
 api_disabled
 client/dist

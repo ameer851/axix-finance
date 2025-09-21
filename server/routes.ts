@@ -16,13 +16,17 @@ import {
   sendDepositSuccessEmail,
   sendWithdrawalRequestEmail,
 } from "./emailService";
+import { financialLedger } from "./financialLedger";
 import {
   applyDailyReturns,
   createInvestmentFromTransaction,
   getUserInvestmentReturns,
   getUserInvestments,
 } from "./investmentService";
+import { log } from "./logger";
 import { DatabaseStorage } from "./storage";
+import { supabase } from "./supabase";
+import { createHttpError, wrapAsync } from "./wrapAsync";
 
 const router = express.Router();
 const storage = new DatabaseStorage();
@@ -51,6 +55,36 @@ router.use(async (req, _res, next) => {
         } catch (e) {
           decoded = null;
           (req as any).bearerVerifyFailed = true;
+        }
+      }
+      // Prefer claims via Supabase if local verify fails or secret missing
+      if (!decoded) {
+        try {
+          const { data: claimsData, error: claimsErr } = await (
+            supabase as any
+          ).auth.getClaims?.(token);
+          if (!claimsErr && claimsData?.claims) {
+            decoded = claimsData.claims;
+            (req as any).bearerMappedBy =
+              (req as any).bearerMappedBy || "claims";
+          }
+        } catch {
+          // ignore
+        }
+      }
+      // Network validation fallback
+      if (!decoded) {
+        try {
+          const { data: userData, error: userErr } = await (
+            supabase as any
+          ).auth.getUser?.(token);
+          if (!userErr && userData?.user) {
+            decoded = { sub: userData.user.id, email: userData.user.email };
+            (req as any).bearerMappedBy =
+              (req as any).bearerMappedBy || "getUser";
+          }
+        } catch {
+          // ignore
         }
       }
       if (!decoded && allowUnverified) {
@@ -116,6 +150,206 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 // Health & status
 router.get("/ping", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 router.get("/health", (_req, res) => res.json({ status: "ok" }));
+// Admin ledger verification (hash chain integrity) - guarded later by admin auth when admin system integrated
+router.get("/admin/ledger/verify", async (req: Request, res: Response) => {
+  // TEMP: basic auth check placeholder (replace with real admin guard)
+  if (!req.user)
+    return res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Authorization required" },
+    });
+  try {
+    const { fromId, toId, sample } = req.query || {};
+    const result = await (financialLedger as any).verifyLedger({
+      fromId: fromId ? Number(fromId) : undefined,
+      toId: toId ? Number(toId) : undefined,
+      sample: sample ? Number(sample) : undefined,
+    });
+    return res.json(result);
+  } catch (e: any) {
+    return res.status(500).json({
+      error: {
+        code: "LEDGER_VERIFY_FAIL",
+        message: e?.message || "Verification failed",
+      },
+    });
+  }
+});
+
+// Admin ledger list (paginated + filters)
+router.get("/admin/ledger", async (req: Request, res: Response) => {
+  const user: any = (req as any).user;
+  if (!user) return res.status(401).json({ error: { code: "UNAUTHORIZED" } });
+  if (user.role !== "admin")
+    return res.status(403).json({ error: { code: "FORBIDDEN" } });
+  try {
+    const {
+      limit = "50",
+      offset = "0",
+      userId,
+      entryType,
+      referenceTable,
+      referenceId,
+    } = req.query as any;
+    const l = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    const o = Math.max(parseInt(offset, 10) || 0, 0);
+    let query = supabase
+      .from("financial_ledger")
+      .select(
+        "id,user_id,entry_type,amount_delta,active_deposits_delta,balance_after,active_deposits_after,reference_table,reference_id,metadata,created_at",
+        { count: "exact" }
+      )
+      .order("id", { ascending: false })
+      .range(o, o + l - 1);
+    if (userId) query = query.eq("user_id", Number(userId));
+    if (entryType) query = query.eq("entry_type", String(entryType));
+    if (referenceTable)
+      query = query.eq("reference_table", String(referenceTable));
+    if (referenceId) query = query.eq("reference_id", Number(referenceId));
+    const { data, error, count } = await query;
+    if (error)
+      return res.status(500).json({
+        error: { code: "LEDGER_LIST_FAIL", message: error.message },
+      });
+    return res.json({ items: data || [], limit: l, offset: o, count });
+  } catch (e: any) {
+    return res.status(500).json({
+      error: { code: "LEDGER_LIST_EXCEPTION", message: e.message },
+    });
+  }
+});
+
+// Admin job runs list (paginated + filters)
+router.get("/admin/job-runs", async (req: Request, res: Response) => {
+  const user: any = (req as any).user;
+  if (!user) return res.status(401).json({ error: { code: "UNAUTHORIZED" } });
+  if (user.role !== "admin")
+    return res.status(403).json({ error: { code: "FORBIDDEN" } });
+  try {
+    const { limit = "50", offset = "0", jobName, success } = req.query as any;
+    const l = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    const o = Math.max(parseInt(offset, 10) || 0, 0);
+    let query = supabase
+      .from("job_runs")
+      .select(
+        "id,job_name,started_at,finished_at,success,processed_count,completed_count,total_applied,error_text,source,meta",
+        { count: "exact" }
+      )
+      .order("started_at", { ascending: false })
+      .range(o, o + l - 1);
+    if (jobName) query = query.eq("job_name", String(jobName));
+    if (typeof success !== "undefined")
+      query = query.eq(
+        "success",
+        success === "true" || success === "1" || success === true
+          ? true
+          : success === "false" || success === "0"
+            ? false
+            : success
+      );
+    const { data, error, count } = await query;
+    if (error)
+      return res.status(500).json({
+        error: { code: "JOB_RUNS_LIST_FAIL", message: error.message },
+      });
+    return res.json({ items: data || [], limit: l, offset: o, count });
+  } catch (e: any) {
+    return res.status(500).json({
+      error: { code: "JOB_RUNS_LIST_EXCEPTION", message: e.message },
+    });
+  }
+});
+// GET active investments for current user
+router.get(
+  "/investments/active",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { data, error } = await supabase
+        .from("investments")
+        .select(
+          "id, plan_name, daily_profit, plan_duration, principal_amount, total_earned, days_elapsed, status, start_date, end_date, last_return_applied"
+        )
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .order("start_date", { ascending: false });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ investments: data || [] });
+    } catch (e: any) {
+      return res
+        .status(500)
+        .json({ error: e.message || "Failed to load investments" });
+    }
+  }
+);
+
+// GET completed investment history for current user
+router.get(
+  "/investments/history",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { data, error } = await supabase
+        .from("completed_investments")
+        .select(
+          "id, original_investment_id, plan_name, daily_profit, duration, principal_amount, total_earned, start_date, end_date, completed_at"
+        )
+        .eq("user_id", userId)
+        .order("completed_at", { ascending: false });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ investments: data || [] });
+    } catch (e: any) {
+      return res
+        .status(500)
+        .json({ error: e.message || "Failed to load investment history" });
+    }
+  }
+);
+
+// Resend webhook endpoint to record events for automated testing and diagnostics
+router.post(
+  "/email/webhooks/resend",
+  express.json({ type: "application/json" }),
+  async (req: Request, res: Response) => {
+    try {
+      const event = req.body || {};
+      // Basic shape: { type: 'email.delivered', data: { to: ['user@example.com'], ... } }
+      const type = event.type || "unknown";
+      const to = Array.isArray(event?.data?.to)
+        ? event.data.to.join(",")
+        : event?.data?.to || null;
+      const subject = event?.data?.subject || null;
+      const message = `Resend webhook: ${type}${subject ? ` | ${subject}` : ""}`;
+
+      try {
+        await storage.createLog({
+          type: "resend_webhook",
+          message,
+          details: {
+            type,
+            to,
+            subject,
+            data: event?.data || null,
+            headers: req.headers,
+          },
+        });
+      } catch (e: any) {
+        // If audit_logs not available, continue
+        console.warn(
+          "[webhook] failed to write audit log:",
+          (e && (e as any).message) || e
+        );
+      }
+      res.status(200).json({ ok: true });
+    } catch (e: any) {
+      console.error("/email/webhooks/resend error", e);
+      res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+  }
+);
 
 // Send welcome email explicitly (client may call after registration)
 router.post("/send-welcome-email", async (req, res) => {
@@ -354,6 +588,7 @@ router.post(
 async function buildBalanceResponse(userId: number) {
   const user = await storage.getUser(userId);
   if (!user) return null;
+
   const txs = await storage.getUserTransactions(userId);
   const pendingDepositTxs = txs.filter(
     (t) => t.type === "deposit" && t.status === "pending"
@@ -361,8 +596,15 @@ async function buildBalanceResponse(userId: number) {
   const pendingWithdrawalTxs = txs.filter(
     (t) => t.type === "withdrawal" && t.status === "pending"
   );
+
   const availableBalance = Number((user as any).balance || 0);
-  const activeDeposits = Number((user as any).activeDeposits || 0);
+  const activeDeposits = Number(
+    (user as any).activeDeposits ?? (user as any).active_deposits ?? 0
+  );
+  const totalEarned = Number(
+    (user as any).earnedMoney ?? (user as any).earned_money ?? 0
+  );
+
   const pendingBalance = pendingDepositTxs.reduce(
     (sum, t) => sum + (parseFloat((t as any).amount) || 0),
     0
@@ -371,38 +613,40 @@ async function buildBalanceResponse(userId: number) {
     (sum, t) => sum + (parseFloat((t as any).amount) || 0),
     0
   );
+
   return {
     userId: user.id,
     availableBalance,
+    totalEarned, // This is the separate earned money
     pendingBalance,
-    totalBalance: availableBalance + pendingBalance,
     activeDeposits,
     pendingDeposits: pendingDepositTxs.length,
     pendingWithdrawals: pendingWithdrawalTxs.length,
     pendingWithdrawalAmount,
     pendingDepositAmount: pendingBalance,
     lastUpdated: new Date().toISOString(),
-    // Legacy fields for older client code
-    balance: String(availableBalance),
-    activeDeposits: String(activeDeposits),
   };
 }
 
 // Get user balance (explicit user id)
-router.get("/users/:id/balance", requireAuth, async (req, res) => {
+router.get("/users/:id/balance", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
   try {
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id))
-      return res.status(400).json({ message: "Invalid user id" });
-    if (req.user!.id !== id && req.user!.role !== "admin") {
-      return res.status(403).json({ message: "Forbidden" });
+    const balanceData = await buildBalanceResponse(userId);
+    if (!balanceData) {
+      return res.status(404).json({ error: "User not found" });
     }
-    const payload = await buildBalanceResponse(id);
-    if (!payload) return res.status(404).json({ message: "User not found" });
-    res.json(payload);
-  } catch (e) {
-    console.error("balance get error", e);
-    res.status(500).json({ message: "Failed to get balance" });
+    res.json(balanceData);
+  } catch (error) {
+    console.error(
+      `[GET /users/:id/balance] Error fetching balance for user ${userId}:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -563,7 +807,7 @@ router.post(
       const { INVESTMENT_PLANS } = await import("./investmentService");
       const plan = INVESTMENT_PLANS.find((p) => p.name === planName);
       if (!plan)
-        return res.status(400).json({ message: "Invalid investment plan" });
+        throw createHttpError(400, "INVALID_PLAN", "Invalid investment plan");
       if (
         numericAmount < plan.minAmount ||
         (plan.maxAmount && numericAmount > plan.maxAmount)
@@ -608,6 +852,11 @@ router.post(
       // Create investment record for profit processing
       const { createInvestmentFromTransaction, scheduleFirstProfit } =
         await import("./investmentService");
+      if (!tx) {
+        return res
+          .status(500)
+          .json({ message: "Failed to record reinvestment transaction" });
+      }
       const investment = await createInvestmentFromTransaction(tx.id);
       if (investment) {
         // Schedule first profit for 24 hours from now
@@ -621,6 +870,22 @@ router.post(
         );
       }
 
+      // Get updated user data to ensure frontend refreshes
+      const updatedUser = await storage.getUser(req.user!.id);
+      if (!updatedUser) {
+        return res
+          .status(500)
+          .json({ message: "Failed to fetch updated user data" });
+      }
+
+      console.log(`[reinvest] Updated user data:`, {
+        balance: (updatedUser as any).balance,
+        activeDeposits:
+          (updatedUser as any).activeDeposits ??
+          (updatedUser as any).active_deposits,
+        userId: req.user!.id,
+      });
+
       return res.status(201).json({
         success: true,
         message: "Reinvestment successful",
@@ -628,8 +893,12 @@ router.post(
           transaction: tx,
           investment: investment,
           lockedAmount: numericAmount,
-          activeDeposits: (updated as any).activeDeposits,
-          balance: (updated as any).balance,
+          user: {
+            balance: (updatedUser as any).balance,
+            activeDeposits:
+              (updatedUser as any).activeDeposits ??
+              (updatedUser as any).active_deposits,
+          },
           plan: plan,
         },
       });
@@ -672,7 +941,7 @@ router.post(
       // Check balance
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        throw createHttpError(404, "USER_NOT_FOUND", "User not found");
       }
 
       const available = Number((user as any).balance || 0);
@@ -681,7 +950,11 @@ router.post(
       );
 
       if (numericAmount > available) {
-        return res.status(409).json({ message: "Insufficient balance" });
+        throw createHttpError(
+          409,
+          "INSUFFICIENT_BALANCE",
+          "Insufficient balance"
+        );
       }
 
       // Move funds from balance to activeDeposits atomically
@@ -694,9 +967,11 @@ router.post(
 
       if (!updated) {
         console.error(`[TEST] Failed to adjust user activeDeposits`);
-        return res
-          .status(500)
-          .json({ message: "Failed to lock funds for reinvestment" });
+        throw createHttpError(
+          500,
+          "REINVEST_LOCK_FAIL",
+          "Failed to lock funds for reinvestment"
+        );
       }
 
       console.log(
@@ -721,46 +996,55 @@ router.post(
         totalReturn: totalReturn,
       });
 
-      console.log(`[TEST] Transaction created with ID: ${tx.id}`);
+      console.log(`[TEST] Transaction created with ID: ${tx?.id}`);
 
       // Create investment record for profit processing
       const { createInvestmentFromTransaction, scheduleFirstProfit } =
         await import("./investmentService");
 
       console.log(`[TEST] Creating investment record...`);
-      const investment = await createInvestmentFromTransaction(tx.id);
-      if (investment) {
-        // Schedule first profit for 24 hours from now
-        await scheduleFirstProfit(investment.id);
-        console.log(
-          `[TEST] Created investment ${investment.id} for transaction ${tx.id}`
-        );
+      if (tx) {
+        const investment = await createInvestmentFromTransaction(tx.id);
+        if (investment) {
+          // Schedule first profit for 24 hours from now
+          await scheduleFirstProfit(investment.id);
+          console.log(
+            `[TEST] Created investment ${investment.id} for transaction ${tx.id}`
+          );
+        } else {
+          console.error(
+            `[TEST] Failed to create investment record for transaction ${tx.id}`
+          );
+        }
+
+        return res.status(201).json({
+          success: true,
+          message: "Test reinvestment successful",
+          data: {
+            transaction: tx,
+            investment: investment,
+            lockedAmount: numericAmount,
+            activeDeposits: (updated as any).activeDeposits,
+            balance: (updated as any).balance,
+            plan: plan,
+          },
+        });
       } else {
-        console.error(
-          `[TEST] Failed to create investment record for transaction ${tx.id}`
+        throw createHttpError(
+          500,
+          "TX_CREATE_FAIL",
+          "Failed to create transaction"
         );
       }
-
-      return res.status(201).json({
-        success: true,
-        message: "Test reinvestment successful",
-        data: {
-          transaction: tx,
-          investment: investment,
-          lockedAmount: numericAmount,
-          activeDeposits: (updated as any).activeDeposits,
-          balance: (updated as any).balance,
-          plan: plan,
-        },
-      });
     } catch (e) {
       console.error("test reinvest error", e);
-      res
-        .status(500)
-        .json({
-          message: "Failed to process test reinvestment",
-          error: e.message,
-        });
+      const err = e as any;
+      throw createHttpError(
+        500,
+        "TEST_REINVEST_FAIL",
+        "Failed to process test reinvestment",
+        { message: err?.message }
+      );
     }
   }
 );
@@ -769,90 +1053,117 @@ router.post(
 router.post(
   "/transactions/withdraw",
   requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      const { amount, destination, method } = req.body || {};
-      const numericAmount = Number(amount);
-      if (!numericAmount || numericAmount <= 0) {
-        return res.status(400).json({ message: "Invalid amount" });
-      }
-      // Deduct funds immediately to hold the balance
-      const user = await storage.getUser(req.user!.id);
-      const available = Number((user as any)?.balance || 0);
-      if (numericAmount > available) {
-        return res.status(409).json({ message: "Insufficient funds" });
-      }
-      const debited = await storage.adjustUserBalance(
-        req.user!.id,
-        -numericAmount
-      );
-      if (!debited) {
-        return res.status(500).json({ message: "Failed to hold funds" });
-      }
-      let tx = await storage.createTransaction({
+  wrapAsync(async (req: Request, res: Response) => {
+    const { amount, destination, method } = req.body || {};
+    const numericAmount = Number(amount);
+    if (!numericAmount || numericAmount <= 0) {
+      throw createHttpError(400, "INVALID_AMOUNT", "Invalid amount");
+    }
+    // Deduct funds immediately to hold the balance
+    const user = await storage.getUser(req.user!.id);
+    const available = Number((user as any)?.balance || 0);
+    if (numericAmount > available) {
+      throw createHttpError(409, "INSUFFICIENT_FUNDS", "Insufficient funds");
+    }
+    const debited = await storage.adjustUserBalance(
+      req.user!.id,
+      -numericAmount
+    );
+    if (!debited) {
+      log.warn("withdraw.hold.fail", {
         userId: req.user!.id,
-        userUid: (req.user as any).uid,
-        type: "withdrawal",
-        amount: String(numericAmount),
-        status: "pending",
-        description: destination
-          ? `Withdrawal to ${destination}`
-          : "Withdrawal request",
-        cryptoType: method || null,
-        walletAddress: destination || null,
+        amount: numericAmount,
       });
-      if (!tx) {
-        // Rollback the debit if we couldn't create the transaction
-        await storage.adjustUserBalance(req.user!.id, numericAmount);
-      }
-      if (tx) {
-        let emailOutcome = "skipped";
-        try {
-          const freshUser = await storage.getUser(req.user!.id);
-          if (freshUser) {
-            const primary = await sendWithdrawalRequestEmail(
-              freshUser as any,
-              String(numericAmount)
-            );
-            emailOutcome = primary ? "primary-success" : "primary-failed";
-            if (!primary) {
-              try {
-                const { sendWithdrawalRequestEmail: mgrFn } = await import(
-                  "./emailManager"
-                );
-                const fallbackOk = await mgrFn(
-                  freshUser as any,
-                  String(numericAmount),
-                  undefined
-                );
-                emailOutcome = fallbackOk
-                  ? "fallback-success"
-                  : "fallback-failed";
-              } catch (fallbackErr) {
-                console.warn(
-                  "Withdrawal email fallback threw error",
-                  fallbackErr
-                );
-              }
+      throw createHttpError(500, "WITHDRAW_HOLD_FAIL", "Failed to hold funds");
+    }
+    log.info("withdraw.hold.success", {
+      userId: req.user!.id,
+      amount: numericAmount,
+      newBalance: (debited as any).balance,
+    });
+    let tx = await storage.createTransaction({
+      userId: req.user!.id,
+      userUid: (req.user as any).uid,
+      type: "withdrawal",
+      amount: String(numericAmount),
+      status: "pending",
+      description: destination
+        ? `Withdrawal to ${destination}`
+        : "Withdrawal request",
+      cryptoType: method || null,
+      walletAddress: destination || null,
+    });
+    if (!tx) {
+      // Rollback the debit if we couldn't create the transaction
+      await storage.adjustUserBalance(req.user!.id, numericAmount);
+      log.error("withdraw.tx.create.fail", null, {
+        userId: req.user!.id,
+        amount: numericAmount,
+      });
+      throw createHttpError(
+        500,
+        "WITHDRAW_TX_CREATE_FAIL",
+        "Failed to create withdrawal transaction"
+      );
+    }
+    if (tx) {
+      let emailOutcome = "skipped";
+      try {
+        const freshUser = await storage.getUser(req.user!.id);
+        if (freshUser) {
+          const primary = await sendWithdrawalRequestEmail(
+            freshUser as any,
+            String(numericAmount)
+          );
+          emailOutcome = primary ? "primary-success" : "primary-failed";
+          if (!primary) {
+            try {
+              const { sendWithdrawalRequestEmail: mgrFn } = await import(
+                "./emailManager"
+              );
+              const fallbackOk = await mgrFn(
+                freshUser as any,
+                String(numericAmount),
+                undefined
+              );
+              emailOutcome = fallbackOk
+                ? "fallback-success"
+                : "fallback-failed";
+            } catch (fallbackErr) {
+              console.warn(
+                "Withdrawal email fallback threw error",
+                fallbackErr
+              );
             }
           }
-        } catch (emailErr) {
-          console.warn("Withdrawal request email failed (non-fatal)", emailErr);
         }
-        return res.status(201).json({
-          success: true,
-          transaction: tx,
-          newBalance: Number((debited as any)?.balance || 0),
-          email:
-            process.env.NODE_ENV !== "production" ? emailOutcome : undefined,
+      } catch (emailErr) {
+        console.warn("Withdrawal request email failed (non-fatal)", emailErr);
+        log.warn("withdraw.email.fail", {
+          userId: req.user!.id,
+          amount: numericAmount,
+          error: (emailErr as any)?.message,
         });
       }
-      res.status(500).json({ message: "Failed to create withdrawal" });
-    } catch (e) {
-      console.error("withdraw request error", e);
-      res.status(500).json({ message: "Failed to submit withdrawal" });
+      log.info("withdraw.tx.created", {
+        userId: req.user!.id,
+        txId: tx.id,
+        amount: numericAmount,
+        emailOutcome,
+      });
+      return res.status(201).json({
+        success: true,
+        transaction: tx,
+        newBalance: Number((debited as any)?.balance || 0),
+        email: process.env.NODE_ENV !== "production" ? emailOutcome : undefined,
+      });
     }
-  }
+    throw createHttpError(
+      500,
+      "WITHDRAW_CREATE_FAIL",
+      "Failed to create withdrawal"
+    );
+  })
 );
 
 // Balance deposit (instant, no admin approval): deduct from available balance and create a completed deposit
@@ -1172,6 +1483,93 @@ router.get(
   }
 );
 
+// Get today's (UTC) returns summary for the current user
+router.get(
+  "/investments/returns/today",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      // Compute start-of-day in UTC and filter by return_date/completed_at >= today
+      const now = new Date();
+      const todayUtc = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+      ).toISOString();
+
+      // Fetch today's investment returns for this user
+      const { data: rows, error: rErr } = await (supabase as any)
+        .from("investment_returns")
+        .select("amount")
+        .eq("user_id", req.user!.id)
+        .gte("return_date", todayUtc);
+      if (rErr) {
+        console.error("/investments/returns/today query error", rErr);
+        return res
+          .status(500)
+          .json({ message: "Failed to load today's returns" });
+      }
+      const count = (rows || []).length;
+      const sum = (rows || []).reduce(
+        (acc: number, r: any) => acc + Number(r.amount || 0),
+        0
+      );
+
+      // Count today's completed investments for this user
+      const { data: completed, error: cErr } = await (supabase as any)
+        .from("completed_investments")
+        .select("id")
+        .eq("user_id", req.user!.id)
+        .gte("completed_at", todayUtc);
+      if (cErr) {
+        console.error("/investments/returns/today completions error", cErr);
+        return res
+          .status(500)
+          .json({ message: "Failed to load today's completions" });
+      }
+      const completionsCount = (completed || []).length;
+
+      return res.json({
+        todayUtc,
+        count,
+        sum,
+        completionsCount,
+      });
+    } catch (error) {
+      console.error("Get today's returns summary error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to get today's returns summary" });
+    }
+  }
+);
+
+// Get user's total earned across investments
+router.get(
+  "/investments/total-earned",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { supabase } = await import("./supabase");
+      // Sum total_earned for this user (all statuses)
+      const { data, error } = await (supabase as any)
+        .from("investments")
+        .select("total_earned")
+        .eq("user_id", req.user!.id);
+      if (error) {
+        console.error("Get total earned error:", error);
+        return res.status(500).json({ message: "Failed to get total earned" });
+      }
+      const sum = (data || []).reduce(
+        (acc: number, row: any) => acc + Number(row.total_earned || 0),
+        0
+      );
+      return res.json({ totalEarned: sum });
+    } catch (error) {
+      console.error("Get total earned exception:", error);
+      return res.status(500).json({ message: "Failed to get total earned" });
+    }
+  }
+);
+
 // Apply daily returns (admin/manual trigger)
 router.post(
   "/investments/apply-returns",
@@ -1220,6 +1618,102 @@ router.post(
     }
   }
 );
+
+// POST to create a new user
+router.post("/users", async (req, res) => {
+  const { email, password, fullName } = req.body;
+
+  if (!email || !password || !fullName) {
+    return res
+      .status(400)
+      .json({ error: "Email, password, and full name are required" });
+  }
+
+  try {
+    const user = await storage.createUser(email, password, fullName);
+    res.status(201).json(user);
+  } catch (error) {
+    console.error(`[POST /users] Error creating user:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST to create a new transaction
+router.post("/transactions", async (req, res) => {
+  const { userId, amount, type, status } = req.body;
+
+  if (!userId || !amount || !type) {
+    return res
+      .status(400)
+      .json({ error: "User ID, amount, and type are required" });
+  }
+
+  try {
+    const tx = await storage.createTransaction(
+      userId,
+      amount,
+      type,
+      status || "pending"
+    );
+    res.status(201).json(tx);
+  } catch (error) {
+    console.error(`[POST /transactions] Error creating transaction:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PUT to update a transaction status
+router.put("/transactions/:id", async (req, res) => {
+  const txId = parseInt(req.params.id, 10);
+  const { status } = req.body;
+
+  if (isNaN(txId)) {
+    return res.status(400).json({ error: "Invalid transaction ID" });
+  }
+  if (!status) {
+    return res.status(400).json({ error: "Status is required" });
+  }
+
+  try {
+    const tx = await storage.updateTransactionStatus(txId, status);
+    if (!tx) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+    res.json(tx);
+  } catch (error) {
+    console.error(
+      `[PUT /transactions/:id] Error updating transaction ${txId}:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST to change a user's email
+router.post("/users/change-email", requireAuth, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    if (!newEmail) {
+      return res.status(400).json({ message: "New email is required" });
+    }
+
+    // Update user email
+    const updated = await storage.updateUser(req.user!.id, {
+      email: newEmail,
+    });
+    if (!updated) {
+      return res.status(500).json({ message: "Failed to update email" });
+    }
+
+    // Optionally, resend verification email or handle post-update logic
+    // await resendVerificationEmail(req.user!.id);
+
+    res.json({ message: "Email updated successfully" });
+  } catch (e) {
+    console.error("Change email error", e);
+    res.status(500).json({ message: "Failed to change email" });
+  }
+});
 
 // Test email endpoint (dev only)
 if (process.env.NODE_ENV !== "production") {
@@ -1315,3 +1809,148 @@ function mapUser(u: any) {
 }
 
 export default router;
+
+// GET user profile
+router.get("/users/:id", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error(`[GET /users/:id] Error fetching user ${userId}:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET user transactions
+router.get("/users/:id/transactions", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const txs = await storage.getUserTransactions(userId);
+    res.json(txs);
+  } catch (error) {
+    console.error(
+      `[GET /users/:id/transactions] Error fetching transactions for user ${userId}:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET user investments
+router.get("/users/:id/investments", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const investments = await getUserInvestments(userId);
+    res.json(investments);
+  } catch (error) {
+    console.error(
+      `[GET /users/:id/investments] Error fetching investments for user ${userId}:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET user investment returns
+router.get("/users/:id/investments/returns", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const returns = await getUserInvestmentReturns(userId);
+    res.json(returns);
+  } catch (error) {
+    console.error(
+      `[GET /users/:id/investments/returns] Error fetching returns for user ${userId}:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST to create a new investment from a transaction
+router.post("/investments/create-from-tx", async (req, res) => {
+  const { txId, planId } = req.body;
+
+  if (!txId || !planId) {
+    return res
+      .status(400)
+      .json({ error: "Transaction ID and Plan ID are required" });
+  }
+
+  try {
+    const result = await createInvestmentFromTransaction(txId, planId);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    res.status(201).json(result.investment);
+  } catch (error) {
+    console.error(
+      `[POST /investments/create-from-tx] Error creating investment from tx ${txId}:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST to apply daily investment returns
+router.post("/investments/apply-daily-returns", async (req, res) => {
+  try {
+    await applyDailyReturns();
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error(
+      `[POST /investments/apply-daily-returns] Error applying daily returns:`,
+      error
+    );
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET all investment plans
+router.get("/plans", async (req, res) => {
+  try {
+    const plans = await storage.getInvestmentPlans();
+    res.json(plans);
+  } catch (error) {
+    console.error(`[GET /plans] Error fetching investment plans:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET a specific investment plan
+router.get("/plans/:id", async (req, res) => {
+  const planId = parseInt(req.params.id, 10);
+  if (isNaN(planId)) {
+    return res.status(400).json({ error: "Invalid plan ID" });
+  }
+
+  try {
+    const plan = await storage.getInvestmentPlan(planId);
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+    res.json(plan);
+  } catch (error) {
+    console.error(`[GET /plans/:id] Error fetching plan ${planId}:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});

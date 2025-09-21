@@ -51,9 +51,9 @@ export default defineConfig(async () => {
     root: path.resolve(__dirname, "client"),
     publicDir: path.resolve(__dirname, "client", "public"),
     build: {
-      // Output relative to 'root' (client) so artifacts land in client/dist (works better with Vercel)
-      outDir: "dist",
-      emptyOutDir: true,
+      // Output into a fresh subfolder per build to avoid Windows EBUSY on locked media (e.g. video)
+      outDir: `dist_build_${Date.now()}`,
+      emptyOutDir: false,
       rollupOptions: {
         output: {
           manualChunks: {

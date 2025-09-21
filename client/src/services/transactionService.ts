@@ -282,6 +282,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
   pendingBalance: number;
   totalBalance: number;
   lastUpdated: string;
+  activeDeposits?: number;
 }> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -292,6 +293,7 @@ export async function getUserBalance(userId?: number | string): Promise<{
       pendingBalance: number;
       totalBalance: number;
       lastUpdated: string;
+      activeDeposits?: number;
     }>(`/users/${userId}/balance`);
 
     console.log("Fetched real balance data:", balanceData);
@@ -303,7 +305,10 @@ export async function getUserBalance(userId?: number | string): Promise<{
       totalBalance:
         balanceData.totalBalance ||
         (balanceData.availableBalance || 0) + (balanceData.pendingBalance || 0),
-      activeDeposits: balanceData.activeDeposits || 0,
+      activeDeposits:
+        typeof balanceData.activeDeposits === "number"
+          ? balanceData.activeDeposits
+          : undefined,
       lastUpdated: balanceData.lastUpdated || new Date().toISOString(),
     };
   } catch (error: any) {
@@ -390,8 +395,10 @@ export async function reinvestFunds(data: {
       success: !!res?.success,
       amount: data.amount,
       transactionId: res?.data?.transaction?.id,
-      activeDeposits: Number(res?.data?.activeDeposits || 0),
-      balance: Number(res?.data?.balance || 0),
+      activeDeposits: Number(
+        res?.data?.user?.activeDeposits ?? res?.data?.user?.active_deposits ?? 0
+      ),
+      balance: Number(res?.data?.user?.balance || 0),
     };
   } catch (error: any) {
     console.error("Error reinvesting funds:", error);
