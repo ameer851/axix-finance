@@ -23,25 +23,23 @@ import React, { useState } from "react";
 // API Functions with proper error handling
 const fetchUserBalance = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
-
   try {
     const response: any = await api.get(`/users/${userId}/balance`);
-    // Support both flat object and { data: { ... } } shapes
     const data =
       response && typeof response === "object" && "data" in response
         ? response.data
         : response;
-
     if (!data || typeof data !== "object") {
       console.warn("Balance fetch: unexpected response shape", response);
       return {
         availableBalance: 0,
         pendingBalance: 0,
         totalBalance: 0,
+        activeDeposits: 0,
+        adjustedAvailable: 0,
         lastUpdated: new Date().toISOString(),
       };
     }
-
     const availableBalance = Number((data as any).availableBalance) || 0;
     const adjustedAvailable = Number(
       (data as any).adjustedAvailable ?? (data as any).adjusted_available
@@ -54,27 +52,25 @@ const fetchUserBalance = async (userId: number) => {
         Number((data as any).availableBalance) ||
         0,
       activeDeposits:
-        Number(
-          (data as any).activeDeposits ?? (data as any).active_deposits ?? 0
-        ) || 0,
+        Number((data as any).activeDeposits ?? (data as any).active_deposits) ||
+        0,
       adjustedAvailable: Number.isFinite(adjustedAvailable)
         ? adjustedAvailable
         : availableBalance,
-      lastUpdated: (data as any).lastUpdated || new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
     };
-  } catch (error: any) {
-    console.error("Balance fetch error:", error);
-    // Return zero balance instead of throwing for better UX
+  } catch (err) {
+    console.error("Failed to fetch balance", err);
     return {
       availableBalance: 0,
       pendingBalance: 0,
       totalBalance: 0,
       activeDeposits: 0,
+      adjustedAvailable: 0,
       lastUpdated: new Date().toISOString(),
     };
   }
 };
-
 const fetchUserTransactions = async (userId: number) => {
   if (!userId) throw new Error("User ID is required");
 
@@ -120,7 +116,22 @@ const fetchTotalEarned = async (): Promise<number> => {
 const DashboardStats: React.FC<{
   balance: any;
   transactions: any[];
-}> = ({ balance, transactions }) => {
+  totalEarned?: number;
+  todayReturnSum?: number;
+  todayReturnCount?: number;
+  expectedPendingSum?: number;
+  expectedPendingCount?: number;
+  adjustedAvailable?: number;
+}> = ({
+  balance,
+  transactions,
+  totalEarned = 0,
+  todayReturnSum = 0,
+  todayReturnCount = 0,
+  expectedPendingSum = 0,
+  expectedPendingCount = 0,
+  adjustedAvailable,
+}) => {
   const completedDeposits =
     transactions?.filter(
       (t) => t.type === "deposit" && t.status === "completed"
@@ -158,7 +169,7 @@ const DashboardStats: React.FC<{
   const stats = [
     {
       title: "Available Balance",
-      value: `$${Number(balance?.availableBalance || 0).toFixed(2)}`,
+      value: `$${Number(balance?.availableBalance ?? adjustedAvailable ?? 0).toFixed(2)}`,
       icon: DollarSign,
       color: "text-green-600",
       bg: "bg-green-50",
@@ -166,7 +177,7 @@ const DashboardStats: React.FC<{
     },
     {
       title: "Total Earned",
-      value: `$${Number(balance?.totalEarned || 0).toFixed(2)}`,
+      value: `$${Number(totalEarned || balance?.totalEarned || 0).toFixed(2)}`,
       icon: BarChart3,
       color: "text-emerald-700",
       bg: "bg-emerald-50",
@@ -214,30 +225,69 @@ const DashboardStats: React.FC<{
     },
   ];
 
+  const showPendingDiagnostic =
+    todayReturnSum === 0 && expectedPendingSum > 0 && expectedPendingCount > 0;
+
+  if (showPendingDiagnostic) {
+    stats.push({
+      title: "Earnings Pending",
+      value: `$${expectedPendingSum.toFixed(2)}`,
+      icon: AlertCircle,
+      color: "text-amber-700",
+      bg: "bg-amber-50",
+      description: `${expectedPendingCount} investment(s) awaiting today's accrual run`,
+    });
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      {stats.map((stat, index) => (
-        <Card key={index} className="hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  {stat.title}
-                </p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                {stat.description && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {stat.description}
+    <div className="mb-8 space-y-4">
+      {showPendingDiagnostic && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 flex gap-3 items-start">
+          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <p className="font-semibold mb-1">
+              Today's earnings are pending processing
+            </p>
+            <p>
+              We estimate{" "}
+              <span className="font-medium">
+                ${expectedPendingSum.toFixed(2)}
+              </span>{" "}
+              across {expectedPendingCount} investment
+              {expectedPendingCount === 1 ? "" : "s"} will be applied once the
+              daily accrual job finishes. This usually completes shortly after
+              00:05–00:15 UTC. If this message persists, please refresh or
+              contact support.
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Card key={index} className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    {stat.title}
                   </p>
-                )}
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stat.value}
+                  </p>
+                  {stat.description && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stat.description}
+                    </p>
+                  )}
+                </div>
+                <div className={`p-3 rounded-full ${stat.bg}`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
               </div>
-              <div className={`p-3 rounded-full ${stat.bg}`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 };
@@ -544,6 +594,10 @@ const NewDashboard: React.FC = () => {
           sum: Number((data as any)?.sum || 0),
           count: Number((data as any)?.count || 0),
           completionsCount: Number((data as any)?.completionsCount || 0),
+          expectedPendingSum: Number((data as any)?.expectedPendingSum || 0),
+          expectedPendingCount: Number(
+            (data as any)?.expectedPendingCount || 0
+          ),
         };
       } catch (e) {
         console.error("Today returns fetch error:", e);
@@ -676,6 +730,8 @@ const NewDashboard: React.FC = () => {
         totalEarned={totalEarned}
         todayReturnSum={todaySummary?.sum || 0}
         todayReturnCount={todaySummary?.count || 0}
+        expectedPendingSum={todaySummary?.expectedPendingSum || 0}
+        expectedPendingCount={todaySummary?.expectedPendingCount || 0}
         adjustedAvailable={Number(
           (balance as any)?.adjustedAvailable ??
             (balance as any)?.availableBalance ??

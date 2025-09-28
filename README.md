@@ -52,19 +52,60 @@ npm run secret:scan
 CI workflow: `.github/workflows/secret-scan.yml`.
 Rotation & purge procedures: `docs/SECRET_HYGIENE.md` + `docs/CREDENTIAL_ROTATION_CHECKLIST.md`.
 
-## Daily Investment Job
+## Automated Daily Returns Cron Worker (Fly.io)
 
-Shared logic: `shared/dailyInvestmentJob.shared.js`
+Daily returns are processed by a dedicated cron worker process on Fly.io. No manual admin trigger is required.
 
-- Manual trigger: `POST /api/admin/investments/run-daily?dryRun=1`
-- Status: `/api/admin/jobs/daily-investments/status`
-- Health: `/api/admin/jobs/daily-investments/health`
+### Process Groups
 
-Cron (Fly example):
+The Fly.io deployment defines two process groups in `fly.toml`:
+
+```toml
+[processes]
+app = "node dist/server/index.cjs"
+cron = "node dist/server/cron-jobs.cjs"
+```
+
+### Scaling the Cron Worker
+
+After deployment, scale the cron worker to 1:
 
 ```bash
-fly machine run <image> --schedule "0 5 * * *" -a axix-finance --region iad --command "node /app/scripts/auto-investment-processor.js"
+fly scale count 1 -a <app-name> --process-group cron
 ```
+
+Check status:
+
+```bash
+fly status -a <app-name>
+```
+
+Both `app` and `cron` should be listed.
+
+### Logs & Verification
+
+Check logs for cron worker activity:
+
+```bash
+fly logs -a <app-name> --process-group cron
+```
+
+Look for:
+
+- `🚀 Cron worker started`
+- `⏰ Daily returns job executed at <timestamp>`
+
+### No Manual Trigger
+
+Manual admin panel buttons for running daily returns have been removed. The job runs automatically via the cron worker.
+
+### Error Handling
+
+All job logic is wrapped in try/catch and errors are logged for visibility.
+
+### For more details
+
+See `FINAL_AUDIT_REPORT.md` for operational playbook and validation steps.
 
 ## Financial Ledger
 
@@ -112,3 +153,21 @@ Vitest config in `vitest.config.ts`. Some legacy investment tests may be pending
 ## License
 
 Proprietary (update if an OSS license is chosen later).
+
+## Investment Earnings Integrity & Audit
+
+To mitigate historical risk of double-crediting investment earnings at completion, the completion helper now only returns principal. Earnings for completion-only policy investments (plans starting on or after 2025-09-18 UTC) are credited exactly once in the completion branch; earlier investments continue daily crediting only (no final bulk earnings credit). This separation prevents duplicated earnings in user balances.
+
+Run an on-demand audit to detect discrepancies:
+
+```bash
+node scripts/audit-investment-returns.mjs
+```
+
+Output is JSON lines with events:
+
+- `discrepancy_active` – active investment where `days_elapsed * dailyAmount != total_earned`
+- `discrepancy_completed` – completed snapshot where `duration * dailyAmount != total_earned`
+- `summary` – counts of discrepancies
+
+If discrepancies surface, investigate specific investment IDs and reconcile via controlled SQL updates or ledger adjustments. Always capture before/after snapshots.

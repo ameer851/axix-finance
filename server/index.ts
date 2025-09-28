@@ -15,6 +15,7 @@ console.log("🔍 ENV DEBUG:", {
 });
 
 import { setupAdminApi } from "./admin-api";
+import adminRouter from "./admin-routes"; // Mount legacy/extended admin routes (job health, runs)
 import { setupAuth } from "./auth";
 // Legacy admin panel disabled (replaced by modular admin API)
 // import { setupAdminPanel } from "./admin-panel";
@@ -50,6 +51,24 @@ declare global {
 // Initialize Express app
 const app = express();
 
+// Build / version metadata (used for diagnostics + headers)
+let pkgVersion = "unknown";
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  pkgVersion = require("../package.json").version || "unknown";
+} catch {}
+const buildInfo = {
+  version: pkgVersion,
+  commit:
+    process.env.COMMIT_SHA ||
+    process.env.FLY_COMMIT ||
+    process.env.GIT_COMMIT ||
+    "unknown",
+  image: process.env.IMAGE_REF || process.env.FLY_IMAGE_REF || "n/a",
+  node: process.version,
+};
+console.log("🧱 Build Info:", buildInfo);
+
 // Trust reverse proxy (Fly.io / Vercel / Nginx) so secure cookies & IP rate-limits work properly
 // Without this, Express may treat all requests as coming from 127.0.0.1 and may not set secure cookies
 app.set("trust proxy", 1);
@@ -60,6 +79,14 @@ if (!process.env.SUPABASE_JWT_SECRET) {
     "[startup] SUPABASE_JWT_SECRET not set – bearer token verification will fail; mapping will rely on fallback if enabled."
   );
 }
+
+// Inject build/version headers early for every response
+app.use((req, res, next) => {
+  res.setHeader("X-Build-Version", buildInfo.version);
+  if (buildInfo.commit) res.setHeader("X-Build-Commit", buildInfo.commit);
+  if (buildInfo.image) res.setHeader("X-Image-Ref", buildInfo.image);
+  next();
+});
 
 // Body parsers - MUST come before auth setup which uses req.body
 app.use(express.json({ limit: "1mb" }));
@@ -331,6 +358,41 @@ app.use("/api/visitors", visitorRouter);
 
   // ===== CRITICAL ORDER: Modular admin API -> existing admin panel -> legacy patches =====
   setupAdminApi(app); // Modular admin API endpoints
+  // Mount extended admin router (jobs health/status, runs, transactions legacy) under /api/admin
+  app.use("/api/admin", adminRouter);
+  console.log("🛠 Mounted extended admin router (job health & runs)");
+
+  // Enumerate job-related admin routes for startup verification
+  try {
+    const jobRoutes: string[] = [];
+    app._router?.stack?.forEach((layer: any) => {
+      if (
+        layer.route &&
+        layer.route.path &&
+        /daily-investments/.test(layer.route.path)
+      ) {
+        const methods = Object.keys(layer.route.methods || {})
+          .filter((m) => layer.route.methods[m])
+          .join(",");
+        jobRoutes.push(`${methods.toUpperCase()} ${layer.route.path}`);
+      } else if (layer.name === "router" && layer.handle?.stack) {
+        layer.handle.stack.forEach((l2: any) => {
+          if (l2.route && /daily-investments/.test(l2.route.path)) {
+            const methods = Object.keys(l2.route.methods || {})
+              .filter((m) => l2.route.methods[m])
+              .join(",");
+            jobRoutes.push(`${methods.toUpperCase()} ${l2.route.path}`);
+          }
+        });
+      }
+    });
+    console.log("📋 Daily investment job admin routes:", jobRoutes);
+  } catch (e: any) {
+    console.warn(
+      "[startup] Failed to enumerate admin job routes",
+      e?.message || e
+    );
+  }
   // setupAdminPanel(app); // DISABLED legacy panel
   console.log("🔄 Legacy admin panel disabled; only modular admin API active");
   applyRoutePatches(app); // Legacy compatibility endpoints

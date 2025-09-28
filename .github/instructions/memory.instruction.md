@@ -146,8 +146,37 @@ applyTo: "**"
 ## Notes
 
 - **Current Issue (2025-09-02)**: Two fixes needed for client dashboard reinvest section
+
+### 2025-09-27 — Completion Emails Not Sent (Resolved)
+
+- Symptom: Daily job completed 3 investments but completion emails were not delivered.
+- Root cause: `shared/dailyInvestmentJob.shared.js` attempted to dynamically import `../server/emailService.js` from a JS context; only TS file existed, so in cron context it no-oped the send path. Also, cron wrapper did not pass a `sendEmail` function even though the shared job supported it.
+- Fixes:
+  - Injected send function: `scripts/auto-investment-processor.js` now passes `sendEmail({ to, subject, html, headers })` using a preconfigured Nodemailer transport (Resend SMTP or SMTP\_\* envs).
+  - Shared job updated to use injected `sendEmail` first and fall back to server emailService only if not provided. It also uses `shared/emailTemplates.shared.js` for subjects and HTML.
+  - Added one-off tool `scripts/resend-completion-emails-today.mjs` and npm alias `email:resend:completions:today` to resend completion emails for entries in `completed_investments` since UTC SOD.
+- Verification: `npm run verify:today-completions` showed 3 completions; `npm run email:resend:completions:today` sent 3 emails via Resend SMTP with messageIds logged.
+- Env flags referenced: `DAILY_JOB_INCREMENT_EMAILS` ("true" to enable), `DAILY_JOB_COMPLETION_EMAILS` (set to "false" to disable), `RESEND_API_KEY` or `SMTP_HOST/SMTP_USER/SMTP_PASSWORD` must be set; `EMAIL_FROM` used for from address.
   - ✅ Add list of investment plans similar to deposits page (COMPLETED)
   - ✅ Fix reinvest from account balance to include plan selection and ensure proper deduction/transfer (COMPLETED)
+
+### 2025-09-28 — Cron reliability & cost control
+
+- Removed in-process startup catch-up runner from `server/cron-jobs.ts` to avoid unintended extra runs and potential duplicate job_runs.
+- Consolidated to a single 02:00 UTC schedule via node-cron inside the main server process.
+- Removed the separate Fly `cron` process from `fly.toml` `[processes]` to prevent running an additional machine (cost saver); rely on in-app scheduler.
+- Updated `package.json` default `build` to invoke `build:full` so `dist/server` and client assets copy are always prepared for production.
+- Validation:
+  - `npm run build:server` succeeded; manual require of cron bundle fails without env (expected).
+  - `npm run job:health` shows last run at 02:00 UTC with success=true; today returns present; no completions today.
+
+### 2025-09-28 — Early increments audit
+
+- Added CLI `scripts/audit-early-returns.mjs` to detect investment_returns where `created_at` precedes `return_date` by a configurable threshold (default 60 minutes).
+- NPM alias: `audit:early-returns` with flags `--days <n>` and `--threshold-min <n>`.
+- Ran `npm run audit:early-returns -- --days 21 --threshold-min 30` in production environment; result: Found 0 early return(s) within the last 21 days.
+- Follow-up: If a specific investment/date is reported, use `scripts/rollback-early-increment.mjs` to surgically revert that day.
+
 - **Database Migration Required**: active_deposits column missing from users table (PENDING - requires manual SQL execution in Supabase)
 - **Root Cause**: reinvestFunds call missing planName parameter (FIXED - already implemented)
 - **Impact**: Reinvestment fails due to missing plan validation and database column (PARTIALLY FIXED - client-side ready)
@@ -199,6 +228,23 @@ applyTo: "**"
   - Deploys with `flyctl deploy --app axix-finance --now --remote-only`
 - Required secret: `FLY_API_TOKEN` in GitHub repo settings
 - Post-deploy step pings `https://axix-finance.fly.dev/api/ping` (falls back to `/health`)
+
+### 2025-09-24 — Starter Cap, Reinvest Insert Robustness, and Backfill Tool
+
+- Business rule: Starter Plan reinvests are limited to 2 per user (lifetime); other plans have no limit.
+- API enforcement: POST `/api/transactions/reinvest` now checks count of prior completed reinvest transactions for `STARTER PLAN` using the user's uid and description prefix `Reinvest -`. If count >= 2, returns 403 with `code: STARTER_REINVEST_LIMIT` and a friendly message.
+- Bug fix: `createInvestmentFromTransaction` previously relied on a missing planId at call sites, causing failed inserts (leaving funds locked without an investment). Implemented a robust `createInvestmentFromTransactionRecord(txId, planId?, { skipActiveDepositsIncrement })` that:
+  - Loads transaction and infers plan by `planId` or `plan_name`
+  - Resolves numeric `users.id` from `transactions.user_id` (uid string allowed)
+  - Stores `plan_duration` as a number (parsing "3 days" if needed)
+  - Optionally skips `increment_user_active_deposits` when reinvest already moved funds
+  - Returns `Investment | null`, with a wrapper preserving `{ success, investment?, error? }` for existing tests and admin flows
+- Call sites updated:
+  - Reinvest endpoints now pass `plan.id` and `{ skipActiveDepositsIncrement: true }`
+  - Admin approval path keeps wrapper and schedules first profit after create
+- Backfill: Added script `scripts/backfill-missing-investments.mjs` to create investments for recent completed transactions with plan data that lack an investments row. Usage: `npm run backfill:investments` (requires SUPABASE_URL + SERVICE_ROLE_KEY envs). Optional env: `DAYS=7 LIMIT=50`.
+- Client UX: Reinstate friendly error propagation; `client/src/services/transactionService.ts#reinvestFunds` throws `Error(message)` from API, displaying the Starter cap message.
+- Tests: Investment service unit tests passing; ledger integrity tests still require runtime env (expected). Build passes with existing Vite dynamic import warning.
 
 ## Deposit Logic Fix (2025-09-12) ✅
 
@@ -397,6 +443,38 @@ applyTo: "**"
 - Removed hardcoded test password literal `"testpassword123"` from `scripts/test-24-hour-profit-system.js` that triggered a MEDIUM generic-password finding in secret scan.
 - Replaced with a generated ephemeral password (`Test-<rand>-P@55`) per run; password not logged; improves hygiene and removes static credential pattern from repository.
 - Post-change secret scan: No high/critical findings; prior medium only informational after removal.
+
+### 2025-09-24 — User Diagnostic & Reconciliation
+
+- Added CLI `scripts/diagnose-user.mjs` to inspect a specific user's balances, active/completed investments, and discrepancies using shared math helpers. Added npm alias `diagnose:user`.
+- Added CLI `scripts/reconcile-active-deposits.mjs` to recompute `users.active_deposits` from sum of active investments' principal; supports `--apply` to update. Added npm alias `reconcile:active`.
+- Ran diagnostics for uid `bfa5037a-d21f-4d5a-8b75-fe34892e7d0a` (user id 84):
+  - Active investments: 0; Completed: 1 (STARTER PLAN, principal 200, duration 3, daily 4%, total earned 24).
+  - Balance: 616; active_deposits was 400 (stale) → reconciled to 0 to reflect no active investments; earnings credit-on-completion behavior verified.
+- Follow-up: Consider adding an automatic ledger adjustment entry when reconciling active_deposits to maintain ledger completeness.
+
+### 2025-09-24 — Daily Profit Audit & Repair Tool
+
+- Added CLI `scripts/audit-fix-daily-profit.mjs` to scan recent investments for `daily_profit` deviations from plan rates (threshold 0.01) and optionally fix them.
+- Usage:
+  - Dry run: `npm run audit:daily-profit` (env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY; flags: `--days 7` default)
+  - Apply fixes: `npm run fix:daily-profit` (or `node scripts/audit-fix-daily-profit.mjs --apply --days 7`)
+- Behavior:
+  - Pulls investments where `created_at >= now - DAYS` and compares `investments.daily_profit` to the authoritative plan rate by `plan_name`.
+  - Logs mismatches with id, plan, current vs expected, delta, principal; updates rows when `--apply` set (also touches `updated_at`).
+- Rationale: Guarantees math consistency for newly backfilled/created investments so accrual and completion payouts align with plan definitions.
+
+### 2025-09-25 — Manual Daily Run, Admin Router Mount & Build Metadata
+
+- Executed manual daily investment run locally via `npm run cron:run` at `2025-09-25T01:10Z` applying returns to 3 active investments (processed=3, completed=0, totalApplied≈10.07).
+- Discovered production 404 for `/api/admin/jobs/daily-investments/health` while `/status` worked → root cause: `admin-routes` not mounted in `server/index.ts` (modular admin-api only) in deployed image.
+- Implemented mount: `app.use('/api/admin', adminRouter)` plus enumeration of job-related routes at startup (logs with `📋 Daily investment job admin routes:`) to verify presence in future deployments.
+- Added build/version diagnostics:
+  - Extracts package version and commit/image env vars → sets response headers `X-Build-Version`, `X-Build-Commit`, `X-Image-Ref` for every request.
+  - Logs consolidated `Build Info` (version, commit, image, node version) early at startup.
+- Added startup route enumeration to detect missing health/status endpoints proactively; future 404s now actionable via log diff.
+- Next steps (planned): redeploy updated image to Fly, verify headers via curl, query `job_runs` for today to ensure single run, and add alerting if stale (>26h since last run).
+- Added monitoring script `scripts/check-daily-job-health.mjs` with npm alias `job:health` producing JSON (stale flag, lastRun metrics) and `--strict` exit code support for CI alerting.
 
 ### Auth & JSON Handling Fixes (2025-08-22)
 
@@ -642,3 +720,26 @@ The active deposits should now display correctly and update immediately after re
   - Consider integrating a lightweight hash range audit script (CLI) for on-demand integrity scanning.
 
 Summary: 09-20 focused on formalizing runtime capability introspection, strengthening the investment ledger's test surface, seeding API specification work, and documenting remediation outcomes for future audits.
+
+### 2025-09-24 — Cron Missed Today (Hotfix Applied)
+
+- Symptom: Daily cron did not run today (no `job_runs` entry and stale status observed).
+- Hotfixes:
+  - Added startup catch-up in `server/cron-jobs.ts`: on process boot, if no run exists for today and the last run is older than 26 hours (or never), immediately execute `runDailyInvestmentJob` with `source = "cron-startup"`.
+  - Added a secondary safety schedule at `5 12 * * *` (12:05 UTC) that performs the same guarded idempotent check and runs with `source = "cron-safety"` if 02:00 UTC was missed.
+  - Both paths check `job_runs` for today before executing to avoid duplicate accruals.
+- Validation:
+  - Built server bundle successfully (`npm run build:server`).
+  - Local dry run via `npm run cron:dry-run` executed end-to-end with no errors (0 processed when nothing to do).
+- Ops Notes:
+  - Restarting the app will now self-heal missed runs via the startup catch-up.
+  - Ensure Fly scheduled Machine (if used) is updated to the latest image digest; the in-process node-cron remains as a backup schedule.
+
+### 2025-09-24 — Backfill for Missing Investments (Reinvest-Safe)
+
+- Enhanced `scripts/backfill-missing-investments.mjs` to:
+  - Detect reinvest transactions via `description` prefix `Reinvest -` and set `skipActiveDepositsIncrement = true` to avoid double-counting locked funds.
+  - Support `DRY_RUN=1` to log intended creations without writing.
+  - Schedule first profit date via `scheduleFirstProfit(investment.id)` after successful create for consistency with normal flows.
+
+- Usage: `DAYS=7 LIMIT=50 DRY_RUN=1 npm run backfill:investments` (flip DRY_RUN to apply). Env required: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.

@@ -115,8 +115,7 @@ const VideoSection: React.FC = () => {
                 {primarySrc ? (
                   <source src={primarySrc} type="video/mp4" />
                 ) : null}
-                {/* Local optional path if later added */}
-                <source src="/assets/axixvid.mp4" type="video/mp4" />
+                {/* Local optional path removed to avoid Windows file lock during build; use ENV or external fallback */}
                 {/* Reliable public fallback */}
                 <source
                   src="https://www.w3schools.com/html/mov_bbb.mp4"

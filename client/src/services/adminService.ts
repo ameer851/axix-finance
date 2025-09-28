@@ -4,6 +4,7 @@ import {
   AdminDashboardStats,
   AdminPasswordUpdate,
   AuditLog,
+  DailyJobHealthResponse,
   PaginatedResponse,
   SystemHealth,
   SystemSettings,
@@ -234,6 +235,17 @@ export const adminService = {
         return null;
       }
     },
+    getDailyInvestmentHealth:
+      async (): Promise<DailyJobHealthResponse | null> => {
+        try {
+          return await api.get<DailyJobHealthResponse>(
+            `/admin/jobs/daily-investments/health`
+          );
+        } catch (e) {
+          console.error("Failed to fetch job health", e);
+          return null;
+        }
+      },
     listDailyInvestmentRuns: async (page = 1, limit = 10) => {
       try {
         return await api.get<any>(
@@ -244,17 +256,7 @@ export const adminService = {
         return null;
       }
     },
-    triggerDailyInvestment: async (dryRun = false) => {
-      try {
-        return await api.post(
-          `/admin/investments/run-daily${dryRun ? "?dryRun=1" : ""}`,
-          {}
-        );
-      } catch (e) {
-        console.error("Failed to trigger job", e);
-        throw e;
-      }
-    },
+    // triggerDailyInvestment removed: daily returns now run only via automated cron worker
   },
 
   updateSystemSettings: async (

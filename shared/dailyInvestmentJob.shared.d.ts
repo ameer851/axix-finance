@@ -9,6 +9,12 @@ export interface RunDailyInvestmentJobOptions {
   serviceRoleKey: string;
   dryRun?: boolean;
   source?: string;
+  sendEmail?: (args: {
+    to: string;
+    subject: string;
+    html: string;
+    headers?: Record<string, string>;
+  }) => Promise<boolean>;
   sendIncrementEmails?: boolean;
   sendCompletionEmails?: boolean;
   forceCreditOnCompletionOnly?: boolean;

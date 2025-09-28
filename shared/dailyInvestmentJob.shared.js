@@ -1,6 +1,12 @@
 // Shared daily investment returns job logic
 // This module encapsulates the core processing so both the cron script and admin manual trigger reuse identical logic.
 import { createClient } from "@supabase/supabase-js";
+import {
+  generateInvestmentCompletedEmailHTML,
+  generateInvestmentIncrementEmailHTML,
+  investmentCompletedSubject,
+  investmentIncrementSubject,
+} from "./emailTemplates.shared.js";
 // Optional lazy email imports only when needed to avoid bundling if not configured
 
 // Lightweight structured logger
@@ -127,16 +133,20 @@ export async function runDailyInvestmentJob(opts) {
         .limit(1);
       if (existing && existing.length > 0) return;
 
-      // Credit all earned + principal back to user balance and reduce active deposits
+      // Credit ONLY principal back to user balance and reduce active deposits.
+      // Earnings handling:
+      //  - For pre-cutoff investments earnings were already credited daily.
+      //  - For post-cutoff (credit-on-completion-only) investments the earnings are
+      //    credited separately in the completion branch BEFORE calling this helper.
+      //  This separation prevents double-crediting totalEarned.
       const { data: userRow } = await supabase
         .from("users")
         .select("id,balance,active_deposits")
         .eq("id", inv.user_id)
         .single();
       if (userRow) {
-        const earned = Number(totalEarnedAtCompletion || 0);
         const principal = Number(inv.principal_amount || 0);
-        const nextBalance = Number(userRow.balance || 0) + earned + principal;
+        const nextBalance = Number(userRow.balance || 0) + principal;
         const currentActive = Number(userRow.active_deposits || 0);
         const nextActive = Math.max(0, currentActive - principal);
         const { error: updateError } = await supabase
@@ -155,10 +165,9 @@ export async function runDailyInvestmentJob(opts) {
           });
         } else {
           jobLog({
-            event: "completion_balance_update_success",
+            event: "completion_principal_return_success",
             investment: inv.id,
             user: userRow.id,
-            earned,
             principal,
             finalBalance: nextBalance,
           });
@@ -284,16 +293,33 @@ export async function runDailyInvestmentJob(opts) {
             try {
               const userBasic = await fetchUserBasic(inv.user_id);
               if (userBasic) {
-                const { sendInvestmentCompletedEmail } = await import(
-                  "../server/emailService.js"
-                );
-                await sendInvestmentCompletedEmail(userBasic, {
-                  planName: inv.plan_name || "Investment Plan",
-                  duration: Number(inv.plan_duration || 0),
-                  totalEarned: Number(inv.total_earned || 0),
-                  principal: Number(inv.principal_amount || 0),
-                  endDateUtc: new Date().toISOString(),
-                });
+                if (typeof sendEmail === "function") {
+                  await sendEmail({
+                    to: userBasic.email,
+                    subject: investmentCompletedSubject(
+                      inv.plan_name || "Investment Plan"
+                    ),
+                    html: generateInvestmentCompletedEmailHTML(userBasic, {
+                      planName: inv.plan_name || "Investment Plan",
+                      duration: Number(inv.plan_duration || 0),
+                      totalEarned: Number(inv.total_earned || 0),
+                      principal: Number(inv.principal_amount || 0),
+                      endDateUtc: new Date().toISOString(),
+                    }),
+                    headers: { "X-Axix-Mail-Event": "investment-completed" },
+                  });
+                } else {
+                  const { sendInvestmentCompletedEmail } = await import(
+                    "../server/emailService.js"
+                  );
+                  await sendInvestmentCompletedEmail(userBasic, {
+                    planName: inv.plan_name || "Investment Plan",
+                    duration: Number(inv.plan_duration || 0),
+                    totalEarned: Number(inv.total_earned || 0),
+                    principal: Number(inv.principal_amount || 0),
+                    endDateUtc: new Date().toISOString(),
+                  });
+                }
               }
             } catch (e) {
               jobLog({
@@ -346,19 +372,39 @@ export async function runDailyInvestmentJob(opts) {
           try {
             const userBasic = await fetchUserBasic(inv.user_id);
             if (userBasic) {
-              const { sendInvestmentIncrementEmail } = await import(
-                "../server/emailService.js"
-              );
-              await sendInvestmentIncrementEmail(userBasic, {
-                planName: inv.plan_name || "Investment Plan",
-                day: appliedCount + 1,
-                duration: Number(inv.plan_duration || 0),
-                dailyAmount: Number(dailyAmount || 0),
-                totalEarned:
-                  Number(inv.total_earned || 0) + Number(dailyAmount || 0),
-                principal: Number(inv.principal_amount || 0),
-                nextAccrualUtc: null,
-              });
+              if (typeof sendEmail === "function") {
+                await sendEmail({
+                  to: userBasic.email,
+                  subject: investmentIncrementSubject(
+                    inv.plan_name || "Investment Plan"
+                  ),
+                  html: generateInvestmentIncrementEmailHTML(userBasic, {
+                    planName: inv.plan_name || "Investment Plan",
+                    day: appliedCount + 1,
+                    duration: Number(inv.plan_duration || 0),
+                    dailyAmount: Number(dailyAmount || 0),
+                    totalEarned:
+                      Number(inv.total_earned || 0) + Number(dailyAmount || 0),
+                    principal: Number(inv.principal_amount || 0),
+                    nextAccrualUtc: null,
+                  }),
+                  headers: { "X-Axix-Mail-Event": "investment-increment" },
+                });
+              } else {
+                const { sendInvestmentIncrementEmail } = await import(
+                  "../server/emailService.js"
+                );
+                await sendInvestmentIncrementEmail(userBasic, {
+                  planName: inv.plan_name || "Investment Plan",
+                  day: appliedCount + 1,
+                  duration: Number(inv.plan_duration || 0),
+                  dailyAmount: Number(dailyAmount || 0),
+                  totalEarned:
+                    Number(inv.total_earned || 0) + Number(dailyAmount || 0),
+                  principal: Number(inv.principal_amount || 0),
+                  nextAccrualUtc: null,
+                });
+              }
             }
           } catch (e) {
             jobLog({
@@ -386,6 +432,8 @@ export async function runDailyInvestmentJob(opts) {
             const totalEarnedAtCompletion =
               Number(inv.total_earned || 0) + Number(dailyAmount || 0);
             if (totalEarnedAtCompletion > 0) {
+              // NOTE: Earnings are credited here (for completion-only policy) BEFORE
+              // calling unlockPrincipalAndArchive which now only returns principal.
               const { data: userRow } = await supabase
                 .from("users")
                 .select("id,balance")
@@ -432,17 +480,35 @@ export async function runDailyInvestmentJob(opts) {
           try {
             const userBasic = await fetchUserBasic(inv.user_id);
             if (userBasic) {
-              const { sendInvestmentCompletedEmail } = await import(
-                "../server/emailService.js"
-              );
-              await sendInvestmentCompletedEmail(userBasic, {
-                planName: inv.plan_name || "Investment Plan",
-                duration: Number(inv.plan_duration || 0),
-                totalEarned:
-                  Number(inv.total_earned || 0) + Number(dailyAmount || 0),
-                principal: Number(inv.principal_amount || 0),
-                endDateUtc: new Date().toISOString(),
-              });
+              if (typeof sendEmail === "function") {
+                await sendEmail({
+                  to: userBasic.email,
+                  subject: investmentCompletedSubject(
+                    inv.plan_name || "Investment Plan"
+                  ),
+                  html: generateInvestmentCompletedEmailHTML(userBasic, {
+                    planName: inv.plan_name || "Investment Plan",
+                    duration: Number(inv.plan_duration || 0),
+                    totalEarned:
+                      Number(inv.total_earned || 0) + Number(dailyAmount || 0),
+                    principal: Number(inv.principal_amount || 0),
+                    endDateUtc: new Date().toISOString(),
+                  }),
+                  headers: { "X-Axix-Mail-Event": "investment-completed" },
+                });
+              } else {
+                const { sendInvestmentCompletedEmail } = await import(
+                  "../server/emailService.js"
+                );
+                await sendInvestmentCompletedEmail(userBasic, {
+                  planName: inv.plan_name || "Investment Plan",
+                  duration: Number(inv.plan_duration || 0),
+                  totalEarned:
+                    Number(inv.total_earned || 0) + Number(dailyAmount || 0),
+                  principal: Number(inv.principal_amount || 0),
+                  endDateUtc: new Date().toISOString(),
+                });
+              }
             }
           } catch (e) {
             jobLog({

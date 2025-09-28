@@ -1370,11 +1370,11 @@ export function createAdminApiRouter(app: express.Express): Router {
                 const { createInvestmentFromTransaction } = await import(
                   "./investmentService"
                 );
-                const investment = await createInvestmentFromTransaction(id);
-                if (investment) {
+                const result = await createInvestmentFromTransaction(id);
+                if (result && result.success && result.investment) {
                   investmentCreated = true;
                   console.log(
-                    `[admin] Created investment ${investment.id} for deposit ${id}`
+                    `[admin] Created investment ${result.investment.id} for deposit ${id}`
                   );
 
                   // Schedule first profit for 24 hours from now
@@ -1382,7 +1382,9 @@ export function createAdminApiRouter(app: express.Express): Router {
                     const { scheduleFirstProfit } = await import(
                       "./investmentService"
                     );
-                    const scheduled = await scheduleFirstProfit(investment.id);
+                    const scheduled = await scheduleFirstProfit(
+                      result.investment.id
+                    );
                     if (scheduled) {
                       firstProfitScheduled = true;
                       console.log(

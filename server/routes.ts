@@ -808,6 +808,31 @@ router.post(
       const plan = INVESTMENT_PLANS.find((p) => p.name === planName);
       if (!plan)
         throw createHttpError(400, "INVALID_PLAN", "Invalid investment plan");
+      // Enforce Starter plan reinvest cap: max 2 lifetime
+      if (plan.id === "starter") {
+        const { supabase } = await import("./supabase");
+        // Count user's completed reinvest transactions into STARTER plan
+        // DB stores type as 'deposit' for investments, so rely on description prefix and plan_name
+        const userIdent = (req.user as any).uid ?? req.user!.id;
+        const { data: reinvestTxs, error: reinvestErr } = await supabase
+          .from("transactions")
+          .select("id")
+          .eq("status", "completed")
+          .eq("user_id", userIdent)
+          .eq("plan_name", plan.name)
+          .ilike("description", "Reinvest - %");
+        if (reinvestErr) {
+          console.warn("starter cap count failed", reinvestErr);
+        }
+        const count = (reinvestTxs || []).length;
+        if (count >= 2) {
+          return res.status(403).json({
+            message:
+              "Starter Plan reinvest limit reached. You can reinvest up to 2 times on the Starter Plan. Other plans have no limit.",
+            code: "STARTER_REINVEST_LIMIT",
+          });
+        }
+      }
       if (
         numericAmount < plan.minAmount ||
         (plan.maxAmount && numericAmount > plan.maxAmount)
@@ -850,14 +875,18 @@ router.post(
       });
 
       // Create investment record for profit processing
-      const { createInvestmentFromTransaction, scheduleFirstProfit } =
+      const { createInvestmentFromTransactionRecord, scheduleFirstProfit } =
         await import("./investmentService");
       if (!tx) {
         return res
           .status(500)
           .json({ message: "Failed to record reinvestment transaction" });
       }
-      const investment = await createInvestmentFromTransaction(tx.id);
+      const investment = await createInvestmentFromTransactionRecord(
+        tx.id,
+        plan.id,
+        { skipActiveDepositsIncrement: true }
+      );
       if (investment) {
         // Schedule first profit for 24 hours from now
         await scheduleFirstProfit(investment.id);
@@ -999,12 +1028,16 @@ router.post(
       console.log(`[TEST] Transaction created with ID: ${tx?.id}`);
 
       // Create investment record for profit processing
-      const { createInvestmentFromTransaction, scheduleFirstProfit } =
+      const { createInvestmentFromTransactionRecord, scheduleFirstProfit } =
         await import("./investmentService");
 
       console.log(`[TEST] Creating investment record...`);
       if (tx) {
-        const investment = await createInvestmentFromTransaction(tx.id);
+        const investment = await createInvestmentFromTransactionRecord(
+          tx.id,
+          plan.id,
+          { skipActiveDepositsIncrement: true }
+        );
         if (investment) {
           // Schedule first profit for 24 hours from now
           await scheduleFirstProfit(investment.id);
@@ -1527,11 +1560,59 @@ router.get(
       }
       const completionsCount = (completed || []).length;
 
+      // Compute expected (pending) accruals that have not yet been applied today (helps diagnose cron delays)
+      // Criteria: active investments for this user where:
+      //  - days_elapsed < plan_duration
+      //  - (last_return_applied is null OR < todayUtc)
+      //  - (first_profit_date is null OR first_profit_date <= todayUtc)
+      // These would normally receive a row in investment_returns during the daily job.
+      let expectedPendingSum = 0;
+      let expectedPendingCount = 0;
+      try {
+        const { data: pendingInvs, error: pErr } = await (supabase as any)
+          .from("investments")
+          .select(
+            "id, principal_amount, daily_profit, plan_duration, days_elapsed, last_return_applied, first_profit_date"
+          )
+          .eq("user_id", req.user!.id)
+          .eq("status", "active");
+        if (!pErr && Array.isArray(pendingInvs) && pendingInvs.length) {
+          for (const inv of pendingInvs) {
+            const planDuration = Number(inv.plan_duration || 0);
+            const applied = Number(inv.days_elapsed || 0);
+            if (applied >= planDuration) continue; // already fully accrued
+            const lastApplied = inv.last_return_applied
+              ? new Date(inv.last_return_applied)
+              : null;
+            if (lastApplied && lastApplied.toISOString() >= todayUtc) continue; // already applied today
+            const firstProfitDate = inv.first_profit_date
+              ? new Date(inv.first_profit_date)
+              : null;
+            if (firstProfitDate && firstProfitDate.toISOString() > todayUtc)
+              continue; // first profit not yet reached
+            const dailyAmount =
+              Number(inv.principal_amount || 0) *
+              (Number(inv.daily_profit || 0) / 100);
+            if (dailyAmount > 0) {
+              expectedPendingSum += dailyAmount;
+              expectedPendingCount += 1;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "[returns/today] pending accrual estimation failed",
+          (e as any)?.message || e
+        );
+      }
+
       return res.json({
         todayUtc,
         count,
         sum,
         completionsCount,
+        expectedPendingSum,
+        expectedPendingCount,
       });
     } catch (error) {
       console.error("Get today's returns summary error:", error);
@@ -1604,14 +1685,13 @@ router.post(
         return res.status(400).json({ message: "Invalid transaction ID" });
       }
 
-      const investment = await createInvestmentFromTransaction(transactionId);
-      if (!investment) {
+      const result = await createInvestmentFromTransaction(transactionId);
+      if (!result?.success || !result.investment) {
         return res
           .status(400)
           .json({ message: "Failed to create investment from transaction" });
       }
-
-      res.json({ investment });
+      res.json({ investment: result.investment });
     } catch (error) {
       console.error("Create investment from transaction error:", error);
       res.status(500).json({ message: "Failed to create investment" });

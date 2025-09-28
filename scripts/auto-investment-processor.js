@@ -113,6 +113,8 @@ async function applyDailyReturns() {
     serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
     dryRun: isDryRun,
     source: "cron",
+    sendEmail: async ({ to, subject, html, headers }) =>
+      await sendMail(to, subject, html, headers),
     sendIncrementEmails: process.env.DAILY_JOB_INCREMENT_EMAILS === "true",
     sendCompletionEmails: process.env.DAILY_JOB_COMPLETION_EMAILS !== "false",
     forceCreditOnCompletionOnly:

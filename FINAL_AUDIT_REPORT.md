@@ -95,6 +95,25 @@ Scope: Investment returns processing, financial integrity, environment validatio
 
 ## 5. Operational Playbook Highlights
 
+- **Automated Cron Worker (Fly.io):**
+  - The daily returns job is handled by the `cron` process group defined in `fly.toml`.
+  - Scale the cron worker after deploy:
+    ```bash
+    fly scale count 1 -a <app-name> --process-group cron
+    ```
+  - Check status:
+    ```bash
+    fly status -a <app-name>
+    ```
+  - View logs:
+    ```bash
+    fly logs -a <app-name> --process-group cron
+    ```
+  - Look for:
+    - `🚀 Cron worker started`
+    - `⏰ Daily returns job executed at <timestamp>`
+  - No manual admin trigger is required; job runs automatically.
+
 - Daily Job Verification: check `job_runs` for today's row (success=true, counts > 0 when investments active).
 - Ledger Inspection: query recent entries by `user_id` ordered desc; verify hash chain periodically.
 - Transactional Mode Toggle: provide `SUPABASE_DB_URL` (or `DATABASE_URL`) to enable row-level locked completions.

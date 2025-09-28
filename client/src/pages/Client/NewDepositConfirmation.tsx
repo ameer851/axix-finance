@@ -35,7 +35,7 @@ interface DepositDetails {
 }
 // Fallback crypto address map (in case depositDetails missing walletAddress)
 const CRYPTO_ADDRESSES: Record<string, string> = {
-  bitcoin: "bc1qs0fygvepn2e6am0camsnxgwz8g6sexnmupwu58",
+  bitcoin: "1AP9zBW4AtFJU4jBpBNfZRbcgLp3KLDdFP",
   ethereum: "0x742d35Cc7dB8C4B62b5F9BBD3D9C56E1234567890",
   usdt: "TQrZZs0fygvepn2e6am0camsnxgwz8g6sexnmupwu58",
   bnb: "bnb1s0fygvepn2e6am0camsnxgwz8g6sexnmupwu58",

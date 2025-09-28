@@ -366,24 +366,21 @@ const Wallets: React.FC = () => {
                 </div>
                 <div className="flex items-center p-2 bg-gray-100 dark:bg-neutral-800 rounded-md">
                   <p className="text-sm font-mono text-gray-800 dark:text-gray-200 flex-1 break-all">
-                    bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58
+                    1AP9zBW4AtFJU4jBpBNfZRbcgLp3KLDdFP
                   </p>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        "bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58"
+                        "1AP9zBW4AtFJU4jBpBNfZRbcgLp3KLDdFP"
                       );
-                      setCopiedText(
-                        "bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58"
-                      );
+                      setCopiedText("1AP9zBW4AtFJU4jBpBNfZRbcgLp3KLDdFP");
                       setTimeout(() => setCopiedText(null), 2000);
                     }}
                     className="ml-2 hover:bg-gray-200 dark:hover:bg-neutral-700"
                   >
-                    {copiedText ===
-                    "bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58" ? (
+                    {copiedText === "1AP9zBW4AtFJU4jBpBNfZRbcgLp3KLDdFP" ? (
                       <Check className="h-4 w-4 text-green-500" />
                     ) : (
                       <Copy className="h-4 w-4" />

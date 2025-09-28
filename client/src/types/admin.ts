@@ -108,3 +108,37 @@ export interface TransactionFilters {
   amountMin?: number;
   amountMax?: number;
 }
+
+// Daily job health / runs types (mirrors /admin/jobs/daily-investments/health response)
+export interface JobRunRecord {
+  id: number;
+  job_name: string;
+  started_at: string;
+  finished_at?: string | null;
+  success?: boolean | null;
+  processed_count?: number | null;
+  completed_count?: number | null;
+  total_applied?: string | null; // numeric returned as string
+  error_text?: string | null;
+  source?: string | null;
+  meta?: Record<string, any>;
+  created_at?: string;
+  run_date?: string; // generated column
+}
+
+export interface DailyJobHealthStats {
+  window: number; // number of runs considered
+  successes: number;
+  failures: number;
+  successRate: number; // 0-1 fraction
+  avgProcessed: number;
+  avgCompleted: number;
+}
+
+export interface DailyJobHealthResponse {
+  ok: boolean;
+  stale: boolean;
+  lastRun: JobRunRecord | null;
+  recentRuns: JobRunRecord[];
+  stats: DailyJobHealthStats;
+}

@@ -33,6 +33,7 @@ export default function AdminDashboardV2() {
     completionsCount: number;
   } | null>(null);
   const [jobStatus, setJobStatus] = useState<any>(null);
+  const [jobHealth, setJobHealth] = useState<any>(null);
   const [jobLoading, setJobLoading] = useState(false);
   const [jobError, setJobError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
@@ -136,6 +137,11 @@ export default function AdminDashboardV2() {
         } else if (js && (js as any).error) {
           setJobError((js as any).error);
         }
+        // Fetch job health superset
+        const health = await adminService.jobs.getDailyInvestmentHealth();
+        if (health?.ok) {
+          setJobHealth(health);
+        }
       } catch (e: any) {
         setJobError(e.message);
       }
@@ -162,6 +168,8 @@ export default function AdminDashboardV2() {
       } else if (js && (js as any).error) {
         setJobError((js as any).error);
       }
+      const health = await adminService.jobs.getDailyInvestmentHealth();
+      if (health?.ok) setJobHealth(health);
     } catch (e: any) {
       setJobError(e.message);
     } finally {
@@ -172,7 +180,7 @@ export default function AdminDashboardV2() {
   async function triggerJob(dryRun: boolean) {
     setTriggering(true);
     try {
-      await adminService.jobs.triggerDailyInvestment(dryRun);
+      // Manual daily investment job trigger removed: now handled by automated cron worker
       // Refresh job status first so cooldown updates quickly
       await refreshJobStatus();
       // Refresh broader dashboard metrics
@@ -252,6 +260,25 @@ export default function AdminDashboardV2() {
                   "No runs recorded"
                 )}
               </div>
+              {jobHealth?.ok && jobHealth?.stats && (
+                <div className="mt-2 text-[11px] text-gray-600 flex flex-wrap gap-4">
+                  <div>
+                    Success Rate:{" "}
+                    <span
+                      className={
+                        jobHealth.stats.successRate < 0.9
+                          ? "text-amber-600"
+                          : "text-emerald-600"
+                      }
+                    >
+                      {(jobHealth.stats.successRate * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div>Avg Processed: {jobHealth.stats.avgProcessed}</div>
+                  <div>Avg Completed: {jobHealth.stats.avgCompleted}</div>
+                  <div>Window: {jobHealth.stats.window}</div>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button

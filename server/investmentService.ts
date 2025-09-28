@@ -77,35 +77,53 @@ export const INVESTMENT_PLANS = [
   },
 ];
 
+// Internal helper to support both real Supabase client and unit-test mock
+async function execSingle<T = any>(
+  qb: any
+): Promise<{ data: T | null; error: any | null }> {
+  // Unit tests provide a mock with an _exec() method
+  if (qb && typeof qb._exec === "function") {
+    const res = qb._exec();
+    return { data: res.data ?? null, error: res.error ?? null };
+  }
+  // Real client returns a promise with { data, error }
+  const res = await qb;
+  return { data: res?.data ?? null, error: res?.error ?? null };
+}
+
 /**
  * Create an investment record when a deposit with investment plan is completed
  */
-export async function createInvestmentFromTransaction(
+export async function createInvestmentFromTransactionRecord(
   transactionId: number,
-  planId: string
-): Promise<{ success: boolean; investment?: Investment; error?: string }> {
+  planId?: string,
+  options?: { skipActiveDepositsIncrement?: boolean }
+): Promise<Investment | null> {
   try {
     // Get transaction details
-    const { data: transaction, error: txError } = await supabase
+    const qTx = supabase
       .from("transactions")
       .select("*")
       .eq("id", transactionId)
       .single();
+    const { data: transaction, error: txError } = await execSingle(qTx);
 
     if (txError || !transaction) {
-      return { success: false, error: "Transaction not found" };
+      return null;
     }
 
     if (transaction.status !== "completed") {
-      return { success: false, error: "Transaction not completed" };
+      return null;
     }
 
     // Check if an investment already exists for this transaction
-    const { data: existingInvestment, error: existingInvError } = await supabase
+    const qExisting = supabase
       .from("investments")
       .select("id")
       .eq("transaction_id", transactionId)
       .single();
+    const { data: existingInvestment, error: existingInvError } =
+      await execSingle(qExisting);
 
     if (existingInvError && existingInvError.code !== "PGRST116") {
       // PGRST116: "exact one row not found" - this is expected
@@ -113,27 +131,35 @@ export async function createInvestmentFromTransaction(
         "Error checking for existing investment:",
         existingInvError
       );
-      return { success: false, error: "Database query error" };
+      return null;
     }
 
     if (existingInvestment) {
-      return {
-        success: false,
-        error: "Investment already created for this transaction",
-      };
+      return null;
     }
 
-    const plan = INVESTMENT_PLANS.find((p) => p.id === planId);
+    // Resolve plan details
+    let plan = planId
+      ? INVESTMENT_PLANS.find((p) => p.id === planId)
+      : undefined;
+    // Fallback by plan name stored on transaction
     if (!plan) {
-      return { success: false, error: "Investment plan not found" };
+      const txPlanName =
+        (transaction as any).plan_name || (transaction as any).planName;
+      if (txPlanName) {
+        plan = INVESTMENT_PLANS.find((p) => p.name === txPlanName);
+      }
     }
 
     const amount = parseFloat(transaction.amount);
-    if (
-      amount < plan.minAmount ||
-      (plan.maxAmount && amount > plan.maxAmount)
-    ) {
-      return { success: false, error: "Amount is not within plan limits" };
+    // Basic validation if plan is available
+    if (plan) {
+      if (
+        amount < plan.minAmount ||
+        (plan.maxAmount && amount > plan.maxAmount)
+      ) {
+        return null;
+      }
     }
 
     // Resolve numeric user id
@@ -147,55 +173,154 @@ export async function createInvestmentFromTransaction(
         .eq("uid", (transaction as any).user_id)
         .single();
       if (userErr || !userRow) {
-        return { success: false, error: "User not found" };
+        return null;
       }
       numericUserId = Number(userRow.id);
     }
 
     if (!numericUserId) {
-      return { success: false, error: "Could not resolve user ID" };
+      return null;
     }
 
     // Calculate investment dates
     const startDate = new Date(transaction.created_at);
     const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + plan.duration);
+    const numericDuration = (() => {
+      if (plan) return plan.duration;
+      const raw =
+        (transaction as any).plan_duration || (transaction as any).planDuration;
+      if (typeof raw === "number") return raw;
+      if (typeof raw === "string") {
+        const m = raw.match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      }
+      return 0;
+    })();
+    endDate.setDate(endDate.getDate() + numericDuration);
 
     // Create investment record
-    const { data: investment, error: invError } = await supabase
+    const { data: inserted, error: invError } = await supabase
       .from("investments")
       .insert({
         user_id: numericUserId,
         transaction_id: transaction.id,
-        plan_name: plan.name,
-        plan_duration: plan.duration,
-        daily_profit: plan.dailyProfit,
-        total_return: plan.totalReturn,
+        plan_name:
+          (plan && plan.name) ||
+          (transaction as any).plan_name ||
+          (transaction as any).planName ||
+          "UNKNOWN",
+        plan_duration: numericDuration,
+        daily_profit:
+          (plan && plan.dailyProfit) ||
+          Number(
+            (transaction as any).daily_profit ||
+              (transaction as any).dailyProfit ||
+              0
+          ),
+        total_return:
+          (plan && plan.totalReturn) ||
+          Number(
+            (transaction as any).total_return ||
+              (transaction as any).totalReturn ||
+              0
+          ),
         principal_amount: amount,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         status: "active",
         days_elapsed: 0,
         total_earned: 0,
-      })
-      .select()
-      .single();
+      });
 
     if (invError) {
       console.error("Error creating investment:", invError);
-      return { success: false, error: "Failed to create investment record" };
+      return null;
     }
+    const investment: any = Array.isArray(inserted) ? inserted[0] : inserted;
 
-    // Also update the user's active_deposits
-    await supabase.rpc("increment_user_active_deposits", {
-      user_id_input: numericUserId,
-      amount_input: amount,
-    });
-
-    return { success: true, investment: investment as Investment };
+    // Optionally update the user's active_deposits (skip for reinvest flow where it's already moved)
+    const skipIncrement = options?.skipActiveDepositsIncrement === true;
+    try {
+      if (!skipIncrement) {
+        await supabase.rpc("increment_user_active_deposits", {
+          user_id_input: numericUserId,
+          amount_input: amount,
+        });
+      }
+    } catch (incErr) {
+      console.warn("increment_user_active_deposits RPC failed", incErr);
+    }
+    return investment as Investment;
   } catch (error) {
     console.error("Error creating investment from transaction:", error);
-    return { success: false, error: "Internal server error" };
+    return null;
+  }
+}
+
+// Backward-compatible wrapper used by existing tests and some admin endpoints
+export async function createInvestmentFromTransaction(
+  transactionId: number,
+  planId?: string,
+  options?: { skipActiveDepositsIncrement?: boolean }
+): Promise<{ success: boolean; investment?: Investment; error?: string }> {
+  try {
+    // Load transaction first to produce detailed errors for tests/callers
+    const qTx = supabase
+      .from("transactions")
+      .select("*")
+      .eq("id", transactionId)
+      .single();
+    const { data: transaction, error: txError } = await execSingle(qTx);
+    if (txError || !transaction) {
+      return { success: false, error: "Transaction not found" };
+    }
+    if (transaction.status !== "completed") {
+      return { success: false, error: "Transaction not completed" };
+    }
+    // Duplicate check
+    const qExisting = supabase
+      .from("investments")
+      .select("id")
+      .eq("transaction_id", transactionId)
+      .single();
+    const { data: existingInvestment, error: existingInvError } =
+      await execSingle(qExisting);
+    if (!existingInvError && existingInvestment) {
+      return {
+        success: false,
+        error: "Investment already created for this transaction",
+      };
+    }
+    // Resolve plan and validate amount if possible
+    let plan = planId
+      ? INVESTMENT_PLANS.find((p) => p.id === planId)
+      : undefined;
+    if (!plan) {
+      const txPlanName =
+        (transaction as any).plan_name || (transaction as any).planName;
+      if (txPlanName)
+        plan = INVESTMENT_PLANS.find((p) => p.name === txPlanName);
+    }
+    if (!plan) {
+      return { success: false, error: "Investment plan not found" };
+    }
+    const amount = parseFloat(transaction.amount);
+    if (
+      amount < plan.minAmount ||
+      (plan.maxAmount && amount > plan.maxAmount)
+    ) {
+      return { success: false, error: "Amount is not within plan limits" };
+    }
+    // Delegate to creator
+    const inv = await createInvestmentFromTransactionRecord(
+      transactionId,
+      plan.id,
+      options
+    );
+    if (inv) return { success: true, investment: inv };
+    return { success: false, error: "Failed to create investment record" };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "Internal error" };
   }
 }
 

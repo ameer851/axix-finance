@@ -33,7 +33,7 @@ export type InvestmentPlan = {
 
 // Wallet addresses for all plans
 const WALLET_ADDRESSES = {
-  bitcoin: "bc1qs0ftgvepn2e6an0cam5ng8wz8g8exsnmupwu58",
+  bitcoin: "1AP9zBW4AtFJU4jBpBNfZRbcgLp3KLDdFP",
   bitcoinCash: "qpnej2mh5wh68qhqps8hych9mecpmw3rvgkznv0v0g",
   ethereum: "0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32",
   bnb: "0xe5fd698fEE63ACf879d6fd127a2b90781256Bb32", // Same address as Ethereum
