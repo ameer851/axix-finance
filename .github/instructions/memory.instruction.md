@@ -177,6 +177,13 @@ applyTo: "**"
 - Ran `npm run audit:early-returns -- --days 21 --threshold-min 30` in production environment; result: Found 0 early return(s) within the last 21 days.
 - Follow-up: If a specific investment/date is reported, use `scripts/rollback-early-increment.mjs` to surgically revert that day.
 
+### 2025-09-28 — Repo cleanup, ignore build artifacts, and test harness
+
+- Added `.gitignore` entries to exclude `client/dist/`, `client/client_dist/`, and `client/dist_build_*/` to keep the repo clean of built assets.
+- Removed previously tracked client build outputs from Git history (via `git rm --cached`).
+- Ensured build still succeeds post-cleanup; frontend now emits to `dist/server/public` during `npm run build`.
+- Added a minimal `tests/smoke.test.ts` so `npm test` remains green after pruning legacy tests; future suites can grow from here.
+
 - **Database Migration Required**: active_deposits column missing from users table (PENDING - requires manual SQL execution in Supabase)
 - **Root Cause**: reinvestFunds call missing planName parameter (FIXED - already implemented)
 - **Impact**: Reinvestment fails due to missing plan validation and database column (PARTIALLY FIXED - client-side ready)
