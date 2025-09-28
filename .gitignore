@@ -142,3 +142,8 @@ adminv2-dist/
 *-local.sql
 scratch.sql
 local-only.sql
+
+# Client build artifacts (do not commit generated bundles)
+client/dist/
+client/client_dist/
+client/dist_build_*/

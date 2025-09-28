@@ -1,1 +1,0 @@
-import{r as s,u as e,a as t}from"./index-BHu4kuHR.js";import"./vendor-C-qx1tJX.js";const g=()=>{const[a,r]=s.useState(!1),[n,u]=s.useState("");e();const{user:o,refreshUserData:c}=t();return null};export{g as default};
