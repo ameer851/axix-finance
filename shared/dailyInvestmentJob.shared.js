@@ -85,10 +85,7 @@ export async function runDailyInvestmentJob(opts) {
   const { data: investments, error } = await supabase
     .from("investments")
     .select("*")
-    .eq("status", "active")
-    .or(
-      `last_return_applied.is.null,last_return_applied.lt.${todayIso},first_profit_date.lte.${todayIso}`
-    );
+    .eq("status", "active");
   if (error) {
     jobLog({ event: "fetch_error", error: error.message });
     await finalize(false, 0, 0, 0, error.message);
@@ -211,7 +208,7 @@ export async function runDailyInvestmentJob(opts) {
       const lastApplied = inv.last_return_applied
         ? new Date(inv.last_return_applied)
         : null;
-      if (lastApplied && lastApplied.getTime() >= todayUtc.getTime()) continue;
+      if (lastApplied && lastApplied.getTime() > todayUtc.getTime()) continue;
 
       const firstProfitDate = inv.first_profit_date
         ? new Date(inv.first_profit_date)
@@ -361,13 +358,31 @@ export async function runDailyInvestmentJob(opts) {
         };
         if (isFirstProfit) updateData.first_profit_date = null;
         await supabase.from("investments").update(updateData).eq("id", inv.id);
-        await supabase.from("investment_returns").insert({
-          investment_id: inv.id,
-          user_id: inv.user_id,
-          amount: Number(dailyAmount || 0),
-          return_date: todayIso,
-          created_at: new Date().toISOString(),
-        });
+        
+        // Check if return already exists for this investment on this date to prevent duplicates
+        const { data: existingReturn } = await supabase
+          .from("investment_returns")
+          .select("id")
+          .eq("investment_id", inv.id)
+          .eq("return_date", todayIso)
+          .limit(1);
+          
+        if (!existingReturn || existingReturn.length === 0) {
+          await supabase.from("investment_returns").insert({
+            investment_id: inv.id,
+            user_id: inv.user_id,
+            amount: Number(dailyAmount || 0),
+            return_date: todayIso,
+            created_at: new Date().toISOString(),
+          });
+        } else {
+          jobLog({
+            event: "duplicate_return_prevented",
+            investment: inv.id,
+            returnDate: todayIso,
+            existingReturnId: existingReturn[0].id,
+          });
+        }
         if (!creditOnCompletionOnly && sendIncrementEmails) {
           try {
             const userBasic = await fetchUserBasic(inv.user_id);
